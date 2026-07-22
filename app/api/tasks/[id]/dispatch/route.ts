@@ -1,8 +1,14 @@
 import { getTask, updateTask } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 
+/**
+ * Dispatches an inbox task to a Cursor cloud agent.
+ * @param req - Optional JSON body with `repoUrl` to override the default repository.
+ * @param ctx - Route context containing the task `id` param.
+ * @returns The updated running task, or an error response.
+ */
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: RouteContext<"/api/tasks/[id]/dispatch">,
 ) {
   const { id } = await ctx.params;
@@ -17,7 +23,17 @@ export async function POST(
     );
   }
 
-  const repoUrl = process.env.CURSOR_REPO_URL;
+  let bodyRepo: string | undefined;
+  try {
+    const body = (await req.json()) as { repoUrl?: unknown };
+    if (typeof body.repoUrl === "string" && body.repoUrl.trim()) {
+      bodyRepo = body.repoUrl.trim();
+    }
+  } catch {
+    // no JSON body — fall back to env default
+  }
+
+  const repoUrl = bodyRepo || process.env.CURSOR_REPO_URL?.trim();
   if (!repoUrl) {
     return Response.json({ error: "CURSOR_REPO_URL not set" }, { status: 500 });
   }
