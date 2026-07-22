@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
+import { repoLabel } from "@/app/lib/repos";
 
 const STATUS_STYLE: Record<TaskStatus, string> = {
   inbox: "text-zinc-500",
@@ -10,11 +11,14 @@ const STATUS_STYLE: Record<TaskStatus, string> = {
   failed: "text-red-500",
 };
 
+const REPO_STORAGE_KEY = "hitlist.repoUrl";
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
+  const [repoUrl, setRepoUrl] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/tasks");
@@ -24,7 +28,22 @@ export default function Home() {
 
   useEffect(() => {
     load();
+    try {
+      const stored = localStorage.getItem(REPO_STORAGE_KEY);
+      if (stored) setRepoUrl(stored);
+    } catch {
+      // ignore storage errors (private mode, etc.)
+    }
   }, []);
+
+  function chooseRepo(url: string) {
+    setRepoUrl(url);
+    try {
+      localStorage.setItem(REPO_STORAGE_KEY, url);
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -68,6 +87,8 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <h1 className="mb-4 text-2xl font-semibold tracking-tight">HitList</h1>
+
+      <RepoFold selected={repoUrl} onSelect={chooseRepo} />
 
       <form onSubmit={add} className="mb-6 flex gap-2">
         <input
@@ -142,6 +163,7 @@ export default function Home() {
       {selected && (
         <TaskSheet
           task={selected}
+          repoUrl={repoUrl}
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
           onDelete={() => remove(selected.id)}
@@ -151,13 +173,121 @@ export default function Home() {
   );
 }
 
+function RepoFold({
+  selected,
+  onSelect,
+}: {
+  selected: string | null;
+  onSelect: (url: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [repos, setRepos] = useState<{ url: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    if (!open || fetched) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch("/api/repositories")
+      .then(async (res) => {
+        const body = await res.json();
+        if (cancelled) return;
+        const items = (body.items ?? []) as { url: string }[];
+        setRepos(items);
+        setFetched(true);
+        if (!selected && items[0]) onSelect(items[0].url);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn’t load repositories");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Fetch once when first expanded; selected/onSelect read from this open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fetched]);
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="repo-list"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-xl border border-black/10 px-3 py-2.5 text-left text-sm dark:border-white/15"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/chevron.svg"
+          alt=""
+          aria-hidden="true"
+          width={16}
+          height={16}
+          className={`shrink-0 opacity-60 transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
+        />
+        <span className="font-medium">Repos</span>
+        <span className="ml-auto truncate text-zinc-500">
+          {selected ? repoLabel(selected) : "Choose…"}
+        </span>
+        <span className="sr-only">
+          {open ? "Collapse repository list" : "Expand repository list"}
+        </span>
+      </button>
+
+      {open && (
+        <div id="repo-list" className="mt-2 px-1">
+          {loading ? (
+            <p className="py-2 text-sm text-zinc-500">Loading repos…</p>
+          ) : error ? (
+            <p className="py-2 text-sm text-red-500">{error}</p>
+          ) : repos.length === 0 ? (
+            <p className="py-2 text-sm text-zinc-500">No repositories found.</p>
+          ) : (
+            <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+              {repos.map((repo) => {
+                const active = repo.url === selected;
+                return (
+                  <li key={repo.url}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelect(repo.url);
+                        setOpen(false);
+                      }}
+                      className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm active:opacity-70 ${
+                        active
+                          ? "bg-foreground text-background"
+                          : "text-zinc-600 dark:text-zinc-300"
+                      }`}
+                    >
+                      {repoLabel(repo.url)}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TaskSheet({
   task,
+  repoUrl,
   onClose,
   onDispatched,
   onDelete,
 }: {
   task: Task;
+  repoUrl: string | null;
   onClose: () => void;
   onDispatched: (t: Task) => void;
   onDelete: () => void;
@@ -170,6 +300,8 @@ function TaskSheet({
     setError(null);
     const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(repoUrl ? { repoUrl } : {}),
     });
     const body = await res.json();
     setSending(false);
@@ -190,9 +322,14 @@ function TaskSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-1 break-words text-lg font-medium">{task.title}</p>
-        <p className={`mb-5 text-sm ${STATUS_STYLE[task.status]}`}>
-          {task.status}
-        </p>
+        <p className={`text-sm ${STATUS_STYLE[task.status]}`}>{task.status}</p>
+        {repoUrl ? (
+          <p className="mb-5 mt-1 truncate text-xs text-zinc-500">
+            {repoLabel(repoUrl)}
+          </p>
+        ) : (
+          <div className="mb-5" />
+        )}
 
         {task.status === "inbox" && (
           <button
