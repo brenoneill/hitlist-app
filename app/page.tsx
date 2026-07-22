@@ -45,6 +45,21 @@ export default function Home() {
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
   }
 
+  async function toggleDone(task: Task) {
+    const status: TaskStatus = task.status === "done" ? "inbox" : "done";
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status } : t)),
+    );
+    if (selected?.id === task.id) {
+      setSelected({ ...task, status });
+    }
+    await fetch(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+  }
+
   function onDispatched(updated: Task) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setSelected(updated);
@@ -82,6 +97,17 @@ export default function Home() {
               key={task.id}
               className="flex items-center gap-3 rounded-xl border border-black/10 px-4 py-3 dark:border-white/15"
             >
+              <input
+                type="checkbox"
+                checked={task.status === "done"}
+                onChange={() => toggleDone(task)}
+                aria-label={
+                  task.status === "done"
+                    ? `Mark ${task.title} as not done`
+                    : `Mark ${task.title} as done`
+                }
+                className="size-5 shrink-0 accent-foreground"
+              />
               <button
                 onClick={() => setSelected(task)}
                 className="flex flex-1 flex-col items-start gap-0.5 text-left"
