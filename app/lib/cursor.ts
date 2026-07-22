@@ -7,6 +7,14 @@ export interface CreatedAgent {
   status: string;
 }
 
+/**
+ * Creates a Cursor cloud agent against the given repository.
+ * @param text - Prompt text sent to the agent.
+ * @param repoUrl - GitHub repository URL the agent should work in.
+ * @param ref - Branch or commit SHA used as the starting point.
+ * @returns The created agent id, dashboard url, and status.
+ * @throws If `CURSOR_API_KEY` is missing or the Cursor API rejects the request.
+ */
 export async function createAgent(
   text: string,
   repoUrl: string,

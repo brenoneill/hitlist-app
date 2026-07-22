@@ -3,6 +3,12 @@ import { getTask, updateTask } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
 
+/**
+ * Dispatches an inbox task to a Cursor cloud agent.
+ * @param req - Optional JSON body with `repoUrl` to override the default repository.
+ * @param ctx - Route context containing the task `id` param.
+ * @returns The updated running task, or an error response.
+ */
 export async function POST(
   req: Request,
   ctx: RouteContext<"/api/tasks/[id]/dispatch">,
