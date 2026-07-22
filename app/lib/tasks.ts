@@ -10,6 +10,7 @@ export interface Task {
   createdAt: string;
   cursorAgentId?: string;
   agentUrl?: string;
+  repoUrl?: string;
 }
 
 // ponytail: JSON file store — fine for single-user local dev. Swap for SQLite/Postgres
@@ -34,13 +35,14 @@ export async function listTasks(): Promise<Task[]> {
   return readAll();
 }
 
-export async function addTask(title: string): Promise<Task> {
+export async function addTask(title: string, repoUrl: string): Promise<Task> {
   const tasks = await readAll();
   const task: Task = {
     id: crypto.randomUUID(),
     title,
     status: "inbox",
     createdAt: new Date().toISOString(),
+    repoUrl,
   };
   tasks.unshift(task);
   await writeAll(tasks);

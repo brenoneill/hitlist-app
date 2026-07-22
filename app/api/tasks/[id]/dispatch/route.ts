@@ -1,10 +1,24 @@
+import { auth } from "@/auth";
 import { getTask, updateTask } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
+import { getCursorApiKey } from "@/app/lib/userSettings";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: RouteContext<"/api/tasks/[id]/dispatch">,
 ) {
+  const session = await auth();
+  if (!session?.user) {
+    return Response.json({ error: "sign in required" }, { status: 401 });
+  }
+  const cursorApiKey = await getCursorApiKey(session.user.id);
+  if (!cursorApiKey) {
+    return Response.json(
+      { error: "add your Cursor API key in Settings first" },
+      { status: 400 },
+    );
+  }
+
   const { id } = await ctx.params;
   const task = await getTask(id);
   if (!task) {
@@ -17,14 +31,18 @@ export async function POST(
     );
   }
 
-  const repoUrl = process.env.CURSOR_REPO_URL;
-  if (!repoUrl) {
-    return Response.json({ error: "CURSOR_REPO_URL not set" }, { status: 500 });
+  if (!task.repoUrl) {
+    return Response.json({ error: "task has no repo" }, { status: 400 });
   }
-  const ref = process.env.CURSOR_REF || "main";
+  const { ref } = (await req.json().catch(() => ({}))) as { ref?: string };
 
   try {
-    const agent = await createAgent(task.title, repoUrl, ref);
+    const agent = await createAgent(
+      task.title,
+      task.repoUrl,
+      ref || "main",
+      cursorApiKey,
+    );
     const updated = await updateTask(id, {
       status: "running",
       cursorAgentId: agent.id,

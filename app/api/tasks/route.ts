@@ -5,9 +5,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { title } = await request.json();
+  const { title, repoUrl } = await request.json();
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
   }
-  return Response.json(await addTask(title.trim()), { status: 201 });
+  if (typeof repoUrl !== "string" || !repoUrl.trim()) {
+    return Response.json({ error: "repoUrl required" }, { status: 400 });
+  }
+  return Response.json(
+    await addTask(title.trim(), repoUrl.trim()),
+    { status: 201 },
+  );
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
+import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 
 const STATUS_STYLE: Record<TaskStatus, string> = {
   inbox: "text-zinc-500",
@@ -11,8 +13,13 @@ const STATUS_STYLE: Record<TaskStatus, string> = {
 };
 
 export default function Home() {
+  const { status } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repos, setRepos] = useState<Repo[] | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [reposError, setReposError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
 
@@ -26,15 +33,29 @@ export default function Home() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/github/repos")
+      .then((res) => {
+        setReposError(!res.ok);
+        return res.ok ? res.json() : { connected: false, repos: [] };
+      })
+      .then((body) => {
+        setConnected(body.connected);
+        setRepos(body.repos);
+      });
+  }, [status]);
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
-    if (!t) return;
+    if (!t || !repoUrl) return;
     setTitle("");
+    setRepoUrl("");
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: t }),
+      body: JSON.stringify({ title: t, repoUrl }),
     });
     load();
   }
@@ -69,21 +90,47 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <h1 className="mb-4 text-2xl font-semibold tracking-tight">HitList</h1>
 
-      <form onSubmit={add} className="mb-6 flex gap-2">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task…"
-          enterKeyHint="done"
-          autoFocus
-          className="flex-1 rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
-        />
-        <button
-          type="submit"
-          className="rounded-xl bg-foreground px-5 py-3 text-base font-medium text-background active:opacity-70"
+      <GithubRepos repos={repos} connected={connected} />
+
+      <form onSubmit={add} className="mb-6 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Add a task…"
+            enterKeyHint="done"
+            autoFocus
+            className="flex-1 rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
+          />
+          <button
+            type="submit"
+            disabled={!title.trim() || !repoUrl}
+            className="rounded-xl bg-foreground px-5 py-3 text-base font-medium text-background active:opacity-70 disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+        <select
+          value={repoUrl}
+          onChange={(e) => setRepoUrl(e.target.value)}
+          disabled={!repos || repos.length === 0}
+          className="w-full rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none dark:border-white/15"
         >
-          Add
-        </button>
+          <option value="">
+            {reposError
+              ? "Couldn't load repos — try again"
+              : !connected
+                ? "Connect GitHub repos above to pick one"
+                : !repos || repos.length === 0
+                  ? "No repos shared yet"
+                  : "Choose a repo…"}
+          </option>
+          {repos?.map((repo) => (
+            <option key={repo.id} value={repo.url}>
+              {repo.name}
+            </option>
+          ))}
+        </select>
       </form>
 
       {loading ? (
@@ -190,9 +237,14 @@ function TaskSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-1 break-words text-lg font-medium">{task.title}</p>
-        <p className={`mb-5 text-sm ${STATUS_STYLE[task.status]}`}>
+        <p className={`mb-1 text-sm ${STATUS_STYLE[task.status]}`}>
           {task.status}
         </p>
+        {task.repoUrl && (
+          <p className="mb-5 truncate text-sm text-zinc-500">
+            {task.repoUrl}
+          </p>
+        )}
 
         {task.status === "inbox" && (
           <button

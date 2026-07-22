@@ -11,14 +11,12 @@ export async function createAgent(
   text: string,
   repoUrl: string,
   ref: string,
+  apiKey: string,
 ): Promise<CreatedAgent> {
-  const key = process.env.CURSOR_API_KEY;
-  if (!key) throw new Error("CURSOR_API_KEY not set");
-
   const res = await fetch(CREATE_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
