@@ -27,10 +27,29 @@ export default function Home() {
   }
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    fetch("/api/tasks")
+      .then((res) => res.json())
+      .then((data: Task[]) => {
+        if (cancelled) return;
+        setTasks(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(REPO_STORAGE_KEY);
-      if (stored) setRepoUrl(stored);
+      if (stored) {
+        // Defer so we don't sync-set during effect (react-hooks/set-state-in-effect).
+        queueMicrotask(() => setRepoUrl(stored));
+      }
     } catch {
       // ignore storage errors (private mode, etc.)
     }
@@ -181,37 +200,34 @@ function RepoFold({
   onSelect: (url: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [repos, setRepos] = useState<{ url: string }[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [repos, setRepos] = useState<{ url: string }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (!open || fetched) return;
+    if (!open || repos !== null) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     fetch("/api/repositories")
       .then(async (res) => {
         const body = await res.json();
         if (cancelled) return;
         const items = (body.items ?? []) as { url: string }[];
         setRepos(items);
-        setFetched(true);
         if (!selected && items[0]) onSelect(items[0].url);
       })
       .catch(() => {
-        if (!cancelled) setError("Couldn’t load repositories");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError("Couldn’t load repositories");
+          setRepos([]);
+        }
       });
     return () => {
       cancelled = true;
     };
     // Fetch once when first expanded; selected/onSelect read from this open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, fetched]);
+  }, [open, repos]);
+
+  const loading = open && repos === null && !error;
 
   return (
     <div className="mb-4">
@@ -246,7 +262,7 @@ function RepoFold({
             <p className="py-2 text-sm text-zinc-500">Loading repos…</p>
           ) : error ? (
             <p className="py-2 text-sm text-red-500">{error}</p>
-          ) : repos.length === 0 ? (
+          ) : !repos || repos.length === 0 ? (
             <p className="py-2 text-sm text-zinc-500">No repositories found.</p>
           ) : (
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
