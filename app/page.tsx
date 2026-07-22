@@ -86,7 +86,15 @@ export default function Home() {
                 onClick={() => setSelected(task)}
                 className="flex flex-1 flex-col items-start gap-0.5 text-left"
               >
-                <span className="break-words">{task.title}</span>
+                <span
+                  className={`break-words ${
+                    task.status === "done"
+                      ? "text-zinc-400 line-through"
+                      : ""
+                  }`}
+                >
+                  {task.title}
+                </span>
                 {task.status !== "inbox" && (
                   <span className={`text-xs ${STATUS_STYLE[task.status]}`}>
                     {task.status}
