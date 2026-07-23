@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "@/app/components/Icons";
 
 export function CursorKeySettings() {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
@@ -31,19 +32,25 @@ export function CursorKeySettings() {
 
   return (
     <form onSubmit={save} className="mb-6 flex gap-2">
-      <input
-        type="password"
-        value={key}
-        onChange={(e) => setKey(e.target.value)}
-        placeholder={
-          hasKey ? "Cursor key saved — replace it…" : "Your Cursor API key…"
-        }
-        className="flex-1 rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
-      />
+      <div className="relative min-w-0 flex-1">
+        <Icon
+          name="key"
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+        />
+        <input
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder={
+            hasKey ? "Cursor key saved — replace it…" : "Your Cursor API key…"
+          }
+          className="w-full rounded-xl border border-edge bg-surface py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood"
+        />
+      </div>
       <button
         type="submit"
         disabled={saving || !key.trim()}
-        className="rounded-xl border border-black/10 px-5 py-3 text-base font-medium disabled:opacity-50 dark:border-white/15"
+        className="rounded-xl border border-edge px-5 py-3 text-base font-medium active:bg-surface disabled:opacity-50"
       >
         {saving ? "Saving…" : "Save"}
       </button>

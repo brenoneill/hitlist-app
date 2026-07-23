@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
+import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
+import { Icon } from "@/app/components/Icons";
+import { Tabs } from "@/app/components/Tabs";
+import { StatusBadge, TaskList } from "@/app/components/TaskList";
 
-const STATUS_STYLE: Record<TaskStatus, string> = {
-  inbox: "text-zinc-500",
-  running: "text-blue-500",
-  done: "text-green-600",
-  failed: "text-red-500",
-};
+type Tab = "list" | "settings";
 
 export default function Home() {
   const { status } = useSession();
@@ -22,6 +21,47 @@ export default function Home() {
   const [reposError, setReposError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [tab, setTab] = useState<Tab>("list");
+  // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
+  const [activeRepos, setActiveRepos] = useState<number[]>([]);
+
+  useEffect(() => {
+    setActiveRepos(JSON.parse(localStorage.getItem("activeRepos") ?? "[]"));
+    setRepoUrl(localStorage.getItem("repoUrl") ?? "");
+  }, []);
+
+  function pickRepo(url: string) {
+    setRepoUrl(url);
+    localStorage.setItem("repoUrl", url);
+  }
+
+  function toggleActive(id: number) {
+    setActiveRepos((prev) => {
+      const next = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+      localStorage.setItem("activeRepos", JSON.stringify(next));
+      return next;
+    });
+  }
+
+  const pickable = useMemo(
+    () =>
+      activeRepos.length
+        ? repos?.filter((r) => activeRepos.includes(r.id))
+        : repos,
+    [repos, activeRepos],
+  );
+
+  // one repo to choose from → it's the target; otherwise the remembered pick, if it's still pickable
+  const target =
+    pickable?.length === 1
+      ? pickable[0].url
+      : pickable?.some((r) => r.url === repoUrl)
+        ? repoUrl
+        : "";
 
   async function load() {
     const res = await fetch("/api/tasks");
@@ -32,6 +72,16 @@ export default function Home() {
   useEffect(() => {
     load();
   }, []);
+
+  // ponytail: poll only while an agent is out. setInterval over react-query —
+  // one endpoint, no cache to share. Add the dep when a second view needs these tasks.
+  // Paused while dragging so a refetch can't clobber mid-drag state.
+  const anyRunning = tasks.some((t) => t.status === "running");
+  useEffect(() => {
+    if (!anyRunning || dragging) return;
+    const id = setInterval(load, 10_000);
+    return () => clearInterval(id);
+  }, [anyRunning, dragging]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -49,21 +99,42 @@ export default function Home() {
   async function add(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
-    if (!t || !repoUrl) return;
+    if (!t || !target) return;
     setTitle("");
-    setRepoUrl("");
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: t, repoUrl }),
+      body: JSON.stringify({ title: t, repoUrl: target }),
     });
     load();
   }
 
   async function remove(id: string) {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setTasks((prev) => normalizeGroups(prev.filter((task) => task.id !== id)));
     setSelected(null);
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+  }
+
+  /** Optimistically applies a new order/grouping, then persists and reconciles. */
+  async function persistOrder(next: Task[]) {
+    setTasks(next);
+    const res = await fetch("/api/tasks", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order: next.map((t) => ({ id: t.id, groupId: t.groupId ?? null })),
+      }),
+    });
+    if (res.ok) setTasks(await res.json());
+  }
+
+  function disband(groupId: string) {
+    setSelectedGroup(null);
+    persistOrder(
+      tasks.map((t) =>
+        t.groupId === groupId ? { ...t, groupId: undefined } : t,
+      ),
+    );
   }
 
   async function toggleDone(task: Task) {
@@ -81,6 +152,11 @@ export default function Home() {
     });
   }
 
+  // derived so the open sheet tracks poll updates; empty (sheet closed) once disbanded
+  const groupMembers = selectedGroup
+    ? tasks.filter((t) => t.groupId === selectedGroup)
+    : [];
+
   function onDispatched(updated: Task) {
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     setSelected(updated);
@@ -88,102 +164,101 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <h1 className="mb-4 text-2xl font-semibold tracking-tight">HitList</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-2xl font-bold tracking-tight">
+        <Icon name="crosshair" className="size-6 text-blood" />
+        HITLIST
+      </h1>
 
-      <GithubRepos repos={repos} connected={connected} />
+      <Tabs
+        tabs={[
+          { id: "list", label: "List", icon: "list" },
+          { id: "settings", label: "Settings", icon: "settings" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
+      {tab === "settings" && (
+        <GithubRepos
+          repos={repos}
+          connected={connected}
+          activeRepos={activeRepos}
+          onToggleActive={toggleActive}
+        />
+      )}
+
+      {tab === "list" && (
+        <>
       <form onSubmit={add} className="mb-6 flex flex-col gap-2">
         <div className="flex gap-2">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a task…"
+            placeholder="Name your next hit…"
             enterKeyHint="done"
             autoFocus
-            className="flex-1 rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
+            className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
           />
           <button
             type="submit"
-            disabled={!title.trim() || !repoUrl}
-            className="rounded-xl bg-foreground px-5 py-3 text-base font-medium text-background active:opacity-70 disabled:opacity-50"
+            disabled={!title.trim() || !target}
+            className="rounded-xl bg-blood px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
           >
-            Add
+            Mark
           </button>
         </div>
-        <select
-          value={repoUrl}
-          onChange={(e) => setRepoUrl(e.target.value)}
-          disabled={!repos || repos.length === 0}
-          className="w-full rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none dark:border-white/15"
-        >
-          <option value="">
-            {reposError
-              ? "Couldn't load repos — try again"
-              : !connected
-                ? "Connect GitHub repos above to pick one"
-                : !repos || repos.length === 0
-                  ? "No repos shared yet"
-                  : "Choose a repo…"}
-          </option>
-          {repos?.map((repo) => (
-            <option key={repo.id} value={repo.url}>
-              {repo.name}
+        <div className="relative">
+          <select
+            value={target}
+            onChange={(e) => pickRepo(e.target.value)}
+            disabled={!pickable || pickable.length === 0}
+            className="w-full appearance-none rounded-xl border border-edge bg-surface px-4 py-3 pr-10 text-base outline-none focus:border-blood"
+          >
+            <option value="">
+              {reposError
+                ? "Couldn't load repos — try again"
+                : !connected
+                  ? "Connect GitHub repos above to pick one"
+                  : !pickable || pickable.length === 0
+                    ? "No repos shared yet"
+                    : "Choose a target repo…"}
             </option>
-          ))}
-        </select>
+            {pickable?.map((repo) => (
+              <option key={repo.id} value={repo.url}>
+                {repo.name}
+              </option>
+            ))}
+          </select>
+          <Icon
+            name="chevron"
+            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+          />
+        </div>
       </form>
 
       {loading ? (
-        <p className="text-zinc-500">Loading…</p>
+        <p className="font-mono text-sm uppercase tracking-widest text-muted">
+          Scanning…
+        </p>
       ) : tasks.length === 0 ? (
-        <p className="text-zinc-500">Nothing here yet.</p>
+        <div className="flex flex-col items-center pt-12">
+          <Icon name="crosshair" className="mb-3 size-10 text-edge" />
+          <p className="font-mono text-sm uppercase tracking-widest text-muted">
+            No active marks
+          </p>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {tasks.map((task) => (
-            <li
-              key={task.id}
-              className="flex items-center gap-3 rounded-xl border border-black/10 px-4 py-3 dark:border-white/15"
-            >
-              <input
-                type="checkbox"
-                checked={task.status === "done"}
-                onChange={() => toggleDone(task)}
-                aria-label={
-                  task.status === "done"
-                    ? `Mark ${task.title} as not done`
-                    : `Mark ${task.title} as done`
-                }
-                className="size-5 shrink-0 accent-foreground"
-              />
-              <button
-                onClick={() => setSelected(task)}
-                className="flex flex-1 flex-col items-start gap-0.5 text-left"
-              >
-                <span
-                  className={`break-words ${
-                    task.status === "done"
-                      ? "text-zinc-400 line-through"
-                      : ""
-                  }`}
-                >
-                  {task.title}
-                </span>
-                {task.status !== "inbox" && (
-                  <span className={`text-xs ${STATUS_STYLE[task.status]}`}>
-                    {task.status}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => remove(task.id)}
-                aria-label="Delete task"
-                className="shrink-0 text-zinc-400 active:text-zinc-600"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
+        <TaskList
+          tasks={tasks}
+          onReorder={persistOrder}
+          onSelect={setSelected}
+          onSelectGroup={setSelectedGroup}
+          onToggle={toggleDone}
+          onDelete={remove}
+          onDraggingChange={setDragging}
+        />
+      )}
+        </>
       )}
 
       {selected && (
@@ -192,6 +267,15 @@ export default function Home() {
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
           onDelete={() => remove(selected.id)}
+        />
+      )}
+
+      {groupMembers.length > 0 && (
+        <GroupSheet
+          members={groupMembers}
+          onClose={() => setSelectedGroup(null)}
+          onDeployed={load}
+          onDisband={() => disband(selectedGroup!)}
         />
       )}
     </main>
@@ -229,19 +313,19 @@ function TaskSheet({
 
   return (
     <div
-      className="fixed inset-0 z-10 flex flex-col justify-end bg-black/40"
+      className="fixed inset-0 z-10 flex flex-col justify-end bg-black/60"
       onClick={onClose}
     >
       <div
-        className="rounded-t-2xl bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="mb-1 break-words text-lg font-medium">{task.title}</p>
-        <p className={`mb-1 text-sm ${STATUS_STYLE[task.status]}`}>
-          {task.status}
-        </p>
+        <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
+        <div className="mb-1">
+          <StatusBadge status={task.status} />
+        </div>
         {task.repoUrl && (
-          <p className="mb-5 truncate text-sm text-zinc-500">
+          <p className="mb-5 truncate font-mono text-xs text-muted">
             {task.repoUrl}
           </p>
         )}
@@ -250,9 +334,9 @@ function TaskSheet({
           <button
             onClick={send}
             disabled={sending}
-            className="mb-3 w-full rounded-xl bg-foreground py-3 text-base font-medium text-background active:opacity-70 disabled:opacity-50"
+            className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
           >
-            {sending ? "Sending…" : "Send to agent"}
+            {sending ? "Deploying…" : "Deploy agent"}
           </button>
         )}
 
@@ -261,19 +345,116 @@ function TaskSheet({
             href={task.agentUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-3 block w-full rounded-xl border border-black/10 py-3 text-center text-base font-medium dark:border-white/15"
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
           >
-            View agent ↗
+            View agent
+            <Icon name="external" className="size-4" />
           </a>
         )}
 
-        {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+        {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
 
         <button
           onClick={onDelete}
-          className="w-full py-2 text-base text-red-500 active:opacity-70"
+          className="flex w-full items-center justify-center gap-2 py-2 text-base text-blood active:opacity-70"
         >
+          <Icon name="trash" className="size-4" />
           Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GroupSheet({
+  members,
+  onClose,
+  onDeployed,
+  onDisband,
+}: {
+  members: Task[];
+  onClose: () => void;
+  onDeployed: () => void;
+  onDisband: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lead = members[0];
+
+  async function send() {
+    setSending(true);
+    setError(null);
+    // dispatching any member dispatches the whole group as one agent
+    const res = await fetch(`/api/tasks/${lead.id}/dispatch`, {
+      method: "POST",
+    });
+    const body = await res.json();
+    setSending(false);
+    if (!res.ok) {
+      setError(body.error ?? "dispatch failed");
+      return;
+    }
+    onDeployed();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-10 flex flex-col justify-end bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+          Grouped hit · {members.length} marks
+        </p>
+        <ul className="mb-2 flex flex-col gap-1">
+          {members.map((m) => (
+            <li key={m.id} className="break-words font-medium">
+              – {m.title}
+            </li>
+          ))}
+        </ul>
+        <div className="mb-1">
+          <StatusBadge status={lead.status} />
+        </div>
+        {lead.repoUrl && (
+          <p className="mb-5 truncate font-mono text-xs text-muted">
+            {lead.repoUrl}
+          </p>
+        )}
+
+        {lead.status === "inbox" && (
+          <button
+            onClick={send}
+            disabled={sending}
+            className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+          >
+            {sending ? "Deploying…" : "Deploy agent"}
+          </button>
+        )}
+
+        {lead.agentUrl && (
+          <a
+            href={lead.agentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
+          >
+            View agent
+            <Icon name="external" className="size-4" />
+          </a>
+        )}
+
+        {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
+
+        <button
+          onClick={onDisband}
+          className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"
+        >
+          <Icon name="x" className="size-4" />
+          Disband group
         </button>
       </div>
     </div>

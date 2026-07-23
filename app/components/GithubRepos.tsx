@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { CursorKeySettings } from "@/app/components/CursorKeySettings";
+import { Icon } from "@/app/components/Icons";
 
 export interface Repo {
   id: number;
@@ -16,9 +17,13 @@ const MANAGE_URL = "https://github.com/settings/installations";
 export function GithubRepos({
   repos,
   connected,
+  activeRepos,
+  onToggleActive,
 }: {
   repos: Repo[] | null;
   connected: boolean;
+  activeRepos: number[];
+  onToggleActive: (id: number) => void;
 }) {
   const { data: session, status } = useSession();
 
@@ -28,8 +33,9 @@ export function GithubRepos({
     return (
       <button
         onClick={() => signIn("github")}
-        className="mb-6 w-full rounded-xl border border-black/10 py-3 text-base font-medium dark:border-white/15"
+        className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
       >
+        <Icon name="github" className="size-5" />
         Sign in with GitHub
       </button>
     );
@@ -38,12 +44,12 @@ export function GithubRepos({
   return (
     <div className="mb-6">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-zinc-500">
+        <span className="text-sm text-muted">
           {session?.user?.name ?? session?.user?.email}
         </span>
         <button
           onClick={() => signOut()}
-          className="text-sm text-zinc-500 underline"
+          className="text-sm text-muted underline underline-offset-4"
         >
           Sign out
         </button>
@@ -52,15 +58,15 @@ export function GithubRepos({
       <CursorKeySettings />
 
       {!connected ? (
-        <div className="rounded-xl border border-black/10 p-4 dark:border-white/15">
-          <p className="mb-3 text-sm text-zinc-500">
+        <div className="rounded-xl border border-edge bg-surface p-4">
+          <p className="mb-3 text-sm text-muted">
             Connect GitHub to pick which repos HitList can see. We only ever
             request read-only access to a repo&apos;s name and URL — never its
             code.
           </p>
           <a
             href={INSTALL_URL}
-            className="block w-full rounded-xl bg-foreground py-3 text-center text-base font-medium text-background active:opacity-70"
+            className="block w-full rounded-xl bg-blood py-3 text-center font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80"
           >
             Connect repos on GitHub
           </a>
@@ -68,39 +74,67 @@ export function GithubRepos({
       ) : (
         <>
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs text-zinc-500">
-              Metadata-only access, no code read
+            <span className="text-xs text-muted">
+              {activeRepos.length
+                ? `${activeRepos.length} active — only these show in the picker`
+                : "Tap repos to mark them active"}
             </span>
             <a
               href={MANAGE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-zinc-500 underline"
+              className="text-xs text-muted underline underline-offset-4"
             >
               Manage repo access ↗
             </a>
           </div>
           {!repos || repos.length === 0 ? (
-            <p className="text-zinc-500">No repos shared yet.</p>
+            <p className="font-mono text-sm text-muted">No repos shared yet.</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {repos.map((repo) => (
-                <li key={repo.id}>
-                  <a
-                    href={repo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-xl border border-black/10 px-4 py-3 text-sm dark:border-white/15"
+              {repos.map((repo) => {
+                const active = activeRepos.includes(repo.id);
+                return (
+                  <li
+                    key={repo.id}
+                    className={`flex items-center gap-2 rounded-xl border bg-surface px-4 py-3 font-mono text-sm ${
+                      active ? "border-blood" : "border-edge"
+                    }`}
                   >
-                    {repo.name}
-                    {repo.private && (
-                      <span className="ml-2 text-xs text-zinc-500">
-                        private
+                    <button
+                      onClick={() => onToggleActive(repo.id)}
+                      aria-pressed={active}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <Icon
+                        name={active ? "check" : "crosshair"}
+                        className={`size-4 shrink-0 ${
+                          active ? "text-blood" : "text-muted"
+                        }`}
+                      />
+                      <span className="min-w-0 truncate">
+                        {repo.name}
+                        {repo.private && (
+                          <span className="ml-2 text-xs text-muted">
+                            private
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </a>
-                </li>
-              ))}
+                    </button>
+                    <a
+                      href={repo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${repo.name} on GitHub`}
+                    >
+                      <Icon
+                        name="external"
+                        className="size-3.5 shrink-0 text-muted"
+                      />
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

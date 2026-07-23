@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { normalizeGroups } from "./groups";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
@@ -11,6 +12,8 @@ export interface Task {
   cursorAgentId?: string;
   agentUrl?: string;
   repoUrl?: string;
+  /** Tasks sharing a groupId form a contiguous run in the array and dispatch together. */
+  groupId?: string;
 }
 
 // ponytail: JSON file store — fine for single-user local dev. Swap for SQLite/Postgres
@@ -51,7 +54,30 @@ export async function addTask(title: string, repoUrl: string): Promise<Task> {
 
 export async function removeTask(id: string): Promise<void> {
   const tasks = await readAll();
-  await writeAll(tasks.filter((t) => t.id !== id));
+  await writeAll(normalizeGroups(tasks.filter((t) => t.id !== id)));
+}
+
+/**
+ * Rebuilds the list in the given order with the given group assignments.
+ * Ids not in `order` are appended as-is (a concurrent add degrades gracefully);
+ * unknown ids are ignored. Only ordering and groupId can change through this.
+ */
+export async function reorderTasks(
+  order: { id: string; groupId: string | null }[],
+): Promise<Task[]> {
+  const tasks = await readAll();
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const next: Task[] = [];
+  for (const { id, groupId } of order) {
+    const t = byId.get(id);
+    if (!t) continue;
+    byId.delete(id);
+    next.push({ ...t, groupId: groupId ?? undefined });
+  }
+  next.push(...byId.values());
+  const normalized = normalizeGroups(next);
+  await writeAll(normalized);
+  return normalized;
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {
