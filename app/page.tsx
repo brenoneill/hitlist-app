@@ -7,7 +7,7 @@ import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { Icon } from "@/app/components/Icons";
 import { Tabs } from "@/app/components/Tabs";
-import { StatusBadge, TaskList } from "@/app/components/TaskList";
+import { DoneList, StatusBadge, TaskList } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
 
@@ -139,8 +139,10 @@ export default function Home() {
 
   async function toggleDone(task: Task) {
     const status: TaskStatus = task.status === "done" ? "inbox" : "done";
+    // mirrors the server's stamp so the done list sorts right before the next load
+    const doneAt = status === "done" ? new Date().toISOString() : task.doneAt;
     setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, status } : t)),
+      prev.map((t) => (t.id === task.id ? { ...t, status, doneAt } : t)),
     );
     if (selected?.id === task.id) {
       setSelected({ ...task, status });
@@ -151,6 +153,12 @@ export default function Home() {
       body: JSON.stringify({ status }),
     });
   }
+
+  // done marks live at the bottom, newest kill first; the rest stay hand-sortable
+  const active = tasks.filter((t) => t.status !== "done");
+  const done = tasks
+    .filter((t) => t.status === "done")
+    .sort((a, b) => (b.doneAt ?? b.createdAt).localeCompare(a.doneAt ?? a.createdAt));
 
   // derived so the open sheet tracks poll updates; empty (sheet closed) once disbanded
   const groupMembers = selectedGroup
@@ -248,15 +256,25 @@ export default function Home() {
           </p>
         </div>
       ) : (
-        <TaskList
-          tasks={tasks}
-          onReorder={persistOrder}
-          onSelect={setSelected}
-          onSelectGroup={setSelectedGroup}
-          onToggle={toggleDone}
-          onDelete={remove}
-          onDraggingChange={setDragging}
-        />
+        <>
+          <TaskList
+            tasks={active}
+            onReorder={(next) => persistOrder([...next, ...done])}
+            onSelect={setSelected}
+            onSelectGroup={setSelectedGroup}
+            onToggle={toggleDone}
+            onDelete={remove}
+            onDraggingChange={setDragging}
+          />
+          {done.length > 0 && (
+            <DoneList
+              tasks={done}
+              onSelect={setSelected}
+              onToggle={toggleDone}
+              onDelete={remove}
+            />
+          )}
+        </>
       )}
         </>
       )}

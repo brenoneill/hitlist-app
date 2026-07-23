@@ -321,6 +321,43 @@ export function TaskList({
   );
 }
 
+/** Completed marks, newest first, folded away. No drag — order is by doneAt. */
+export function DoneList({
+  tasks,
+  onSelect,
+  onToggle,
+  onDelete,
+}: {
+  tasks: Task[];
+  onSelect: (t: Task) => void;
+  onToggle: (t: Task) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <details className="group mt-4">
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
+        <Icon
+          name="chevron"
+          className="size-4 -rotate-90 transition-transform group-open:rotate-0"
+        />
+        {tasks.length} executed
+      </summary>
+      <ul className="flex flex-col gap-2 pt-2">
+        {tasks.map((t) => (
+          <li key={t.id}>
+            <TaskRow
+              task={t}
+              onSelect={onSelect}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function TaskRow({
   task,
   highlight,

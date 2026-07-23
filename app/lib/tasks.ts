@@ -12,6 +12,8 @@ export interface Task {
   cursorAgentId?: string;
   agentUrl?: string;
   repoUrl?: string;
+  /** Stamped whenever status becomes "done"; orders the completed list. */
+  doneAt?: string;
   /** Tasks sharing a groupId form a contiguous run in the array and dispatch together. */
   groupId?: string;
 }
@@ -91,7 +93,12 @@ export async function updateTask(
   const tasks = await readAll();
   const i = tasks.findIndex((t) => t.id === id);
   if (i === -1) return undefined;
-  tasks[i] = { ...tasks[i], ...patch };
+  // stamped here, not at the callers — both the PATCH route and the Cursor poll land here
+  tasks[i] = {
+    ...tasks[i],
+    ...patch,
+    ...(patch.status === "done" ? { doneAt: new Date().toISOString() } : {}),
+  };
   await writeAll(tasks);
   return tasks[i];
 }
