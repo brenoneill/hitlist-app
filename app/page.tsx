@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
+import { NoteIcon } from "@/app/icons/NoteIcon";
 
 const STATUS_STYLE: Record<TaskStatus, string> = {
   inbox: "text-zinc-500",
@@ -175,6 +176,20 @@ export default function Home() {
                 )}
               </button>
               <button
+                type="button"
+                onClick={() => setSelected(task)}
+                aria-label={
+                  task.note?.trim()
+                    ? `Edit note for ${task.title}`
+                    : `Add note for ${task.title}`
+                }
+                className={`shrink-0 active:opacity-70 ${
+                  task.note?.trim() ? "text-foreground" : "text-zinc-400"
+                }`}
+              >
+                <NoteIcon className="size-5" />
+              </button>
+              <button
                 onClick={() => remove(task.id)}
                 aria-label="Delete task"
                 className="shrink-0 text-zinc-400 active:text-zinc-600"
@@ -188,10 +203,17 @@ export default function Home() {
 
       {selected && (
         <TaskSheet
+          key={selected.id}
           task={selected}
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
           onDelete={() => remove(selected.id)}
+          onUpdated={(updated) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === updated.id ? updated : t)),
+            );
+            setSelected(updated);
+          }}
         />
       )}
     </main>
@@ -203,18 +225,33 @@ function TaskSheet({
   onClose,
   onDispatched,
   onDelete,
+  onUpdated,
 }: {
   task: Task;
   onClose: () => void;
   onDispatched: (t: Task) => void;
   onDelete: () => void;
+  onUpdated: (t: Task) => void;
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState(task.note ?? "");
+
+  async function saveNote(next: string) {
+    if (next === (task.note ?? "")) return;
+    const res = await fetch(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: next }),
+    });
+    if (!res.ok) return;
+    onUpdated(await res.json());
+  }
 
   async function send() {
     setSending(true);
     setError(null);
+    await saveNote(note);
     const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
       method: "POST",
     });
@@ -241,10 +278,25 @@ function TaskSheet({
           {task.status}
         </p>
         {task.repoUrl && (
-          <p className="mb-5 truncate text-sm text-zinc-500">
+          <p className="mb-4 truncate text-sm text-zinc-500">
             {task.repoUrl}
           </p>
         )}
+
+        <label className="mb-5 block">
+          <span className="mb-2 flex items-center gap-1.5 text-sm text-zinc-500">
+            <NoteIcon className="size-4" />
+            Note
+          </span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => saveNote(note)}
+            placeholder="Extra context for the agent…"
+            rows={3}
+            className="w-full resize-none rounded-xl border border-black/10 bg-transparent px-4 py-3 text-base outline-none focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
+          />
+        </label>
 
         {task.status === "inbox" && (
           <button

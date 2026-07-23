@@ -42,9 +42,13 @@ export async function POST(
   }
   const { ref } = (await req.json().catch(() => ({}))) as { ref?: string };
 
+  const prompt = task.note?.trim()
+    ? `${task.title}\n\n## Extra context\n${task.note.trim()}`
+    : task.title;
+
   try {
     const agent = await createAgent(
-      task.title,
+      prompt,
       task.repoUrl,
       ref || "main",
       cursorApiKey,

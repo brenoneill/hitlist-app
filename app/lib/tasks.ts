@@ -8,6 +8,7 @@ export interface Task {
   title: string;
   status: TaskStatus;
   createdAt: string;
+  note?: string;
   cursorAgentId?: string;
   agentUrl?: string;
   repoUrl?: string;
