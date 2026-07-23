@@ -322,6 +322,7 @@ export default function Home() {
 
       {selected && (
         <TaskSheet
+          key={selected.id}
           task={selected}
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
