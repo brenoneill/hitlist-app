@@ -72,9 +72,12 @@ export function GithubRepos({
           </a>
         </div>
       ) : (
-        <>
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs text-muted">
+        <details className="group">
+          <summary className="mb-3 flex cursor-pointer list-none items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="transition-transform group-open:rotate-90">
+                ›
+              </span>
               {activeRepos.length
                 ? `${activeRepos.length} active — only these show in the picker`
                 : "Tap repos to mark them active"}
@@ -83,11 +86,12 @@ export function GithubRepos({
               href={MANAGE_URL}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="text-xs text-muted underline underline-offset-4"
             >
               Manage repo access ↗
             </a>
-          </div>
+          </summary>
           {!repos || repos.length === 0 ? (
             <p className="font-mono text-sm text-muted">No repos shared yet.</p>
           ) : (
@@ -137,7 +141,7 @@ export function GithubRepos({
               })}
             </ul>
           )}
-        </>
+        </details>
       )}
     </div>
   );
