@@ -23,6 +23,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Task | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [undo, setUndo] = useState<Task[] | null>(null);
   const [tab, setTab] = useState<Tab>("list");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [activeRepos, setActiveRepos] = useState<number[]>([]);
@@ -115,8 +116,13 @@ export default function Home() {
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
   }
 
-  /** Optimistically applies a new order/grouping, then persists and reconciles. */
-  async function persistOrder(next: Task[]) {
+  /**
+   * Optimistically applies a new order/grouping, then persists and reconciles.
+   * Snapshots the previous order so the last change can be undone; pass null to
+   * skip (that's the undo itself — no undoing the undo).
+   */
+  async function persistOrder(next: Task[], snapshot: Task[] | null = tasks) {
+    setUndo(snapshot);
     setTasks(next);
     const res = await fetch("/api/tasks", {
       method: "PUT",
@@ -127,6 +133,25 @@ export default function Home() {
     });
     if (res.ok) setTasks(await res.json());
   }
+
+  // the undo offer expires; ⌘Z / ctrl+Z takes it too, unless you're typing
+  useEffect(() => {
+    const prev = undo;
+    if (!prev) return;
+    const timer = setTimeout(() => setUndo(null), 6000);
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return;
+      if (e.key !== "z" || !(e.metaKey || e.ctrlKey) || e.shiftKey) return;
+      e.preventDefault();
+      persistOrder(prev, null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [undo]);
 
   function disband(groupId: string) {
     setSelectedGroup(null);
@@ -277,6 +302,19 @@ export default function Home() {
         </>
       )}
         </>
+      )}
+
+      {undo && !dragging && (
+        <div className="fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
+          <button
+            onClick={() => persistOrder(undo, null)}
+            className="flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50 active:opacity-80"
+          >
+            <Icon name="x" className="size-3.5 text-blood" />
+            Undo move
+            <span className="text-muted">⌘Z</span>
+          </button>
+        </div>
       )}
 
       {selected && (
