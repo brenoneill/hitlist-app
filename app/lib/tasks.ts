@@ -11,6 +11,14 @@ export interface Task {
   cursorAgentId?: string;
   agentUrl?: string;
   repoUrl?: string;
+  /** Raw Cursor run phase (CREATING/RUNNING/…), refreshed while running. */
+  runStatus?: string;
+  /** Branch / PR / final summary reported by the agent's latest run. */
+  branch?: string;
+  prUrl?: string;
+  agentSummary?: string;
+  /** Stamped when the agent is dispatched; drives "working for Xm". */
+  dispatchedAt?: string;
   /** Optional extra context included in the agent prompt on dispatch. */
   details?: string;
   /** Stamped whenever status becomes "done"; orders the completed list. */

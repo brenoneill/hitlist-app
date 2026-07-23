@@ -6,7 +6,7 @@ import {
   updateTask,
   type Task,
 } from "@/app/lib/tasks";
-import { getLatestRunStatus, type RunStatus } from "@/app/lib/cursor";
+import { getLatestRun, type LatestRun, type RunStatus } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
 
 const TERMINAL: Partial<Record<RunStatus, Task["status"]>> = {
@@ -16,8 +16,14 @@ const TERMINAL: Partial<Record<RunStatus, Task["status"]>> = {
   EXPIRED: "failed",
 };
 
+/** Poll until the agent's run has been seen terminal once; then it can't change. */
+const needsPoll = (t: Task) =>
+  !!t.cursorAgentId && !(t.runStatus && t.runStatus in TERMINAL);
+
 /**
- * Brings `running` tasks up to date with their Cursor run status.
+ * Brings dispatched tasks up to date with their Cursor run: status, branch,
+ * PR url, final summary. Only `running` tasks get their status remapped — a
+ * manually toggled done/inbox task keeps its toggle, but still captures the PR.
  * No-op when signed out or without an API key — the stored tasks are returned as-is.
  */
 async function refresh(tasks: Task[]): Promise<Task[]> {
@@ -30,19 +36,34 @@ async function refresh(tasks: Task[]): Promise<Task[]> {
   // Fine for a handful of tasks; move to a webhook if it ever gets chatty.
   const out: Task[] = [];
   // grouped tasks share a cursorAgentId — poll each agent once, not once per member
-  const cache = new Map<string, RunStatus | undefined>();
+  const cache = new Map<string, LatestRun | undefined>();
   for (const task of tasks) {
-    if (task.status !== "running" || !task.cursorAgentId) {
+    if (!task.cursorAgentId || !needsPoll(task)) {
       out.push(task);
       continue;
     }
     try {
       const run = cache.has(task.cursorAgentId)
         ? cache.get(task.cursorAgentId)
-        : await getLatestRunStatus(task.cursorAgentId, apiKey);
+        : await getLatestRun(task.cursorAgentId, apiKey);
       cache.set(task.cursorAgentId, run);
-      const next = run && TERMINAL[run];
-      out.push(next ? ((await updateTask(task.id, { status: next })) ?? task) : task);
+      const patch: Partial<Task> = {};
+      if (run) {
+        const next = TERMINAL[run.status];
+        if (next && task.status === "running") patch.status = next;
+        if (run.status !== task.runStatus) patch.runStatus = run.status;
+        if (run.branch && run.branch !== task.branch) patch.branch = run.branch;
+        if (run.prUrl && run.prUrl !== task.prUrl) patch.prUrl = run.prUrl;
+        if (run.summary && run.summary !== task.agentSummary) {
+          patch.agentSummary = run.summary;
+        }
+      }
+      // only write when something changed — this runs every client poll
+      out.push(
+        Object.keys(patch).length
+          ? ((await updateTask(task.id, patch)) ?? task)
+          : task,
+      );
     } catch {
       // transient Cursor error — leave it running, next poll retries
       out.push(task);

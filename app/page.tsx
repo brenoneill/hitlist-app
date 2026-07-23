@@ -193,9 +193,11 @@ export default function Home() {
     ? tasks.filter((t) => t.groupId === selectedGroup)
     : [];
 
-  function onDispatched(updated: Task) {
-    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    setSelected(updated);
+  // a grouped task dispatches its whole group, so this can come back as a list
+  function onDispatched(updated: Task | Task[]) {
+    const next = [updated].flat();
+    setTasks((prev) => prev.map((t) => next.find((u) => u.id === t.id) ?? t));
+    setSelected((s) => next.find((u) => u.id === s?.id) ?? s);
   }
 
   return (
@@ -215,16 +217,18 @@ export default function Home() {
       />
 
       {tab === "settings" && (
-        <GithubRepos
-          repos={repos}
-          connected={connected}
-          activeRepos={activeRepos}
-          onToggleActive={toggleActive}
-        />
+        <div key="settings" className="animate-fade-in">
+          <GithubRepos
+            repos={repos}
+            connected={connected}
+            activeRepos={activeRepos}
+            onToggleActive={toggleActive}
+          />
+        </div>
       )}
 
       {tab === "list" && (
-        <>
+        <div key="list" className="animate-fade-in">
           <form onSubmit={add} className="mb-6 flex flex-col gap-2">
             <div className="flex gap-2">
               <input
@@ -304,7 +308,7 @@ export default function Home() {
               )}
             </>
           )}
-        </>
+        </div>
       )}
 
       {undo && !dragging && (
@@ -334,6 +338,10 @@ export default function Home() {
         <GroupSheet
           members={groupMembers}
           onClose={() => setSelectedGroup(null)}
+          onEditMember={(t) => {
+            setSelectedGroup(null);
+            setSelected(t);
+          }}
           onDeployed={load}
           onDisband={() => disband(selectedGroup!)}
         />

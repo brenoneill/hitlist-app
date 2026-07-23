@@ -12,7 +12,9 @@ export type IconName =
   | "key"
   | "github"
   | "settings"
-  | "list";
+  | "list"
+  | "pr"
+  | "ellipsis";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   crosshair: (
@@ -37,6 +39,20 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  ellipsis: (
+    <>
+      <circle cx="5" cy="12" r="1" fill="currentColor" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+      <circle cx="19" cy="12" r="1" fill="currentColor" />
+    </>
+  ),
+  pr: (
+    <>
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="18" cy="18" r="3" />
+      <path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12" />
+    </>
+  ),
   github: (
     <path
       fill="currentColor"

@@ -42,8 +42,26 @@ const STATUS_DISPLAY: Record<
   failed: { label: "BOTCHED", cls: "text-blood", icon: "x" },
 };
 
-export function StatusBadge({ status }: { status: TaskStatus }) {
-  const s = STATUS_DISPLAY[status];
+/** A dispatched agent outlives the done toggle — status alone forgets it. */
+export const wasDeployed = (t: Task) => !!t.agentUrl;
+export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
+
+/** Status refined by what the run reported: PR waiting, agent mid-work. */
+function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } {
+  if (t.prUrl && t.status !== "running" && t.status !== "failed") {
+    return { label: "PR READY", cls: "text-ok", icon: "pr" };
+  }
+  if (t.status === "inbox" && wasDeployed(t)) {
+    return { ...STATUS_DISPLAY.running, cls: "text-muted" }; // deployed, not running
+  }
+  if (t.status === "running" && t.runStatus === "RUNNING") {
+    return { label: "AGENT WORKING", cls: "text-warn animate-pulse", icon: "crosshair" };
+  }
+  return STATUS_DISPLAY[t.status];
+}
+
+export function StatusBadge({ task }: { task: Task }) {
+  const s = statusDisplay(task);
   return (
     <span
       className={`flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest ${s.cls}`}
@@ -157,7 +175,7 @@ export function TaskList({
   const collision: CollisionDetection = (args) => {
     const active = String(args.active.id);
     const aTask = taskFor(active);
-    if (aTask?.status === "inbox") {
+    if (aTask && deployable(aTask)) {
       const own = active.startsWith("member-")
         ? `${COMBINE}group-${aTask.groupId}`
         : `${COMBINE}${active}`;
@@ -285,7 +303,7 @@ export function TaskList({
               <SortableShell
                 key={u.id}
                 id={u.id}
-                combinable={u.task.status === "inbox"}
+                combinable={deployable(u.task)}
               >
                 <TaskRow
                   task={u.task}
@@ -300,6 +318,7 @@ export function TaskList({
                 key={u.id}
                 unit={u}
                 highlight={combineTarget === u.id}
+                onSelect={onSelect}
                 onSelectGroup={onSelectGroup}
                 onDelete={onDelete}
               />
@@ -369,6 +388,90 @@ export function DoneList({
   );
 }
 
+type RowAction = {
+  icon: IconName;
+  label: string;
+  destructive?: boolean;
+  onClick: () => void;
+};
+
+/**
+ * Row chrome shared by tasks and group members: on touch, swiping left reveals
+ * the action tray (native scroll-snap, no gesture code); on pointer devices an
+ * ellipsis in the top-right corner opens the same actions as a dropdown.
+ */
+function ActionRow({
+  actions,
+  className = "",
+  rowClassName,
+  children,
+}: {
+  actions: RowAction[];
+  className?: string;
+  rowClassName: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`relative ${className}`}>
+      <div className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[inherit] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          className={`w-full shrink-0 snap-start ${rowClassName} ${
+            actions.length ? "pointer-fine:pr-9" : ""
+          }`}
+        >
+          {children}
+        </div>
+        {actions.map((a) => (
+          <button
+            key={a.label}
+            onClick={a.onClick}
+            aria-label={a.label}
+            className={`flex w-16 shrink-0 snap-end items-center justify-center active:opacity-80 ${
+              a.destructive ? "bg-blood text-white" : "bg-ok text-black"
+            }`}
+          >
+            <Icon name={a.icon} className="size-5" />
+          </button>
+        ))}
+      </div>
+      {actions.length > 0 && (
+        <div className="absolute right-2 top-2 hidden pointer-fine:block">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-label="More actions"
+            className="p-1 text-muted hover:text-foreground"
+          >
+            <Icon name="ellipsis" className="size-4" />
+          </button>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <div className="absolute right-0 top-7 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                {actions.map((a) => (
+                  <button
+                    key={a.label}
+                    onClick={() => {
+                      setOpen(false);
+                      a.onClick();
+                    }}
+                    className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background ${
+                      a.destructive ? "text-blood" : ""
+                    }`}
+                  >
+                    <Icon name={a.icon} className="size-4" />
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TaskRow({
   task,
   highlight,
@@ -382,28 +485,28 @@ function TaskRow({
   onToggle?: (t: Task) => void;
   onDelete?: (id: string) => void;
 }) {
+  const actions: RowAction[] = [];
+  if (onToggle)
+    actions.push({
+      icon: task.status === "done" ? "crosshair" : "check",
+      label: task.status === "done" ? "Unmark" : "Mark executed",
+      onClick: () => onToggle(task),
+    });
+  if (onDelete)
+    actions.push({
+      icon: "trash",
+      label: "Delete",
+      destructive: true,
+      onClick: () => onDelete(task.id),
+    });
   return (
-    <div
-      className={`flex items-center gap-3 rounded-xl border border-edge bg-surface px-4 py-3 transition-transform ${
+    <ActionRow
+      actions={actions}
+      className={`rounded-xl border border-edge bg-surface transition-transform ${
         highlight ? "scale-[1.02] ring-2 ring-blood" : ""
       }`}
+      rowClassName="flex items-center gap-3 px-4 py-3"
     >
-      <button
-        onClick={() => onToggle?.(task)}
-        aria-label={
-          task.status === "done"
-            ? `Mark ${task.title} as not done`
-            : `Mark ${task.title} as done`
-        }
-        className={`shrink-0 ${
-          task.status === "done" ? "text-blood" : "text-muted"
-        }`}
-      >
-        <Icon
-          name={task.status === "done" ? "x" : "crosshair"}
-          className="size-5"
-        />
-      </button>
       <button
         onClick={() => onSelect?.(task)}
         className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
@@ -417,16 +520,40 @@ function TaskRow({
         >
           {task.title}
         </span>
-        {task.status !== "inbox" && <StatusBadge status={task.status} />}
+        {(task.status !== "inbox" || wasDeployed(task)) && (
+          <StatusBadge task={task} />
+        )}
+        {task.agentSummary && (
+          <span className="w-full truncate text-xs text-muted">
+            {task.agentSummary}
+          </span>
+        )}
       </button>
-      <button
-        onClick={() => onDelete?.(task.id)}
-        aria-label="Delete task"
-        className="shrink-0 text-muted active:text-blood"
-      >
-        <Icon name="trash" className="size-4" />
-      </button>
-    </div>
+      {/* once a PR exists it's the call to action; the agent link lives in the sheet */}
+      {task.prUrl ? (
+        <a
+          href={task.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
+        >
+          <Icon name="pr" className="size-3.5" />
+          PR
+        </a>
+      ) : task.agentUrl ? (
+        <a
+          href={task.agentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
+        >
+          View agent
+          <Icon name="external" className="size-3.5" />
+        </a>
+      ) : null}
+    </ActionRow>
   );
 }
 
@@ -473,37 +600,66 @@ function GroupHeader({
   members: Task[];
   onClick?: () => void;
 }) {
-  const status = members[0].status;
-  const repo = members[0].repoUrl?.split("/").pop();
+  const lead = members[0];
+  const repo = lead.repoUrl?.split("/").pop();
   return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-2 px-4 py-2.5 text-left"
-    >
-      <Icon name="crosshair" className="size-4 shrink-0 text-blood" />
-      <span className="min-w-0 flex-1 truncate font-mono text-[11px] uppercase tracking-widest text-muted">
-        {repo ?? "group"} · {members.length} marks
-      </span>
-      {status !== "inbox" && <StatusBadge status={status} />}
-    </button>
+    <div className="flex items-center gap-2 pr-4">
+      <button
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2.5 text-left"
+      >
+        <Icon name="crosshair" className="size-4 shrink-0 text-blood" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] uppercase tracking-widest text-muted">
+          {repo ?? "group"} · {members.length} marks
+        </span>
+        {(lead.status !== "inbox" || wasDeployed(lead)) && (
+          <StatusBadge task={lead} />
+        )}
+      </button>
+      {lead.prUrl ? (
+        <a
+          href={lead.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
+        >
+          <Icon name="pr" className="size-3.5" />
+          PR
+        </a>
+      ) : lead.agentUrl ? (
+        <a
+          href={lead.agentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
+        >
+          View agent
+          <Icon name="external" className="size-3.5" />
+        </a>
+      ) : null}
+    </div>
   );
 }
 
 function SortableGroup({
   unit,
   highlight,
+  onSelect,
   onSelectGroup,
   onDelete,
 }: {
   unit: Extract<Unit, { kind: "group" }>;
   highlight: boolean;
+  onSelect: (t: Task) => void;
   onSelectGroup: (groupId: string) => void;
   onDelete: (id: string) => void;
 }) {
   return (
     <SortableShell
       id={unit.id}
-      combinable={unit.members.every((m) => m.status === "inbox")}
+      combinable={unit.members.every(deployable)}
     >
       <div
         className={`rounded-xl border border-edge bg-surface transition-transform ${
@@ -520,7 +676,12 @@ function SortableGroup({
         >
           <ul>
             {unit.members.map((m) => (
-              <SortableMember key={m.id} task={m} onDelete={onDelete} />
+              <SortableMember
+                key={m.id}
+                task={m}
+                onSelect={onSelect}
+                onDelete={onDelete}
+              />
             ))}
           </ul>
         </SortableContext>
@@ -531,9 +692,11 @@ function SortableGroup({
 
 function SortableMember({
   task,
+  onSelect,
   onDelete,
 }: {
   task: Task;
+  onSelect: (t: Task) => void;
   onDelete: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -544,24 +707,34 @@ function SortableMember({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       {...withStopPropagation(listeners)}
-      className={`flex items-center gap-3 border-t border-edge px-4 py-2.5 select-none [-webkit-touch-callout:none] ${
+      className={`border-t border-edge select-none [-webkit-touch-callout:none] ${
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <span
-        className={`min-w-0 flex-1 break-words text-sm ${
-          task.status === "done" ? "text-muted line-through decoration-blood/70" : ""
-        }`}
+      <ActionRow
+        actions={[
+          {
+            icon: "trash",
+            label: "Delete",
+            destructive: true,
+            onClick: () => onDelete(task.id),
+          },
+        ]}
+        rowClassName="flex items-center gap-3 px-4 py-2.5"
       >
-        {task.title}
-      </span>
-      <button
-        onClick={() => onDelete(task.id)}
-        aria-label="Delete task"
-        className="shrink-0 text-muted active:text-blood"
-      >
-        <Icon name="trash" className="size-4" />
-      </button>
+        {/* tap a member to give it its own context; the group still deploys as one */}
+        <button
+          onClick={() => onSelect(task)}
+          className={`flex min-w-0 flex-1 items-center gap-2 break-words text-left text-sm ${
+            task.status === "done" ? "text-muted line-through decoration-blood/70" : ""
+          }`}
+        >
+          <span className="min-w-0 break-words">{task.title}</span>
+          {task.details && (
+            <Icon name="list" className="size-3 shrink-0 text-muted" />
+          )}
+        </button>
+      </ActionRow>
     </li>
   );
 }

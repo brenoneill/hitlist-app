@@ -22,7 +22,7 @@ export interface CreatedAgent {
  * @param repoUrl - GitHub repository URL the agent should work in.
  * @param ref - Branch or commit SHA used as the starting point.
  * @returns The created agent id, dashboard url, and status.
- * @throws If `CURSOR_API_KEY` is missing or the Cursor API rejects the request.
+ * @throws If the Cursor API rejects the request.
  */
 export async function createAgent(
   text: string,
@@ -51,21 +51,29 @@ export async function createAgent(
   return { id: agent.id, url: agent.url, status: agent.status };
 }
 
+export interface LatestRun {
+  status: RunStatus;
+  /** Final assistant response text — only present on terminal runs. */
+  summary?: string;
+  branch?: string;
+  prUrl?: string;
+}
+
 /**
- * Reads the status of an agent's most recent run.
+ * Reads an agent's most recent run: status, final summary, and branch/PR.
  *
  * The agent's own `status` is only ACTIVE/ARCHIVED — execution state lives on runs,
  * so this hops agent -> latestRunId -> run.
  *
  * @param agentId - Cursor agent id.
  * @param apiKey - Cursor API key.
- * @returns The latest run's status, or undefined if the agent has no run yet.
+ * @returns The latest run, or undefined if the agent has no run yet.
  * @throws If the Cursor API rejects either request.
  */
-export async function getLatestRunStatus(
+export async function getLatestRun(
   agentId: string,
   apiKey: string,
-): Promise<RunStatus | undefined> {
+): Promise<LatestRun | undefined> {
   const get = async (path: string) => {
     const res = await fetch(`${CREATE_URL}/${path}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -78,8 +86,12 @@ export async function getLatestRunStatus(
 
   const { latestRunId } = await get(agentId);
   if (!latestRunId) return undefined;
-  // ponytail: git.branches[].prUrl is on this response too — grab it when the
-  // "keep link to PR in item list" task comes up.
-  const { status } = await get(`${agentId}/runs/${latestRunId}`);
-  return status;
+  const run = await get(`${agentId}/runs/${latestRunId}`);
+  const branch = run.git?.branches?.[0];
+  return {
+    status: run.status,
+    summary: run.result,
+    branch: branch?.branch,
+    prUrl: branch?.prUrl,
+  };
 }

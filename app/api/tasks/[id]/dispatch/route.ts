@@ -59,12 +59,16 @@ export async function POST(
   const members = task.groupId
     ? (await listTasks()).filter((t) => t.groupId === task.groupId)
     : [task];
-  if (members.some((t) => t.status !== "inbox")) {
+  // cursorAgentId, not just status: a done→undone task is back in `inbox` but
+  // already has an agent out there, and must not get a second one.
+  if (members.some((t) => t.status !== "inbox" || t.cursorAgentId)) {
     return Response.json(
       {
         error: task.groupId
-          ? "group has non-inbox tasks"
-          : `task already ${task.status}`,
+          ? "group has already-dispatched tasks"
+          : task.cursorAgentId
+            ? "task already has an agent"
+            : `task already ${task.status}`,
       },
       { status: 409 },
     );
@@ -89,6 +93,7 @@ export async function POST(
         status: "running",
         cursorAgentId: agent.id,
         agentUrl: agent.url,
+        dispatchedAt: new Date().toISOString(),
       });
       if (u) updated.push(u);
     }

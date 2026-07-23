@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Task } from "@/app/lib/tasks";
-import { StatusBadge } from "@/app/components/TaskList";
+import { StatusBadge, deployable } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
@@ -28,10 +28,16 @@ function Sheet({
   );
 }
 
+/** "4m" / "1h 12m" since the given ISO timestamp; each 10s poll re-renders it. */
+function elapsed(iso: string): string {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
 /**
- * Shared sheet body: status badge, repo line, deploy button, agent link, error.
- * `children` render between the status block and the deploy button (the details
- * textarea in TaskSheet). Dispatching `lead` dispatches its whole group, if any.
+ * Shared sheet body: status badge, run details, deploy button, PR/agent links,
+ * error. `children` render between the status block and the deploy button (the
+ * details textarea in TaskSheet). Dispatching `lead` dispatches its whole group.
  */
 function AgentActions({
   lead,
@@ -65,24 +71,55 @@ function AgentActions({
 
   return (
     <>
-      <div className="mb-1">
-        <StatusBadge status={lead.status} />
+      <div className="mb-5 flex flex-col gap-1">
+        <StatusBadge task={lead} />
+        {lead.status === "running" && lead.dispatchedAt && (
+          <p className="font-mono text-xs text-warn">
+            Working for {elapsed(lead.dispatchedAt)}
+          </p>
+        )}
+        {lead.repoUrl && (
+          <p className="truncate font-mono text-xs text-muted">{lead.repoUrl}</p>
+        )}
+        {lead.branch && (
+          <p className="truncate font-mono text-xs text-muted">
+            <Icon name="pr" className="mr-1 inline size-3 align-[-2px]" />
+            {lead.branch}
+          </p>
+        )}
       </div>
-      {lead.repoUrl && (
-        <p className="mb-5 truncate font-mono text-xs text-muted">
-          {lead.repoUrl}
-        </p>
-      )}
 
       {children}
 
-      {lead.status === "inbox" && (
+      {lead.agentSummary && (
+        <p className="mb-3 whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
+          {lead.agentSummary}
+        </p>
+      )}
+
+      {lead.prUrl && (
+        <a
+          href={lead.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_16px_rgba(34,197,94,0.4)] active:opacity-80"
+        >
+          <Icon name="pr" className="size-4" />
+          Review PR
+        </a>
+      )}
+
+      {deployable(lead) && (
         <button
           onClick={send}
           disabled={sending}
           className={`${BLOOD_BUTTON} mb-3 w-full`}
         >
-          {sending ? "Deploying…" : "Deploy agent"}
+          {sending
+            ? "Deploying…"
+            : lead.groupId
+              ? "Deploy group"
+              : "Deploy agent"}
         </button>
       )}
 
@@ -111,7 +148,8 @@ export function TaskSheet({
 }: {
   task: Task;
   onClose: () => void;
-  onDispatched: (t: Task) => void;
+  /** Dispatching a grouped task returns every member. */
+  onDispatched: (t: Task | Task[]) => void;
   onDelete: () => void;
 }) {
   const [details, setDetails] = useState(task.details ?? "");
@@ -128,13 +166,18 @@ export function TaskSheet({
 
   return (
     <Sheet onClose={onClose}>
+      {task.groupId && (
+        <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-muted">
+          In a group · deploys together
+        </p>
+      )}
       <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
       <AgentActions
         lead={task}
         beforeSend={saveDetails}
-        onDeployed={(body) => onDispatched(body as Task)}
+        onDeployed={(body) => onDispatched(body as Task | Task[])}
       >
-        {task.status === "inbox" ? (
+        {deployable(task) ? (
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
@@ -165,15 +208,19 @@ export function TaskSheet({
 export function GroupSheet({
   members,
   onClose,
+  onEditMember,
   onDeployed,
   onDisband,
 }: {
   members: Task[];
   onClose: () => void;
+  /** Swaps this sheet for the member's own sheet, to edit its context. */
+  onEditMember: (t: Task) => void;
   onDeployed: () => void;
   onDisband: () => void;
 }) {
   const lead = members[0];
+  const editable = deployable(lead);
   return (
     <Sheet onClose={onClose}>
       <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
@@ -181,8 +228,20 @@ export function GroupSheet({
       </p>
       <ul className="mb-2 flex flex-col gap-1">
         {members.map((m) => (
-          <li key={m.id} className="break-words font-medium">
-            – {m.title}
+          <li key={m.id}>
+            <button
+              onClick={() => onEditMember(m)}
+              disabled={!editable && !m.details}
+              className="flex w-full flex-col items-start gap-0.5 text-left"
+            >
+              <span className="break-words font-medium">– {m.title}</span>
+              {/* context travels with the group prompt; press to edit it */}
+              {(m.details || editable) && (
+                <span className="whitespace-pre-wrap break-words pl-3 text-xs text-muted">
+                  {m.details || "Add context…"}
+                </span>
+              )}
+            </button>
           </li>
         ))}
       </ul>
