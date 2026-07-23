@@ -54,6 +54,11 @@ export function StatusBadge({ status }: { status: TaskStatus }) {
   );
 }
 
+// combine-* droppable ids mark the "absorb into group" middle band of a card
+const COMBINE = "combine-";
+const combineTargetOf = (id: string) =>
+  id.startsWith(COMBINE) ? id.slice(COMBINE.length) : null;
+
 // Grouped tasks are a contiguous run in the array; fold each run into one unit.
 type Unit =
   | { kind: "task"; id: string; task: Task }
@@ -154,10 +159,10 @@ export function TaskList({
     const aTask = taskFor(active);
     if (aTask?.status === "inbox") {
       const own = active.startsWith("member-")
-        ? `combine-group-${aTask.groupId}`
-        : `combine-${active}`;
+        ? `${COMBINE}group-${aTask.groupId}`
+        : `${COMBINE}${active}`;
       const hit = pointerWithin(args).find(
-        (c) => String(c.id).startsWith("combine-") && String(c.id) !== own,
+        (c) => String(c.id).startsWith(COMBINE) && String(c.id) !== own,
       );
       if (hit) return [hit];
     }
@@ -184,7 +189,7 @@ export function TaskList({
 
   function handleDragOver({ over }: DragOverEvent) {
     const id = over ? String(over.id) : null;
-    const target = id?.startsWith("combine-") ? id.slice(8) : null;
+    const target = id ? combineTargetOf(id) : null;
     if (target !== combineTarget) {
       if (target) navigator.vibrate?.(10);
       setCombineTarget(target);
@@ -200,9 +205,10 @@ export function TaskList({
     const aTask = taskFor(a);
 
     // absorb: form a group with the target, or join an existing one
-    if (o.startsWith("combine-")) {
+    const combineId = combineTargetOf(o);
+    if (combineId) {
       if (!aTask) return;
-      const target = units.find((u) => u.id === o.slice(8));
+      const target = units.find((u) => u.id === combineId);
       if (!target) return;
       const gid = target.kind === "group" ? target.groupId : crypto.randomUUID();
       // target stays first, so the group adopts the target's repo
@@ -276,14 +282,19 @@ export function TaskList({
         <ul className="flex flex-col gap-2">
           {units.map((u) =>
             u.kind === "task" ? (
-              <SortableTask
+              <SortableShell
                 key={u.id}
-                unit={u}
-                highlight={combineTarget === u.id}
-                onSelect={onSelect}
-                onToggle={onToggle}
-                onDelete={onDelete}
-              />
+                id={u.id}
+                combinable={u.task.status === "inbox"}
+              >
+                <TaskRow
+                  task={u.task}
+                  highlight={combineTarget === u.id}
+                  onSelect={onSelect}
+                  onToggle={onToggle}
+                  onDelete={onDelete}
+                />
+              </SortableShell>
             ) : (
               <SortableGroup
                 key={u.id}
@@ -419,24 +430,21 @@ function TaskRow({
   );
 }
 
-function SortableTask({
-  unit,
-  highlight,
-  onSelect,
-  onToggle,
-  onDelete,
+/** Sortable <li> wiring + the combine drop zone, shared by tasks and groups. */
+function SortableShell({
+  id,
+  combinable,
+  children,
 }: {
-  unit: Extract<Unit, { kind: "task" }>;
-  highlight: boolean;
-  onSelect: (t: Task) => void;
-  onToggle: (t: Task) => void;
-  onDelete: (id: string) => void;
+  id: string;
+  combinable: boolean;
+  children: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: unit.id });
+    useSortable({ id });
   const { setNodeRef: setCombineRef } = useDroppable({
-    id: `combine-${unit.id}`,
-    disabled: unit.task.status !== "inbox",
+    id: `${COMBINE}${id}`,
+    disabled: !combinable,
   });
   return (
     <li
@@ -448,13 +456,7 @@ function SortableTask({
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <TaskRow
-        task={unit.task}
-        highlight={highlight}
-        onSelect={onSelect}
-        onToggle={onToggle}
-        onDelete={onDelete}
-      />
+      {children}
       {/* drop zone only — dnd-kit measures its rect, so it must not eat taps */}
       <div
         ref={setCombineRef}
@@ -498,22 +500,10 @@ function SortableGroup({
   onSelectGroup: (groupId: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: unit.id });
-  const groupable = unit.members.every((m) => m.status === "inbox");
-  const { setNodeRef: setCombineRef } = useDroppable({
-    id: `combine-${unit.id}`,
-    disabled: !groupable,
-  });
   return (
-    <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      {...attributes}
-      {...listeners}
-      className={`relative select-none [-webkit-touch-callout:none] ${
-        isDragging ? "opacity-40" : ""
-      }`}
+    <SortableShell
+      id={unit.id}
+      combinable={unit.members.every((m) => m.status === "inbox")}
     >
       <div
         className={`rounded-xl border border-edge bg-surface transition-transform ${
@@ -535,12 +525,7 @@ function SortableGroup({
           </ul>
         </SortableContext>
       </div>
-      {/* drop zone only — dnd-kit measures its rect, so it must not eat taps */}
-      <div
-        ref={setCombineRef}
-        className="pointer-events-none absolute inset-x-0 top-1/4 bottom-1/4"
-      />
-    </li>
+    </SortableShell>
   );
 }
 

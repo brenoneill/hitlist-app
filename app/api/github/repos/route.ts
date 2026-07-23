@@ -1,15 +1,14 @@
-import { auth } from "@/auth";
+import { requireUserId } from "@/auth";
 import { getGithubInstallationId } from "@/app/lib/userSettings";
 import { listInstallationRepos } from "@/app/lib/githubApp";
+import type { Repo } from "@/app/components/GithubRepos";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return Response.json({ error: "not signed in" }, { status: 401 });
-    }
+    const userId = await requireUserId();
+    if (userId instanceof Response) return userId;
 
-    const installationId = await getGithubInstallationId(session.user.id);
+    const installationId = await getGithubInstallationId(userId);
     if (!installationId) {
       return Response.json({ connected: false, repos: [] });
     }
@@ -17,7 +16,8 @@ export async function GET() {
     const repos = await listInstallationRepos(installationId);
     return Response.json({
       connected: true,
-      repos: repos.map((r) => ({
+      // typed against the client's Repo so contract drift fails typecheck
+      repos: repos.map((r): Repo => ({
         id: r.id,
         name: r.full_name,
         url: r.html_url,

@@ -56,7 +56,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { title, repoUrl } = await request.json();
+  const { title, repoUrl } = await request.json().catch(() => ({}));
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
   }

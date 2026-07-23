@@ -15,7 +15,7 @@ export async function PATCH(
   ctx: RouteContext<"/api/tasks/[id]">,
 ) {
   const { id } = await ctx.params;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const { status, details } = body as { status?: unknown; details?: unknown };
 
   if (status !== undefined && !STATUSES.includes(status as TaskStatus)) {

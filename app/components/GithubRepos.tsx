@@ -2,7 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { CursorKeySettings } from "@/app/components/CursorKeySettings";
-import { Icon } from "@/app/components/Icons";
+import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 export interface Repo {
   id: number;
@@ -11,7 +11,10 @@ export interface Repo {
   private: boolean;
 }
 
-const INSTALL_URL = `https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG}/installations/new`;
+const APP_SLUG = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
+const INSTALL_URL = APP_SLUG
+  ? `https://github.com/apps/${APP_SLUG}/installations/new`
+  : "";
 const MANAGE_URL = "https://github.com/settings/installations";
 
 export function GithubRepos({
@@ -64,12 +67,18 @@ export function GithubRepos({
             request read-only access to a repo&apos;s name and URL — never its
             code.
           </p>
-          <a
-            href={INSTALL_URL}
-            className="block w-full rounded-xl bg-blood py-3 text-center font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80"
-          >
-            Connect repos on GitHub
-          </a>
+          {INSTALL_URL ? (
+            <a
+              href={INSTALL_URL}
+              className={`${BLOOD_BUTTON} block w-full text-center`}
+            >
+              Connect repos on GitHub
+            </a>
+          ) : (
+            <p className="font-mono text-xs text-muted">
+              Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.
+            </p>
+          )}
         </div>
       ) : (
         <details className="group">

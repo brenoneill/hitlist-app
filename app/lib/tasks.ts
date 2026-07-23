@@ -1,6 +1,5 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { normalizeGroups } from "./groups";
+import { jsonFile } from "./jsonStore";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
@@ -20,30 +19,14 @@ export interface Task {
   groupId?: string;
 }
 
-// ponytail: JSON file store — fine for single-user local dev. Swap for SQLite/Postgres
-// before deploying to serverless (ephemeral/read-only fs). Read-modify-write also races
-// under concurrent writes; single user so it doesn't matter yet.
-const FILE = path.join(process.cwd(), ".data", "tasks.json");
-
-async function readAll(): Promise<Task[]> {
-  try {
-    return JSON.parse(await fs.readFile(FILE, "utf8")) as Task[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeAll(tasks: Task[]): Promise<void> {
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(tasks, null, 2));
-}
+const store = jsonFile<Task[]>("tasks.json", () => []);
 
 export async function listTasks(): Promise<Task[]> {
-  return readAll();
+  return store.read();
 }
 
 export async function addTask(title: string, repoUrl: string): Promise<Task> {
-  const tasks = await readAll();
+  const tasks = await store.read();
   const task: Task = {
     id: crypto.randomUUID(),
     title,
@@ -52,13 +35,13 @@ export async function addTask(title: string, repoUrl: string): Promise<Task> {
     repoUrl,
   };
   tasks.unshift(task);
-  await writeAll(tasks);
+  await store.write(tasks);
   return task;
 }
 
 export async function removeTask(id: string): Promise<void> {
-  const tasks = await readAll();
-  await writeAll(normalizeGroups(tasks.filter((t) => t.id !== id)));
+  const tasks = await store.read();
+  await store.write(normalizeGroups(tasks.filter((t) => t.id !== id)));
 }
 
 /**
@@ -69,7 +52,7 @@ export async function removeTask(id: string): Promise<void> {
 export async function reorderTasks(
   order: { id: string; groupId: string | null }[],
 ): Promise<Task[]> {
-  const tasks = await readAll();
+  const tasks = await store.read();
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const next: Task[] = [];
   for (const { id, groupId } of order) {
@@ -80,19 +63,19 @@ export async function reorderTasks(
   }
   next.push(...byId.values());
   const normalized = normalizeGroups(next);
-  await writeAll(normalized);
+  await store.write(normalized);
   return normalized;
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {
-  return (await readAll()).find((t) => t.id === id);
+  return (await store.read()).find((t) => t.id === id);
 }
 
 export async function updateTask(
   id: string,
   patch: Partial<Task>,
 ): Promise<Task | undefined> {
-  const tasks = await readAll();
+  const tasks = await store.read();
   const i = tasks.findIndex((t) => t.id === id);
   if (i === -1) return undefined;
   // stamped here, not at the callers — both the PATCH route and the Cursor poll land here
@@ -101,6 +84,6 @@ export async function updateTask(
     ...patch,
     ...(patch.status === "done" ? { doneAt: new Date().toISOString() } : {}),
   };
-  await writeAll(tasks);
+  await store.write(tasks);
   return tasks[i];
 }

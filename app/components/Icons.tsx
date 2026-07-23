@@ -1,3 +1,7 @@
+/** The signature glowing red action button; call sites append their layout classes. */
+export const BLOOD_BUTTON =
+  "rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none";
+
 export type IconName =
   | "crosshair"
   | "check"

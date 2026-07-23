@@ -9,6 +9,15 @@ declare module "next-auth" {
   }
 }
 
+/** The signed-in user's id, or the 401 Response to return. */
+export async function requireUserId(): Promise<string | Response> {
+  const session = await auth();
+  return (
+    session?.user?.id ??
+    Response.json({ error: "sign in required" }, { status: 401 })
+  );
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // default scope (read:user user:email) — identity only, no repo access.
   // Repo listing goes through a separate GitHub App install (see app/lib/githubApp.ts)

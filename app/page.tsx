@@ -5,9 +5,10 @@ import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
-import { Icon } from "@/app/components/Icons";
+import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { Tabs } from "@/app/components/Tabs";
-import { DoneList, StatusBadge, TaskList } from "@/app/components/TaskList";
+import { DoneList, TaskList } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
 
@@ -237,7 +238,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!title.trim() || !target}
-                className="rounded-xl bg-blood px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+                className={`${BLOOD_BUTTON} px-5`}
               >
                 Mark
               </button>
@@ -337,220 +338,5 @@ export default function Home() {
         />
       )}
     </main>
-  );
-}
-
-/** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
-function Sheet({
-  onClose,
-  children,
-}: {
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-10 flex animate-fade-in flex-col justify-end bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="animate-slide-up rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function TaskSheet({
-  task,
-  onClose,
-  onDispatched,
-  onDelete,
-}: {
-  task: Task;
-  onClose: () => void;
-  onDispatched: (t: Task) => void;
-  onDelete: () => void;
-}) {
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [details, setDetails] = useState(task.details ?? "");
-
-  async function saveDetails() {
-    if (details.trim() === (task.details ?? "")) return;
-    const res = await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ details }),
-    });
-    if (res.ok) onDispatched(await res.json());
-  }
-
-  async function send() {
-    setSending(true);
-    setError(null);
-    await saveDetails();
-    const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
-      method: "POST",
-    });
-    const body = await res.json();
-    setSending(false);
-    if (!res.ok) {
-      setError(body.error ?? "dispatch failed");
-      return;
-    }
-    onDispatched(body);
-  }
-
-  return (
-    <Sheet onClose={onClose}>
-      <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
-      <div className="mb-1">
-        <StatusBadge status={task.status} />
-      </div>
-      {task.repoUrl && (
-        <p className="mb-5 truncate font-mono text-xs text-muted">
-          {task.repoUrl}
-        </p>
-      )}
-
-      {task.status === "inbox" ? (
-        <textarea
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          onBlur={saveDetails}
-          placeholder="Context for the agent — optional"
-          rows={3}
-          className="mb-3 w-full resize-none rounded-xl border border-edge bg-background px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
-        />
-      ) : (
-        task.details && (
-          <p className="mb-3 whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
-            {task.details}
-          </p>
-        )
-      )}
-
-      {task.status === "inbox" && (
-        <button
-          onClick={send}
-          disabled={sending}
-          className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
-        >
-          {sending ? "Deploying…" : "Deploy agent"}
-        </button>
-      )}
-
-      {task.agentUrl && (
-        <a
-          href={task.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
-        >
-          View agent
-          <Icon name="external" className="size-4" />
-        </a>
-      )}
-
-      {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
-
-      <button
-        onClick={onDelete}
-        className="flex w-full items-center justify-center gap-2 py-2 text-base text-blood active:opacity-70"
-      >
-        <Icon name="trash" className="size-4" />
-        Delete
-      </button>
-    </Sheet>
-  );
-}
-
-function GroupSheet({
-  members,
-  onClose,
-  onDeployed,
-  onDisband,
-}: {
-  members: Task[];
-  onClose: () => void;
-  onDeployed: () => void;
-  onDisband: () => void;
-}) {
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const lead = members[0];
-
-  async function send() {
-    setSending(true);
-    setError(null);
-    // dispatching any member dispatches the whole group as one agent
-    const res = await fetch(`/api/tasks/${lead.id}/dispatch`, {
-      method: "POST",
-    });
-    const body = await res.json();
-    setSending(false);
-    if (!res.ok) {
-      setError(body.error ?? "dispatch failed");
-      return;
-    }
-    onDeployed();
-  }
-
-  return (
-    <Sheet onClose={onClose}>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-        Grouped hit · {members.length} marks
-      </p>
-      <ul className="mb-2 flex flex-col gap-1">
-        {members.map((m) => (
-          <li key={m.id} className="break-words font-medium">
-            – {m.title}
-          </li>
-        ))}
-      </ul>
-      <div className="mb-1">
-        <StatusBadge status={lead.status} />
-      </div>
-      {lead.repoUrl && (
-        <p className="mb-5 truncate font-mono text-xs text-muted">
-          {lead.repoUrl}
-        </p>
-      )}
-
-      {lead.status === "inbox" && (
-        <button
-          onClick={send}
-          disabled={sending}
-          className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
-        >
-          {sending ? "Deploying…" : "Deploy agent"}
-        </button>
-      )}
-
-      {lead.agentUrl && (
-        <a
-          href={lead.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
-        >
-          View agent
-          <Icon name="external" className="size-4" />
-        </a>
-      )}
-
-      {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
-
-      <button
-        onClick={onDisband}
-        className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"
-      >
-        <Icon name="x" className="size-4" />
-        Disband group
-      </button>
-    </Sheet>
   );
 }

@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { requireUserId } from "@/auth";
 import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
@@ -41,11 +41,9 @@ export async function POST(
   req: Request,
   ctx: RouteContext<"/api/tasks/[id]/dispatch">,
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return Response.json({ error: "sign in required" }, { status: 401 });
-  }
-  const cursorApiKey = await getCursorApiKey(session.user.id);
+  const userId = await requireUserId();
+  if (userId instanceof Response) return userId;
+  const cursorApiKey = await getCursorApiKey(userId);
   if (!cursorApiKey) {
     return Response.json(
       { error: "add your Cursor API key in Settings first" },
