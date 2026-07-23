@@ -3,10 +3,36 @@ import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
 
+const WORKING_AGREEMENT = `## Working agreement
+- Keep changes focused on this task; don't refactor unrelated code.
+- Follow the repo's existing patterns and conventions.
+- If anything is ambiguous, pick the simplest reasonable interpretation and note the assumption in the PR description.
+- Open a PR with a clear summary of what changed and why.`;
+
+/** Wraps task title(s) + optional details in the standard agent prompt. */
+function buildPrompt(members: Task[]): string {
+  const body =
+    members.length === 1
+      ? `# Task\n${members[0].title}` +
+        (members[0].details ? `\n\n## Context\n${members[0].details}` : "")
+      : `# Tasks\n` +
+        members
+          .map(
+            (m) =>
+              `- ${m.title}` +
+              (m.details
+                ? `\n  Context: ${m.details.replace(/\n/g, "\n  ")}`
+                : ""),
+          )
+          .join("\n");
+  return `${body}\n\n${WORKING_AGREEMENT}`;
+}
+
 /**
  * Dispatches an inbox task — or, if the task is grouped, its whole group — to
- * ONE Cursor cloud agent. A group's prompt is the member titles as a bullet
- * list; its repo is the first member's.
+ * ONE Cursor cloud agent. The prompt is built by `buildPrompt` (title/bullet
+ * list + optional per-task context + working agreement); a group's repo is the
+ * first member's.
  * @param req - Optional JSON body with `ref` to override the starting branch.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
@@ -53,9 +79,7 @@ export async function POST(
 
   try {
     const agent = await createAgent(
-      members.length === 1
-        ? task.title
-        : members.map((m) => `- ${m.title}`).join("\n"),
+      buildPrompt(members),
       members[0].repoUrl,
       ref || "main",
       cursorApiKey,

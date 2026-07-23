@@ -183,7 +183,9 @@ export default function Home() {
   const active = tasks.filter((t) => t.status !== "done");
   const done = tasks
     .filter((t) => t.status === "done")
-    .sort((a, b) => (b.doneAt ?? b.createdAt).localeCompare(a.doneAt ?? a.createdAt));
+    .sort((a, b) =>
+      (b.doneAt ?? b.createdAt).localeCompare(a.doneAt ?? a.createdAt),
+    );
 
   // derived so the open sheet tracks poll updates; empty (sheet closed) once disbanded
   const groupMembers = selectedGroup
@@ -222,85 +224,85 @@ export default function Home() {
 
       {tab === "list" && (
         <>
-      <form onSubmit={add} className="mb-6 flex flex-col gap-2">
-        <div className="flex gap-2">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Name your next hit…"
-            enterKeyHint="done"
-            autoFocus
-            className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
-          />
-          <button
-            type="submit"
-            disabled={!title.trim() || !target}
-            className="rounded-xl bg-blood px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
-          >
-            Mark
-          </button>
-        </div>
-        <div className="relative">
-          <select
-            value={target}
-            onChange={(e) => pickRepo(e.target.value)}
-            disabled={!pickable || pickable.length === 0}
-            className="w-full appearance-none rounded-xl border border-edge bg-surface px-4 py-3 pr-10 text-base outline-none focus:border-blood"
-          >
-            <option value="">
-              {reposError
-                ? "Couldn't load repos — try again"
-                : !connected
-                  ? "Connect GitHub repos above to pick one"
-                  : !pickable || pickable.length === 0
-                    ? "No repos shared yet"
-                    : "Choose a target repo…"}
-            </option>
-            {pickable?.map((repo) => (
-              <option key={repo.id} value={repo.url}>
-                {repo.name}
-              </option>
-            ))}
-          </select>
-          <Icon
-            name="chevron"
-            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-          />
-        </div>
-      </form>
+          <form onSubmit={add} className="mb-6 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Name your next hit…"
+                enterKeyHint="done"
+                autoFocus
+                className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+              />
+              <button
+                type="submit"
+                disabled={!title.trim() || !target}
+                className="rounded-xl bg-blood px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+              >
+                Mark
+              </button>
+            </div>
+            <div className="relative">
+              <select
+                value={target}
+                onChange={(e) => pickRepo(e.target.value)}
+                disabled={!pickable || pickable.length === 0}
+                className="w-full appearance-none rounded-xl border border-edge bg-surface px-4 py-3 pr-10 text-base outline-none focus:border-blood"
+              >
+                <option value="">
+                  {reposError
+                    ? "Couldn't load repos — try again"
+                    : !connected
+                      ? "Connect GitHub repos above to pick one"
+                      : !pickable || pickable.length === 0
+                        ? "No repos shared yet"
+                        : "Choose a target repo…"}
+                </option>
+                {pickable?.map((repo) => (
+                  <option key={repo.id} value={repo.url}>
+                    {repo.name}
+                  </option>
+                ))}
+              </select>
+              <Icon
+                name="chevron"
+                className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+              />
+            </div>
+          </form>
 
-      {loading ? (
-        <p className="font-mono text-sm uppercase tracking-widest text-muted">
-          Scanning…
-        </p>
-      ) : tasks.length === 0 ? (
-        <div className="flex flex-col items-center pt-12">
-          <Icon name="crosshair" className="mb-3 size-10 text-edge" />
-          <p className="font-mono text-sm uppercase tracking-widest text-muted">
-            No active marks
-          </p>
-        </div>
-      ) : (
-        <>
-          <TaskList
-            tasks={active}
-            onReorder={(next) => persistOrder([...next, ...done])}
-            onSelect={setSelected}
-            onSelectGroup={setSelectedGroup}
-            onToggle={toggleDone}
-            onDelete={remove}
-            onDraggingChange={setDragging}
-          />
-          {done.length > 0 && (
-            <DoneList
-              tasks={done}
-              onSelect={setSelected}
-              onToggle={toggleDone}
-              onDelete={remove}
-            />
+          {loading ? (
+            <p className="font-mono text-sm uppercase tracking-widest text-muted">
+              Scanning…
+            </p>
+          ) : tasks.length === 0 ? (
+            <div className="flex flex-col items-center pt-12">
+              <Icon name="crosshair" className="mb-3 size-10 text-edge" />
+              <p className="font-mono text-sm uppercase tracking-widest text-muted">
+                No active marks
+              </p>
+            </div>
+          ) : (
+            <>
+              <TaskList
+                tasks={active}
+                onReorder={(next) => persistOrder([...next, ...done])}
+                onSelect={setSelected}
+                onSelectGroup={setSelectedGroup}
+                onToggle={toggleDone}
+                onDelete={remove}
+                onDraggingChange={setDragging}
+              />
+              {done.length > 0 && (
+                <DoneList
+                  tasks={done}
+                  onSelect={setSelected}
+                  onToggle={toggleDone}
+                  onDelete={remove}
+                />
+              )}
+            </>
           )}
-        </>
-      )}
         </>
       )}
 
@@ -338,6 +340,29 @@ export default function Home() {
   );
 }
 
+/** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
+function Sheet({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-10 flex animate-fade-in flex-col justify-end bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="animate-slide-up rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function TaskSheet({
   task,
   onClose,
@@ -351,10 +376,22 @@ function TaskSheet({
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [details, setDetails] = useState(task.details ?? "");
+
+  async function saveDetails() {
+    if (details.trim() === (task.details ?? "")) return;
+    const res = await fetch(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ details }),
+    });
+    if (res.ok) onDispatched(await res.json());
+  }
 
   async function send() {
     setSending(true);
     setError(null);
+    await saveDetails();
     const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
       method: "POST",
     });
@@ -368,57 +405,66 @@ function TaskSheet({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-10 flex flex-col justify-end bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
-        <div className="mb-1">
-          <StatusBadge status={task.status} />
-        </div>
-        {task.repoUrl && (
-          <p className="mb-5 truncate font-mono text-xs text-muted">
-            {task.repoUrl}
-          </p>
-        )}
-
-        {task.status === "inbox" && (
-          <button
-            onClick={send}
-            disabled={sending}
-            className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
-          >
-            {sending ? "Deploying…" : "Deploy agent"}
-          </button>
-        )}
-
-        {task.agentUrl && (
-          <a
-            href={task.agentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
-          >
-            View agent
-            <Icon name="external" className="size-4" />
-          </a>
-        )}
-
-        {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
-
-        <button
-          onClick={onDelete}
-          className="flex w-full items-center justify-center gap-2 py-2 text-base text-blood active:opacity-70"
-        >
-          <Icon name="trash" className="size-4" />
-          Delete
-        </button>
+    <Sheet onClose={onClose}>
+      <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
+      <div className="mb-1">
+        <StatusBadge status={task.status} />
       </div>
-    </div>
+      {task.repoUrl && (
+        <p className="mb-5 truncate font-mono text-xs text-muted">
+          {task.repoUrl}
+        </p>
+      )}
+
+      {task.status === "inbox" ? (
+        <textarea
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          onBlur={saveDetails}
+          placeholder="Context for the agent — optional"
+          rows={3}
+          className="mb-3 w-full resize-none rounded-xl border border-edge bg-background px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+        />
+      ) : (
+        task.details && (
+          <p className="mb-3 whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
+            {task.details}
+          </p>
+        )
+      )}
+
+      {task.status === "inbox" && (
+        <button
+          onClick={send}
+          disabled={sending}
+          className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+        >
+          {sending ? "Deploying…" : "Deploy agent"}
+        </button>
+      )}
+
+      {task.agentUrl && (
+        <a
+          href={task.agentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
+        >
+          View agent
+          <Icon name="external" className="size-4" />
+        </a>
+      )}
+
+      {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
+
+      <button
+        onClick={onDelete}
+        className="flex w-full items-center justify-center gap-2 py-2 text-base text-blood active:opacity-70"
+      >
+        <Icon name="trash" className="size-4" />
+        Delete
+      </button>
+    </Sheet>
   );
 }
 
@@ -454,65 +500,57 @@ function GroupSheet({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-10 flex flex-col justify-end bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-          Grouped hit · {members.length} marks
-        </p>
-        <ul className="mb-2 flex flex-col gap-1">
-          {members.map((m) => (
-            <li key={m.id} className="break-words font-medium">
-              – {m.title}
-            </li>
-          ))}
-        </ul>
-        <div className="mb-1">
-          <StatusBadge status={lead.status} />
-        </div>
-        {lead.repoUrl && (
-          <p className="mb-5 truncate font-mono text-xs text-muted">
-            {lead.repoUrl}
-          </p>
-        )}
-
-        {lead.status === "inbox" && (
-          <button
-            onClick={send}
-            disabled={sending}
-            className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
-          >
-            {sending ? "Deploying…" : "Deploy agent"}
-          </button>
-        )}
-
-        {lead.agentUrl && (
-          <a
-            href={lead.agentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
-          >
-            View agent
-            <Icon name="external" className="size-4" />
-          </a>
-        )}
-
-        {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
-
-        <button
-          onClick={onDisband}
-          className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"
-        >
-          <Icon name="x" className="size-4" />
-          Disband group
-        </button>
+    <Sheet onClose={onClose}>
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        Grouped hit · {members.length} marks
+      </p>
+      <ul className="mb-2 flex flex-col gap-1">
+        {members.map((m) => (
+          <li key={m.id} className="break-words font-medium">
+            – {m.title}
+          </li>
+        ))}
+      </ul>
+      <div className="mb-1">
+        <StatusBadge status={lead.status} />
       </div>
-    </div>
+      {lead.repoUrl && (
+        <p className="mb-5 truncate font-mono text-xs text-muted">
+          {lead.repoUrl}
+        </p>
+      )}
+
+      {lead.status === "inbox" && (
+        <button
+          onClick={send}
+          disabled={sending}
+          className="mb-3 w-full rounded-xl bg-blood py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+        >
+          {sending ? "Deploying…" : "Deploy agent"}
+        </button>
+      )}
+
+      {lead.agentUrl && (
+        <a
+          href={lead.agentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
+        >
+          View agent
+          <Icon name="external" className="size-4" />
+        </a>
+      )}
+
+      {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
+
+      <button
+        onClick={onDisband}
+        className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"
+      >
+        <Icon name="x" className="size-4" />
+        Disband group
+      </button>
+    </Sheet>
   );
 }

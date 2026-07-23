@@ -455,7 +455,11 @@ function SortableTask({
         onToggle={onToggle}
         onDelete={onDelete}
       />
-      <div ref={setCombineRef} className="absolute inset-x-0 top-1/4 bottom-1/4" />
+      {/* drop zone only — dnd-kit measures its rect, so it must not eat taps */}
+      <div
+        ref={setCombineRef}
+        className="pointer-events-none absolute inset-x-0 top-1/4 bottom-1/4"
+      />
     </li>
   );
 }
@@ -531,7 +535,11 @@ function SortableGroup({
           </ul>
         </SortableContext>
       </div>
-      <div ref={setCombineRef} className="absolute inset-x-0 top-1/4 bottom-1/4" />
+      {/* drop zone only — dnd-kit measures its rect, so it must not eat taps */}
+      <div
+        ref={setCombineRef}
+        className="pointer-events-none absolute inset-x-0 top-1/4 bottom-1/4"
+      />
     </li>
   );
 }

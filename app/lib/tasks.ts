@@ -12,6 +12,8 @@ export interface Task {
   cursorAgentId?: string;
   agentUrl?: string;
   repoUrl?: string;
+  /** Optional extra context included in the agent prompt on dispatch. */
+  details?: string;
   /** Stamped whenever status becomes "done"; orders the completed list. */
   doneAt?: string;
   /** Tasks sharing a groupId form a contiguous run in the array and dispatch together. */

@@ -4,7 +4,8 @@ import { removeTask, updateTask, type TaskStatus } from "@/app/lib/tasks";
 const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
 
 /**
- * Updates a task by id. Accepts a JSON body with an optional `status` field.
+ * Updates a task by id. Accepts a JSON body with optional `status` and
+ * `details` fields (details is trimmed; empty clears it).
  * @param req - Incoming request with a JSON patch body.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated task, or 400/404 on failure.
@@ -15,14 +16,18 @@ export async function PATCH(
 ) {
   const { id } = await ctx.params;
   const body = await req.json();
-  const { status } = body as { status?: unknown };
+  const { status, details } = body as { status?: unknown; details?: unknown };
 
   if (status !== undefined && !STATUSES.includes(status as TaskStatus)) {
     return Response.json({ error: "invalid status" }, { status: 400 });
   }
+  if (details !== undefined && typeof details !== "string") {
+    return Response.json({ error: "invalid details" }, { status: 400 });
+  }
 
   const updated = await updateTask(id, {
     ...(status !== undefined ? { status: status as TaskStatus } : {}),
+    ...(details !== undefined ? { details: details.trim() || undefined } : {}),
   });
   if (!updated) {
     return Response.json({ error: "task not found" }, { status: 404 });
