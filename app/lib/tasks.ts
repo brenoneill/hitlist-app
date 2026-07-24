@@ -3,6 +3,9 @@ import { jsonFile } from "./jsonStore";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
+/** GitHub PR lifecycle; "merged"/"closed" are terminal and stop the PR poll. */
+export type PrState = "open" | "closed" | "merged";
+
 export interface Task {
   id: string;
   title: string;
@@ -16,6 +19,8 @@ export interface Task {
   /** Branch / PR / final summary reported by the agent's latest run. */
   branch?: string;
   prUrl?: string;
+  /** Polled from GitHub while the PR is open; absent means never polled (treat as open). */
+  prState?: PrState;
   agentSummary?: string;
   /** Stamped when the agent is dispatched; drives "working for Xm". */
   dispatchedAt?: string;
@@ -33,7 +38,7 @@ export async function listTasks(): Promise<Task[]> {
   return store.read();
 }
 
-export async function addTask(title: string, repoUrl: string): Promise<Task> {
+export async function addTask(title: string, repoUrl?: string): Promise<Task> {
   const tasks = await store.read();
   const task: Task = {
     id: crypto.randomUUID(),

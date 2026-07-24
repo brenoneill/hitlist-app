@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import type { PrState } from "./tasks";
 
 interface GitHubRepo {
   id: number;
@@ -31,7 +32,12 @@ function signAppJwt(): string {
   return `${unsigned}.${signature}`;
 }
 
+// tokens live an hour — minting one per PR poll would double every GitHub call
+const tokens = new Map<string, { token: string; expires: number }>();
+
 async function getInstallationToken(installationId: string): Promise<string> {
+  const cached = tokens.get(installationId);
+  if (cached && cached.expires > Date.now()) return cached.token;
   const res = await fetch(
     `https://api.github.com/app/installations/${installationId}/access_tokens`,
     {
@@ -45,13 +51,16 @@ async function getInstallationToken(installationId: string): Promise<string> {
   if (!res.ok) {
     throw new Error(`GitHub App token exchange failed: ${res.status}`);
   }
-  const body = (await res.json()) as { token: string };
+  const body = (await res.json()) as { token: string; expires_at: string };
+  tokens.set(installationId, {
+    token: body.token,
+    expires: Date.parse(body.expires_at) - 60_000, // a minute of slack
+  });
   return body.token;
 }
 
-// Only ever calls the Metadata-read-only "list repos this installation can see"
-// endpoint — the GitHub App backing this has no Contents permission, so there is
-// no code-reading capability to misuse even server-side.
+// The GitHub App backing this holds Metadata + Pull requests, both read-only —
+// no Contents, so there is no code-reading capability to misuse even server-side.
 export async function listInstallationRepos(
   installationId: string,
 ): Promise<GitHubRepo[]> {
@@ -70,4 +79,31 @@ export async function listInstallationRepos(
   }
   const body = (await res.json()) as { repositories: GitHubRepo[] };
   return body.repositories;
+}
+
+/**
+ * Reads a PR's state from its html url (needs Pull requests: Read).
+ * @returns "open", or the terminal "merged" / "closed" — polling stops on those.
+ *   An unreadable PR (unparseable url, 404) counts as closed so it stops too.
+ */
+export async function getPrState(
+  prUrl: string,
+  installationId: string,
+): Promise<PrState> {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+  if (!m) return "closed";
+  const token = await getInstallationToken(installationId);
+  const res = await fetch(
+    `https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    },
+  );
+  if (res.status === 404) return "closed"; // deleted, or app not installed there
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  const pr = (await res.json()) as { merged: boolean; state: string };
+  return pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open";
 }

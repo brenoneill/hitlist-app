@@ -20,13 +20,13 @@ const MANAGE_URL = "https://github.com/settings/installations";
 export function GithubRepos({
   repos,
   connected,
-  activeRepos,
-  onToggleActive,
+  blockedRepos,
+  onToggleBlocked,
 }: {
   repos: Repo[] | null;
   connected: boolean;
-  activeRepos: number[];
-  onToggleActive: (id: number) => void;
+  blockedRepos: number[];
+  onToggleBlocked: (id: number) => void;
 }) {
   const { data: session, status } = useSession();
 
@@ -87,9 +87,9 @@ export function GithubRepos({
               <span className="transition-transform group-open:rotate-90">
                 ›
               </span>
-              {activeRepos.length
-                ? `${activeRepos.length} active — only these show in the picker`
-                : "Tap repos to mark them active"}
+              {blockedRepos.length
+                ? `${blockedRepos.length} blocked — hidden from the repo picker`
+                : "Tap sensitive repos to block them from the picker"}
             </span>
             <a
               href={MANAGE_URL}
@@ -106,23 +106,23 @@ export function GithubRepos({
           ) : (
             <ul className="flex flex-col gap-2">
               {repos.map((repo) => {
-                const active = activeRepos.includes(repo.id);
+                const blocked = blockedRepos.includes(repo.id);
                 return (
                   <li
                     key={repo.id}
                     className={`flex items-center gap-2 rounded-xl border bg-surface px-4 py-3 font-mono text-sm ${
-                      active ? "border-blood" : "border-edge"
+                      blocked ? "border-blood" : "border-edge"
                     }`}
                   >
                     <button
-                      onClick={() => onToggleActive(repo.id)}
-                      aria-pressed={active}
+                      onClick={() => onToggleBlocked(repo.id)}
+                      aria-pressed={blocked}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       <Icon
-                        name={active ? "check" : "crosshair"}
+                        name={blocked ? "x" : "crosshair"}
                         className={`size-4 shrink-0 ${
-                          active ? "text-blood" : "text-muted"
+                          blocked ? "text-blood" : "text-muted"
                         }`}
                       />
                       <span className="min-w-0 truncate">
