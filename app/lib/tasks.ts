@@ -23,6 +23,8 @@ export interface Task {
   details?: string;
   /** Stamped whenever status becomes "done"; orders the completed list. */
   doneAt?: string;
+  /** Stamped when the PR is observed merged on GitHub; distinguishes MERGED from a manual EXECUTED. */
+  mergedAt?: string;
   /** Tasks sharing a groupId form a contiguous run in the array and dispatch together. */
   groupId?: string;
 }

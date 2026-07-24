@@ -46,12 +46,18 @@ const STATUS_DISPLAY: Record<
 export const wasDeployed = (t: Task) => !!t.agentUrl;
 export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
 
-/** Status refined by what the run reported: PR waiting, merged, agent mid-work. */
+/** Status refined by what the run reported: merged, PR waiting, agent mid-work. */
 function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } {
-  if (t.prUrl && t.status === "done") {
+  // real GitHub merge only — a manual "mark executed" stays EXECUTED, not MERGED
+  if (t.mergedAt) {
     return { label: "MERGED", cls: "text-ok", icon: "pr" };
   }
-  if (t.prUrl && t.status !== "running" && t.status !== "failed") {
+  // archived by hand without a merge → EXECUTED (before the PR-READY branch below)
+  if (t.status === "done") {
+    return STATUS_DISPLAY.done;
+  }
+  // a PR exists → the agent's done; blue PR READY wins over the amber pulse
+  if (t.prUrl && t.status !== "failed") {
     return { label: "PR READY", cls: "text-info", icon: "pr" };
   }
   if (t.status === "inbox" && wasDeployed(t)) {
@@ -63,9 +69,9 @@ function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } 
   return STATUS_DISPLAY[t.status];
 }
 
-/** Open PRs are blue; treated-as-merged (done + prUrl) is green. */
+/** A merged PR's link is green; an open one is blue. */
 function prLinkClass(task: Task): string {
-  return task.status === "done" ? "text-ok" : "text-info";
+  return task.mergedAt ? "text-ok" : "text-info";
 }
 
 export function StatusBadge({ task }: { task: Task }) {

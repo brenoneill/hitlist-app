@@ -49,6 +49,41 @@ async function getInstallationToken(installationId: string): Promise<string> {
   return body.token;
 }
 
+/** Splits a GitHub PR url into owner/repo/number, or null if it isn't one. */
+export function parsePrUrl(
+  prUrl: string,
+): { owner: string; repo: string; number: number } | null {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+  return m ? { owner: m[1], repo: m[2], number: Number(m[3]) } : null;
+}
+
+/**
+ * Whether a pull request has been merged. Needs the "Pull requests: read"
+ * permission on the App; without it GitHub 403s and this throws (callers swallow).
+ */
+export async function getPullMerged(
+  installationId: string,
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<boolean> {
+  const token = await getInstallationToken(installationId);
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${number}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`GitHub API ${res.status}`);
+  }
+  const body = (await res.json()) as { merged: boolean };
+  return body.merged;
+}
+
 // Only ever calls the Metadata-read-only "list repos this installation can see"
 // endpoint — the GitHub App backing this has no Contents permission, so there is
 // no code-reading capability to misuse even server-side.

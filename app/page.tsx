@@ -75,15 +75,19 @@ export default function Home() {
     load();
   }, []);
 
-  // ponytail: poll only while an agent is out. setInterval over react-query —
-  // one endpoint, no cache to share. Add the dep when a second view needs these tasks.
-  // Paused while dragging so a refetch can't clobber mid-drag state.
-  const anyRunning = tasks.some((t) => t.status === "running");
+  // ponytail: poll while an agent is out OR a PR is open awaiting merge (so the
+  // server can flip it to MERGED). setInterval over react-query — one endpoint,
+  // no cache to share. Paused while dragging so a refetch can't clobber mid-drag.
+  const anyPolling = tasks.some(
+    (t) =>
+      t.status === "running" ||
+      (t.prUrl && !t.mergedAt && t.status !== "failed" && t.status !== "done"),
+  );
   useEffect(() => {
-    if (!anyRunning || dragging) return;
+    if (!anyPolling || dragging) return;
     const id = setInterval(load, 10_000);
     return () => clearInterval(id);
-  }, [anyRunning, dragging]);
+  }, [anyPolling, dragging]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
