@@ -46,10 +46,13 @@ const STATUS_DISPLAY: Record<
 export const wasDeployed = (t: Task) => !!t.agentUrl;
 export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
 
-/** Status refined by what the run reported: PR waiting, agent mid-work. */
+/** Status refined by what the run reported: PR waiting, merged, agent mid-work. */
 function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } {
+  if (t.prUrl && t.status === "done") {
+    return { label: "MERGED", cls: "text-ok", icon: "pr" };
+  }
   if (t.prUrl && t.status !== "running" && t.status !== "failed") {
-    return { label: "PR READY", cls: "text-ok", icon: "pr" };
+    return { label: "PR READY", cls: "text-info", icon: "pr" };
   }
   if (t.status === "inbox" && wasDeployed(t)) {
     return { ...STATUS_DISPLAY.running, cls: "text-muted" }; // deployed, not running
@@ -58,6 +61,11 @@ function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } 
     return { label: "AGENT WORKING", cls: "text-warn animate-pulse", icon: "crosshair" };
   }
   return STATUS_DISPLAY[t.status];
+}
+
+/** Open PRs are blue; treated-as-merged (done + prUrl) is green. */
+function prLinkClass(task: Task): string {
+  return task.status === "done" ? "text-ok" : "text-info";
 }
 
 export function StatusBadge({ task }: { task: Task }) {
@@ -536,7 +544,7 @@ function TaskRow({
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
+          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(task)}`}
         >
           <Icon name="pr" className="size-3.5" />
           PR
@@ -622,7 +630,7 @@ function GroupHeader({
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
+          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(lead)}`}
         >
           <Icon name="pr" className="size-3.5" />
           PR

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import { StatusBadge, deployable } from "@/app/components/TaskList";
-import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { INFO_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
 function Sheet({
@@ -102,7 +102,11 @@ function AgentActions({
           href={lead.prUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_16px_rgba(34,197,94,0.4)] active:opacity-80"
+          className={
+            lead.status === "done"
+              ? "mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_16px_rgba(34,197,94,0.4)] active:opacity-80"
+              : "mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-info py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] active:opacity-80"
+          }
         >
           <Icon name="pr" className="size-4" />
           Review PR
@@ -113,7 +117,7 @@ function AgentActions({
         <button
           onClick={send}
           disabled={sending}
-          className={`${BLOOD_BUTTON} mb-3 w-full`}
+          className={`${INFO_BUTTON} mb-3 w-full`}
         >
           {sending
             ? "Deploying…"
