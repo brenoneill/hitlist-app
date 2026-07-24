@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import { StatusBadge, deployable } from "@/app/components/TaskList";
-import { INFO_BUTTON, Icon } from "@/app/components/Icons";
+import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
 function Sheet({
@@ -117,7 +117,7 @@ function AgentActions({
         <button
           onClick={send}
           disabled={sending}
-          className={`${INFO_BUTTON} mb-3 w-full`}
+          className={`${BLOOD_BUTTON} mb-3 w-full`}
         >
           {sending
             ? "Deploying…"
@@ -200,7 +200,7 @@ export function TaskSheet({
       </AgentActions>
       <button
         onClick={onDelete}
-        className="flex w-full items-center justify-center gap-2 py-2 text-base text-blood active:opacity-70"
+        className="flex w-full items-center justify-center gap-2 py-2 text-sm text-muted active:opacity-70"
       >
         <Icon name="trash" className="size-4" />
         Delete
