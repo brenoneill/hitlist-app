@@ -552,7 +552,7 @@ function TaskRow({
           onClick={(e) => e.stopPropagation()}
           className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(task)}`}
         >
-          <Icon name="pr" className="size-3.5" />
+          <Icon name="external" className="size-3.5" />
           PR
         </a>
       ) : task.agentUrl ? (
@@ -638,7 +638,7 @@ function GroupHeader({
           onClick={(e) => e.stopPropagation()}
           className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(lead)}`}
         >
-          <Icon name="pr" className="size-3.5" />
+          <Icon name="external" className="size-3.5" />
           PR
         </a>
       ) : lead.agentUrl ? (
