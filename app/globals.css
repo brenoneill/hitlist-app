@@ -9,6 +9,7 @@
   --color-blood: #dc2626;
   --color-ok: #22c55e;
   --color-warn: #f59e0b;
+  --color-info: #3b82f6;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --animate-slide-up: slide-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
