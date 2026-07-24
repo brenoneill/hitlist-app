@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
-import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { INFO_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { Tabs } from "@/app/components/Tabs";
 import { DoneList, TaskList } from "@/app/components/TaskList";
@@ -242,7 +242,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!title.trim() || !target}
-                className={`${BLOOD_BUTTON} px-5`}
+                className={`${INFO_BUTTON} px-5`}
               >
                 Mark
               </button>
