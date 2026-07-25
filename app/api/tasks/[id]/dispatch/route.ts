@@ -32,7 +32,7 @@ function buildPrompt(members: Task[]): string {
  * Dispatches an inbox task — or, if the task is grouped, its whole group — to
  * ONE Cursor cloud agent. The prompt is built by `buildPrompt` (title/bullet
  * list + optional per-task context + working agreement); a group's repo is the
- * first member's.
+ * first member's with one.
  * @param req - Optional JSON body with `ref` to override the starting branch.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
@@ -74,16 +74,20 @@ export async function POST(
     );
   }
 
-  if (!members[0].repoUrl) {
-    return Response.json({ error: "task has no repo" }, { status: 400 });
+  const repoUrl = members.find((m) => m.repoUrl)?.repoUrl;
+  if (!repoUrl) {
+    return Response.json(
+      { error: "no repo tagged on this task or group" },
+      { status: 400 },
+    );
   }
   const { ref } = (await req.json().catch(() => ({}))) as { ref?: string };
 
   try {
     const agent = await createAgent(
       buildPrompt(members),
-      members[0].repoUrl,
-      ref || "main",
+      repoUrl,
+      ref,
       cursorApiKey,
     );
     // serial: the JSON store clobbers on parallel writes

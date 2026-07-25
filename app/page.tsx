@@ -16,10 +16,8 @@ export default function Home() {
   const { status } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
-  const [repoUrl, setRepoUrl] = useState("");
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [connected, setConnected] = useState(false);
-  const [reposError, setReposError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -27,43 +25,64 @@ export default function Home() {
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [tab, setTab] = useState<Tab>("list");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
-  const [activeRepos, setActiveRepos] = useState<number[]>([]);
+  const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
 
   useEffect(() => {
-    setActiveRepos(JSON.parse(localStorage.getItem("activeRepos") ?? "[]"));
-    setRepoUrl(localStorage.getItem("repoUrl") ?? "");
+    setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
   }, []);
 
-  function pickRepo(url: string) {
-    setRepoUrl(url);
-    localStorage.setItem("repoUrl", url);
-  }
-
-  function toggleActive(id: number) {
-    setActiveRepos((prev) => {
+  function toggleBlocked(id: number) {
+    setBlockedRepos((prev) => {
       const next = prev.includes(id)
         ? prev.filter((x) => x !== id)
         : [...prev, id];
-      localStorage.setItem("activeRepos", JSON.stringify(next));
+      localStorage.setItem("blockedRepos", JSON.stringify(next));
       return next;
     });
   }
 
   const pickable = useMemo(
-    () =>
-      activeRepos.length
-        ? repos?.filter((r) => activeRepos.includes(r.id))
-        : repos,
-    [repos, activeRepos],
+    () => repos?.filter((r) => !blockedRepos.includes(r.id)) ?? [],
+    [repos, blockedRepos],
   );
 
-  // one repo to choose from → it's the target; otherwise the remembered pick, if it's still pickable
-  const target =
-    pickable?.length === 1
-      ? pickable[0].url
-      : pickable?.some((r) => r.url === repoUrl)
-        ? repoUrl
-        : "";
+  // -- mention picker: chip is the chosen repo, dropdown filters as you type
+  const [repo, setRepo] = useState<Repo | null>(null);
+  const [mIdx, setMIdx] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  // ponytail: trigger only matches at the end of the input; mid-string caret editing won't open it
+  const mention = title.match(/--(\S*)$/);
+  const matches =
+    mention && !dismissed
+      ? pickable
+          .filter((r) =>
+            r.name.toLowerCase().includes(mention[1].toLowerCase()),
+          )
+          .slice(0, 6)
+      : [];
+  const mentionOpen = matches.length > 0;
+
+  function pickMention(r: Repo) {
+    setRepo(r);
+    setTitle((t) => t.replace(/--\S*$/, "").trimEnd());
+  }
+
+  function onTitleKeyDown(e: React.KeyboardEvent) {
+    if (!mentionOpen) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMIdx((i) => (i + 1) % matches.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMIdx((i) => (i + matches.length - 1) % matches.length);
+    } else if (e.key === "Enter") {
+      // picks instead of submitting the form
+      e.preventDefault();
+      pickMention(matches[Math.min(mIdx, matches.length - 1)]);
+    } else if (e.key === "Escape") {
+      setDismissed(true);
+    }
+  }
 
   async function load() {
     const res = await fetch("/api/tasks");
@@ -75,27 +94,25 @@ export default function Home() {
     load();
   }, []);
 
-  // ponytail: poll while an agent is out OR a PR is open awaiting merge (so the
-  // server can flip it to MERGED). setInterval over react-query — one endpoint,
-  // no cache to share. Paused while dragging so a refetch can't clobber mid-drag.
-  const anyPolling = tasks.some(
-    (t) =>
-      t.status === "running" ||
-      (t.prUrl && !t.mergedAt && t.status !== "failed" && t.status !== "done"),
+  // ponytail: poll only while an agent is out (10s) or a PR is still open (60s —
+  // merges aren't urgent and every check costs a GitHub call). Stops dead once
+  // every PR is merged/closed. setInterval over react-query — one endpoint, no
+  // cache to share. Paused while dragging so a refetch can't clobber the drag.
+  const anyRunning = tasks.some((t) => t.status === "running");
+  const anyOpenPr = tasks.some(
+    (t) => t.prUrl && (t.prState ?? "open") === "open",
   );
+  const pollMs = anyRunning ? 10_000 : anyOpenPr ? 60_000 : 0;
   useEffect(() => {
-    if (!anyPolling || dragging) return;
-    const id = setInterval(load, 10_000);
+    if (!pollMs || dragging) return;
+    const id = setInterval(load, pollMs);
     return () => clearInterval(id);
-  }, [anyPolling, dragging]);
+  }, [pollMs, dragging]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/github/repos")
-      .then((res) => {
-        setReposError(!res.ok);
-        return res.ok ? res.json() : { connected: false, repos: [] };
-      })
+      .then((res) => (res.ok ? res.json() : { connected: false, repos: [] }))
       .then((body) => {
         setConnected(body.connected);
         setRepos(body.repos);
@@ -105,12 +122,12 @@ export default function Home() {
   async function add(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
-    if (!t || !target) return;
+    if (!t) return;
     setTitle("");
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: t, repoUrl: target }),
+      body: JSON.stringify({ title: t, repoUrl: repo?.url }),
     });
     load();
   }
@@ -225,8 +242,8 @@ export default function Home() {
           <GithubRepos
             repos={repos}
             connected={connected}
-            activeRepos={activeRepos}
-            onToggleActive={toggleActive}
+            blockedRepos={blockedRepos}
+            onToggleBlocked={toggleBlocked}
           />
         </div>
       )}
@@ -235,49 +252,64 @@ export default function Home() {
         <div key="list" className="animate-fade-in">
           <form onSubmit={add} className="mb-6 flex flex-col gap-2">
             <div className="flex gap-2">
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Name your next hit…"
-                enterKeyHint="done"
-                autoFocus
-                className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
-              />
+              <div className="relative min-w-0 flex-1">
+                <input
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setDismissed(false);
+                    setMIdx(0);
+                  }}
+                  onKeyDown={onTitleKeyDown}
+                  placeholder="Name your next hit… (-- tags a repo)"
+                  enterKeyHint="done"
+                  autoFocus
+                  className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+                />
+                {mentionOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setDismissed(true)}
+                    />
+                    <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                      {matches.map((r, i) => (
+                        <button
+                          type="button"
+                          key={r.id}
+                          onClick={() => pickMention(r)}
+                          className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
+                            i === mIdx ? "bg-background" : ""
+                          }`}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 type="submit"
-                disabled={!title.trim() || !target}
+                disabled={!title.trim()}
                 className={`${BLOOD_BUTTON} px-5`}
               >
                 Mark
               </button>
             </div>
-            <div className="relative">
-              <select
-                value={target}
-                onChange={(e) => pickRepo(e.target.value)}
-                disabled={!pickable || pickable.length === 0}
-                className="w-full appearance-none rounded-xl border border-edge bg-surface px-4 py-3 pr-10 text-base outline-none focus:border-blood"
-              >
-                <option value="">
-                  {reposError
-                    ? "Couldn't load repos — try again"
-                    : !connected
-                      ? "Connect GitHub repos above to pick one"
-                      : !pickable || pickable.length === 0
-                        ? "No repos shared yet"
-                        : "Choose a target repo…"}
-                </option>
-                {pickable?.map((repo) => (
-                  <option key={repo.id} value={repo.url}>
-                    {repo.name}
-                  </option>
-                ))}
-              </select>
-              <Icon
-                name="chevron"
-                className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-              />
-            </div>
+            {repo && (
+              <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs">
+                <Icon name="crosshair" className="size-3 text-blood" />
+                {repo.name}
+                <button
+                  type="button"
+                  onClick={() => setRepo(null)}
+                  aria-label="Remove repo"
+                >
+                  <Icon name="x" className="size-3 text-muted" />
+                </button>
+              </span>
+            )}
           </form>
 
           {loading ? (
@@ -332,6 +364,13 @@ export default function Home() {
         <TaskSheet
           key={selected.id}
           task={selected}
+          canDeploy={
+            !!selected.repoUrl ||
+            tasks.some(
+              (t) =>
+                t.groupId && t.groupId === selected.groupId && !!t.repoUrl,
+            )
+          }
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
           onDelete={() => remove(selected.id)}

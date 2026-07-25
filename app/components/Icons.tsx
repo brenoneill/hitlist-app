@@ -14,6 +14,7 @@ export type IconName =
   | "settings"
   | "list"
   | "pr"
+  | "merge"
   | "ellipsis";
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -51,6 +52,16 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <circle cx="6" cy="6" r="3" />
       <circle cx="18" cy="18" r="3" />
       <path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12" />
+    </>
+  ),
+  // GitHub's git-merge shape: trunk with a node top and bottom, side branch
+  // curving in from the right — deliberately NOT the pr icon's open arrow.
+  merge: (
+    <>
+      <circle cx="6" cy="5" r="2.5" />
+      <circle cx="6" cy="19" r="2.5" />
+      <circle cx="18" cy="12" r="2.5" />
+      <path d="M6 7.5v9M6 8c0 2.3 1.9 4 4.2 4h5.3" />
     </>
   ),
   github: (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Task } from "@/app/lib/tasks";
-import { StatusBadge, deployable } from "@/app/components/TaskList";
+import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
@@ -41,11 +41,14 @@ function elapsed(iso: string): string {
  */
 function AgentActions({
   lead,
+  canDeploy,
   beforeSend,
   onDeployed,
   children,
 }: {
   lead: Task;
+  /** False when neither the task nor any group member has a repo tagged. */
+  canDeploy: boolean;
   beforeSend?: () => Promise<void>;
   onDeployed: (body: unknown) => void;
   children?: React.ReactNode;
@@ -108,23 +111,30 @@ function AgentActions({
               : "mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-info py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] active:opacity-80"
           }
         >
-          <Icon name="pr" className="size-4" />
-          Review PR
+          <Icon name={prIcon(lead)} className="size-4" />
+          {lead.prState === "merged" ? "View merged PR" : "Review PR"}
         </a>
       )}
 
       {deployable(lead) && (
-        <button
-          onClick={send}
-          disabled={sending}
-          className={`${BLOOD_BUTTON} mb-3 w-full`}
-        >
-          {sending
-            ? "Deploying…"
-            : lead.groupId
-              ? "Deploy group"
-              : "Deploy agent"}
-        </button>
+        <>
+          <button
+            onClick={send}
+            disabled={sending || !canDeploy}
+            className={`${BLOOD_BUTTON} mb-3 w-full`}
+          >
+            {sending
+              ? "Deploying…"
+              : lead.groupId
+                ? "Deploy group"
+                : "Deploy agent"}
+          </button>
+          {!canDeploy && (
+            <p className="mb-3 text-center font-mono text-xs text-muted">
+              Tag a repo to deploy
+            </p>
+          )}
+        </>
       )}
 
       {lead.agentUrl && (
@@ -146,11 +156,14 @@ function AgentActions({
 
 export function TaskSheet({
   task,
+  canDeploy,
   onClose,
   onDispatched,
   onDelete,
 }: {
   task: Task;
+  /** From the page — the sheet can't see its group siblings' repos. */
+  canDeploy: boolean;
   onClose: () => void;
   /** Dispatching a grouped task returns every member. */
   onDispatched: (t: Task | Task[]) => void;
@@ -178,6 +191,7 @@ export function TaskSheet({
       <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
       <AgentActions
         lead={task}
+        canDeploy={canDeploy}
         beforeSend={saveDetails}
         onDeployed={(body) => onDispatched(body as Task | Task[])}
       >
@@ -249,7 +263,11 @@ export function GroupSheet({
           </li>
         ))}
       </ul>
-      <AgentActions lead={lead} onDeployed={() => onDeployed()} />
+      <AgentActions
+        lead={lead}
+        canDeploy={members.some((m) => m.repoUrl)}
+        onDeployed={() => onDeployed()}
+      />
       <button
         onClick={onDisband}
         className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"

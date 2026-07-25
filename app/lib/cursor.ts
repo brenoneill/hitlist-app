@@ -20,14 +20,14 @@ export interface CreatedAgent {
  * Creates a Cursor cloud agent against the given repository.
  * @param text - Prompt text sent to the agent.
  * @param repoUrl - GitHub repository URL the agent should work in.
- * @param ref - Branch or commit SHA used as the starting point.
+ * @param ref - Branch or commit SHA to start from; omit for the repo's default branch.
  * @returns The created agent id, dashboard url, and status.
  * @throws If the Cursor API rejects the request.
  */
 export async function createAgent(
   text: string,
   repoUrl: string,
-  ref: string,
+  ref: string | undefined,
   apiKey: string,
 ): Promise<CreatedAgent> {
   const res = await fetch(CREATE_URL, {
@@ -38,7 +38,7 @@ export async function createAgent(
     },
     body: JSON.stringify({
       prompt: { text },
-      repos: [{ url: repoUrl, startingRef: ref }],
+      repos: [{ url: repoUrl, ...(ref ? { startingRef: ref } : {}) }],
       autoCreatePR: true,
     }),
   });

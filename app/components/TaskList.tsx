@@ -46,18 +46,25 @@ const STATUS_DISPLAY: Record<
 export const wasDeployed = (t: Task) => !!t.agentUrl;
 export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
 
+/** Merged PRs get GitHub's merge glyph; anything still open keeps the PR one. */
+export const prIcon = (t: Task): IconName =>
+  t.prState === "merged" ? "merge" : "pr";
+
 /** Status refined by what the run reported: merged, PR waiting, agent mid-work. */
 function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } {
   // real GitHub merge only — a manual "mark executed" stays EXECUTED, not MERGED
-  if (t.mergedAt) {
-    return { label: "MERGED", cls: "text-ok", icon: "pr" };
+  if (t.prState === "merged") {
+    return { label: "MERGED", cls: "text-ok", icon: "merge" };
+  }
+  if (t.prState === "closed") {
+    return { label: "PR CLOSED", cls: "text-muted", icon: "x" };
   }
   // archived by hand without a merge → EXECUTED (before the PR-READY branch below)
   if (t.status === "done") {
     return STATUS_DISPLAY.done;
   }
   // a PR exists → the agent's done; blue PR READY wins over the amber pulse
-  if (t.prUrl && t.status !== "failed") {
+  if (t.prUrl && t.status !== "running" && t.status !== "failed") {
     return { label: "PR READY", cls: "text-info", icon: "pr" };
   }
   if (t.status === "inbox" && wasDeployed(t)) {
@@ -155,6 +162,8 @@ export function TaskList({
   const [activeId, setActiveId] = useState<string | null>(null);
   // unit id currently hovered with "absorb into group" intent
   const [combineTarget, setCombineTarget] = useState<string | null>(null);
+  // unit id briefly flashed when a drop was rejected for clashing repos
+  const [clash, setClash] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -242,8 +251,17 @@ export function TaskList({
       if (!aTask) return;
       const target = units.find((u) => u.id === combineId);
       if (!target) return;
+      // no clashing repos in one group: block when both sides target different repos
+      const tRepo = (target.kind === "group" ? target.members : [target.task])
+        .find((t) => t.repoUrl)?.repoUrl;
+      if (aTask.repoUrl && tRepo && tRepo !== aTask.repoUrl) {
+        navigator.vibrate?.(50);
+        setClash(target.id);
+        setTimeout(() => setClash(null), 600);
+        return;
+      }
       const gid = target.kind === "group" ? target.groupId : crypto.randomUUID();
-      // target stays first, so the group adopts the target's repo
+      // the group's repo is its first member's with one; the target stays first
       const anchor =
         target.kind === "group"
           ? target.members[target.members.length - 1].id
@@ -322,6 +340,7 @@ export function TaskList({
                 <TaskRow
                   task={u.task}
                   highlight={combineTarget === u.id}
+                  denied={clash === u.id}
                   onSelect={onSelect}
                   onToggle={onToggle}
                   onDelete={onDelete}
@@ -332,6 +351,7 @@ export function TaskList({
                 key={u.id}
                 unit={u}
                 highlight={combineTarget === u.id}
+                denied={clash === u.id}
                 onSelect={onSelect}
                 onSelectGroup={onSelectGroup}
                 onDelete={onDelete}
@@ -418,11 +438,14 @@ function ActionRow({
   actions,
   className = "",
   rowClassName,
+  trailing,
   children,
 }: {
   actions: RowAction[];
   className?: string;
   rowClassName: string;
+  /** Card call-to-action (PR / View agent) pinned to the bottom-right. */
+  trailing?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -431,10 +454,24 @@ function ActionRow({
       <div className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[inherit] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div
           className={`w-full shrink-0 snap-start ${rowClassName} ${
-            actions.length ? "pointer-fine:pr-9" : ""
+            actions.length ? "pointer-fine:pr-2" : ""
           }`}
         >
           {children}
+          {(actions.length > 0 || trailing) && (
+            <div className="flex shrink-0 flex-col items-end self-stretch">
+              {actions.length > 0 && (
+                <button
+                  onClick={() => setOpen((o) => !o)}
+                  aria-label="More actions"
+                  className="hidden p-1 text-muted hover:text-foreground pointer-fine:block"
+                >
+                  <Icon name="ellipsis" className="size-4" />
+                </button>
+              )}
+              {trailing && <div className="mt-auto">{trailing}</div>}
+            </div>
+          )}
         </div>
         {actions.map((a) => (
           <button
@@ -449,38 +486,28 @@ function ActionRow({
           </button>
         ))}
       </div>
-      {actions.length > 0 && (
-        <div className="absolute right-2 top-2 hidden pointer-fine:block">
-          <button
-            onClick={() => setOpen((o) => !o)}
-            aria-label="More actions"
-            className="p-1 text-muted hover:text-foreground"
-          >
-            <Icon name="ellipsis" className="size-4" />
-          </button>
-          {open && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-7 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-                {actions.map((a) => (
-                  <button
-                    key={a.label}
-                    onClick={() => {
-                      setOpen(false);
-                      a.onClick();
-                    }}
-                    className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background ${
-                      a.destructive ? "text-blood" : ""
-                    }`}
-                  >
-                    <Icon name={a.icon} className="size-4" />
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+      {/* popover lives outside the overflow-x scroller so it isn't clipped */}
+      {open && actions.length > 0 && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-2 top-9 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+            {actions.map((a) => (
+              <button
+                key={a.label}
+                onClick={() => {
+                  setOpen(false);
+                  a.onClick();
+                }}
+                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background ${
+                  a.destructive ? "text-blood" : ""
+                }`}
+              >
+                <Icon name={a.icon} className="size-4" />
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -489,12 +516,15 @@ function ActionRow({
 function TaskRow({
   task,
   highlight,
+  denied,
   onSelect,
   onToggle,
   onDelete,
 }: {
   task: Task;
   highlight?: boolean;
+  /** Flashes when a drop onto this row was rejected (clashing repos). */
+  denied?: boolean;
   onSelect?: (t: Task) => void;
   onToggle?: (t: Task) => void;
   onDelete?: (id: string) => void;
@@ -518,8 +548,34 @@ function TaskRow({
       actions={actions}
       className={`rounded-xl border border-edge bg-surface transition-transform ${
         highlight ? "scale-[1.02] ring-2 ring-blood" : ""
-      }`}
+      } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
       rowClassName="flex items-center gap-3 px-4 py-3"
+      trailing={
+        /* once a PR exists it's the call to action; the agent link lives in the sheet */
+        task.prUrl ? (
+          <a
+            href={task.prUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
+          >
+            <Icon name={prIcon(task)} className="size-3.5" />
+            {task.prState === "merged" ? "MERGED" : "PR"}
+          </a>
+        ) : task.agentUrl ? (
+          <a
+            href={task.agentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
+          >
+            <span className="sr-only">View agent</span>
+            <Icon name="external" className="size-3.5" />
+          </a>
+        ) : null
+      }
     >
       <button
         onClick={() => onSelect?.(task)}
@@ -534,6 +590,11 @@ function TaskRow({
         >
           {task.title}
         </span>
+        {task.repoUrl && (
+          <span className="text-xs text-muted">
+            --{task.repoUrl.split("/").pop()}
+          </span>
+        )}
         {(task.status !== "inbox" || wasDeployed(task)) && (
           <StatusBadge task={task} />
         )}
@@ -543,30 +604,6 @@ function TaskRow({
           </span>
         )}
       </button>
-      {/* once a PR exists it's the call to action; the agent link lives in the sheet */}
-      {task.prUrl ? (
-        <a
-          href={task.prUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(task)}`}
-        >
-          <Icon name="external" className="size-3.5" />
-          PR
-        </a>
-      ) : task.agentUrl ? (
-        <a
-          href={task.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
-        >
-          View agent
-          <Icon name="external" className="size-3.5" />
-        </a>
-      ) : null}
     </ActionRow>
   );
 }
@@ -615,7 +652,8 @@ function GroupHeader({
   onClick?: () => void;
 }) {
   const lead = members[0];
-  const repo = lead.repoUrl?.split("/").pop();
+  // the lead may be repo-less; the group's repo is the first member's with one
+  const repo = members.find((m) => m.repoUrl)?.repoUrl?.split("/").pop();
   return (
     <div className="flex items-center gap-2 pr-4">
       <button
@@ -638,8 +676,8 @@ function GroupHeader({
           onClick={(e) => e.stopPropagation()}
           className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(lead)}`}
         >
-          <Icon name="external" className="size-3.5" />
-          PR
+          <Icon name={prIcon(lead)} className="size-3.5" />
+          {lead.prState === "merged" ? "MERGED" : "PR"}
         </a>
       ) : lead.agentUrl ? (
         <a
@@ -649,7 +687,7 @@ function GroupHeader({
           onClick={(e) => e.stopPropagation()}
           className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
         >
-          View agent
+          <span className="sr-only">View agent</span>
           <Icon name="external" className="size-3.5" />
         </a>
       ) : null}
@@ -660,12 +698,15 @@ function GroupHeader({
 function SortableGroup({
   unit,
   highlight,
+  denied,
   onSelect,
   onSelectGroup,
   onDelete,
 }: {
   unit: Extract<Unit, { kind: "group" }>;
   highlight: boolean;
+  /** Flashes when a drop onto this group was rejected (clashing repos). */
+  denied: boolean;
   onSelect: (t: Task) => void;
   onSelectGroup: (groupId: string) => void;
   onDelete: (id: string) => void;
@@ -678,7 +719,7 @@ function SortableGroup({
       <div
         className={`rounded-xl border border-edge bg-surface transition-transform ${
           highlight ? "scale-[1.02] ring-2 ring-blood" : ""
-        }`}
+        } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
       >
         <GroupHeader
           members={unit.members}

@@ -4,10 +4,11 @@ import {
   listTasks,
   reorderTasks,
   updateTask,
+  type PrState,
   type Task,
 } from "@/app/lib/tasks";
 import { getLatestRun, type LatestRun, type RunStatus } from "@/app/lib/cursor";
-import { getPullMerged, parsePrUrl } from "@/app/lib/githubApp";
+import { getPrState } from "@/app/lib/githubApp";
 import {
   getCursorApiKey,
   getGithubInstallationId,
@@ -33,24 +34,15 @@ const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
 const needsRunPoll = (t: Task) =>
   !!t.cursorAgentId && !(t.runStatus && TERMINAL_RUN.has(t.runStatus as RunStatus));
 
-/** Poll the open PR for a merge until it lands (or the task is failed/archived). */
-const needsMergePoll = (t: Task) =>
-  !!t.prUrl && !t.mergedAt && t.status !== "failed" && t.status !== "done";
-
-/** Merge state of the task's PR; false (not merged) if the url is unparseable. */
-async function checkMerged(
-  prUrl: string,
-  installationId: string,
-): Promise<boolean> {
-  const pr = parsePrUrl(prUrl);
-  return pr ? getPullMerged(installationId, pr.owner, pr.repo, pr.number) : false;
-}
+/** Poll a PR until it's merged or closed; unpolled (no prState) counts as open. */
+const needsPrPoll = (t: Task) => !!t.prUrl && (t.prState ?? "open") === "open";
 
 /**
  * Brings dispatched tasks up to date with their Cursor run: status, branch,
- * PR url, final summary. Only `running` tasks get their status remapped — a
- * manually toggled done/inbox task keeps its toggle, but still captures the PR.
- * No-op when signed out or without an API key — the stored tasks are returned as-is.
+ * PR url, final summary — then with their PR's state on GitHub. Only `running`
+ * tasks get their status remapped — a manually toggled done/inbox task keeps
+ * its toggle, but still captures the PR. Each half no-ops without its
+ * credential, so a signed-out caller just gets the stored tasks back.
  */
 async function refresh(tasks: Task[]): Promise<Task[]> {
   const session = await auth();
@@ -62,13 +54,13 @@ async function refresh(tasks: Task[]): Promise<Task[]> {
   if (!apiKey && !installationId) return tasks;
 
   // ponytail: serial + per-poll: up to 2 Cursor calls per running task and 1
-  // GitHub call per open PR (token minted per merge check). Serial because
-  // updateTask read-modify-writes one JSON file and parallel writes clobber.
-  // Fine for a handful of tasks; move to a webhook if it ever gets chatty.
+  // GitHub call per open PR (one call covers open/closed/merged). Serial
+  // because updateTask read-modify-writes one JSON file and parallel writes
+  // clobber. Fine for a handful of tasks; move to a webhook if it ever gets chatty.
   const out: Task[] = [];
   // grouped tasks share a cursorAgentId / prUrl — poll each once, not per member
   const runCache = new Map<string, LatestRun | undefined>();
-  const mergedCache = new Map<string, boolean>();
+  const prCache = new Map<string, PrState>();
   for (const task of tasks) {
     const patch: Partial<Task> = {};
     try {
@@ -93,14 +85,15 @@ async function refresh(tasks: Task[]): Promise<Task[]> {
           }
         }
       }
-      // a real GitHub merge — not the manual toggle — is what archives to "MERGED"
-      if (installationId && needsMergePoll(task)) {
+      // a real GitHub merge — not the manual toggle — is what archives to DONE
+      if (installationId && needsPrPoll(task)) {
         const prUrl = task.prUrl!;
-        const merged = mergedCache.has(prUrl)
-          ? mergedCache.get(prUrl)!
-          : await checkMerged(prUrl, installationId);
-        mergedCache.set(prUrl, merged);
-        if (merged) {
+        const state = prCache.has(prUrl)
+          ? prCache.get(prUrl)!
+          : await getPrState(prUrl, installationId);
+        prCache.set(prUrl, state);
+        if (state !== task.prState) patch.prState = state;
+        if (state === "merged") {
           patch.status = "done";
           patch.mergedAt = new Date().toISOString();
         }
@@ -128,13 +121,9 @@ export async function POST(request: Request) {
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
   }
-  if (typeof repoUrl !== "string" || !repoUrl.trim()) {
-    return Response.json({ error: "repoUrl required" }, { status: 400 });
-  }
-  return Response.json(
-    await addTask(title.trim(), repoUrl.trim()),
-    { status: 201 },
-  );
+  const repo =
+    typeof repoUrl === "string" && repoUrl.trim() ? repoUrl.trim() : undefined;
+  return Response.json(await addTask(title.trim(), repo), { status: 201 });
 }
 
 /** Persists a new order/grouping. Only id + groupId are accepted per entry. */
