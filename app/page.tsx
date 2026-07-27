@@ -8,9 +8,12 @@ import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { Tabs } from "@/app/components/Tabs";
-import { DoneList, TaskList } from "@/app/components/TaskList";
+import { DoneList, TaskList, inFlight } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
+
+const SECTION_LABEL =
+  "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
 
 export default function Home() {
   const { status } = useSession();
@@ -216,6 +219,9 @@ export default function Home() {
 
   // done marks live at the bottom, newest kill first; the rest stay hand-sortable
   const active = tasks.filter((t) => t.status !== "done");
+  // deployed work rises to its own list above the untouched marks
+  const flying = active.filter(inFlight);
+  const pending = active.filter((t) => !inFlight(t));
   const done = tasks
     .filter((t) => t.status === "done")
     .sort((a, b) =>
@@ -338,16 +344,42 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <TaskList
-                tasks={active}
-                onReorder={(next) => persistOrder([...next, ...done])}
-                onSelect={setSelected}
-                onSelectGroup={setSelectedGroup}
-                onToggle={toggleDone}
-                onDelete={remove}
-                onDeploy={deploy}
-                onDraggingChange={setDragging}
-              />
+              {flying.length > 0 && (
+                <>
+                  <h2 className={SECTION_LABEL}>{flying.length} deployed</h2>
+                  <TaskList
+                    tasks={flying}
+                    onReorder={(next) =>
+                      persistOrder([...next, ...pending, ...done])
+                    }
+                    onSelect={setSelected}
+                    onSelectGroup={setSelectedGroup}
+                    onToggle={toggleDone}
+                    onDelete={remove}
+                    onDeploy={deploy}
+                    onDraggingChange={setDragging}
+                  />
+                </>
+              )}
+              {pending.length > 0 && (
+                <>
+                  {flying.length > 0 && (
+                    <h2 className={SECTION_LABEL}>{pending.length} marked</h2>
+                  )}
+                  <TaskList
+                    tasks={pending}
+                    onReorder={(next) =>
+                      persistOrder([...flying, ...next, ...done])
+                    }
+                    onSelect={setSelected}
+                    onSelectGroup={setSelectedGroup}
+                    onToggle={toggleDone}
+                    onDelete={remove}
+                    onDeploy={deploy}
+                    onDraggingChange={setDragging}
+                  />
+                </>
+              )}
               {done.length > 0 && (
                 <DoneList
                   tasks={done}

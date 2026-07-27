@@ -1,5 +1,6 @@
 // Thin client for the Cursor Cloud Agents API (https://cursor.com/docs/cloud-agent/api).
 const CREATE_URL = "https://api.cursor.com/v1/agents";
+const MODELS_URL = "https://api.cursor.com/v1/models";
 
 /** Terminal + in-flight run states returned by the Cursor API. */
 export type RunStatus =
@@ -21,6 +22,8 @@ export interface CreatedAgent {
  * @param text - Prompt text sent to the agent.
  * @param repoUrl - GitHub repository URL the agent should work in.
  * @param ref - Branch or commit SHA to start from; omit for the repo's default branch.
+ * @param apiKey - Cursor API key.
+ * @param modelId - Model id from `listModels`; omit to use the account's default model.
  * @returns The created agent id, dashboard url, and status.
  * @throws If the Cursor API rejects the request.
  */
@@ -29,6 +32,7 @@ export async function createAgent(
   repoUrl: string,
   ref: string | undefined,
   apiKey: string,
+  modelId?: string,
 ): Promise<CreatedAgent> {
   const res = await fetch(CREATE_URL, {
     method: "POST",
@@ -40,6 +44,7 @@ export async function createAgent(
       prompt: { text },
       repos: [{ url: repoUrl, ...(ref ? { startingRef: ref } : {}) }],
       autoCreatePR: true,
+      ...(modelId ? { model: { id: modelId } } : {}),
     }),
   });
 
@@ -49,6 +54,31 @@ export async function createAgent(
 
   const { agent } = await res.json();
   return { id: agent.id, url: agent.url, status: agent.status };
+}
+
+export interface CursorModel {
+  id: string;
+  displayName: string;
+}
+
+/**
+ * Lists models available for cloud agents.
+ * @param apiKey - Cursor API key.
+ * @returns Available models (id + display name).
+ * @throws If the Cursor API rejects the request.
+ */
+export async function listModels(apiKey: string): Promise<CursorModel[]> {
+  const res = await fetch(MODELS_URL, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Cursor API ${res.status}: ${await res.text()}`);
+  }
+  const { items } = await res.json();
+  return (items as { id: string; displayName?: string }[]).map((m) => ({
+    id: m.id,
+    displayName: m.displayName ?? m.id,
+  }));
 }
 
 export interface LatestRun {

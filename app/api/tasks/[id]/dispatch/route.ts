@@ -33,7 +33,7 @@ function buildPrompt(members: Task[]): string {
  * ONE Cursor cloud agent. The prompt is built by `buildPrompt` (title/bullet
  * list + optional per-task context + working agreement); a group's repo is the
  * first member's with one.
- * @param req - Optional JSON body with `ref` to override the starting branch.
+ * @param req - Optional JSON body with `ref` to override the starting branch and `model` to pick the agent's model.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -81,7 +81,10 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { ref } = (await req.json().catch(() => ({}))) as { ref?: string };
+  const { ref, model } = (await req.json().catch(() => ({}))) as {
+    ref?: string;
+    model?: string;
+  };
 
   try {
     const agent = await createAgent(
@@ -89,6 +92,7 @@ export async function POST(
       repoUrl,
       ref,
       cursorApiKey,
+      model,
     );
     // serial: the JSON store clobbers on parallel writes
     const updated: Task[] = [];
