@@ -133,11 +133,6 @@ function AgentActions({
                 ? "Deploy group"
                 : "Deploy agent"}
           </button>
-          {!canDeploy && (
-            <p className="mb-3 text-center font-mono text-xs text-muted">
-              Tag a repo to deploy
-            </p>
-          )}
         </>
       )}
 
