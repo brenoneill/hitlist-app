@@ -201,6 +201,19 @@ export default function Home() {
     });
   }
 
+  /** Dispatches from the row menu; on failure opens the sheet so the user can retry. */
+  async function deploy(task: Task) {
+    const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      setSelectedGroup(null);
+      setSelected(task);
+      return;
+    }
+    onDispatched(await res.json());
+  }
+
   // done marks live at the bottom, newest kill first; the rest stay hand-sortable
   const active = tasks.filter((t) => t.status !== "done");
   const done = tasks
@@ -332,6 +345,7 @@ export default function Home() {
                 onSelectGroup={setSelectedGroup}
                 onToggle={toggleDone}
                 onDelete={remove}
+                onDeploy={deploy}
                 onDraggingChange={setDragging}
               />
               {done.length > 0 && (
