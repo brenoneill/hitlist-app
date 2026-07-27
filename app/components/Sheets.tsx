@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
+import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
@@ -43,6 +44,7 @@ function elapsed(iso: string): string {
 function AgentActions({
   lead,
   canDeploy,
+  hideRepo,
   beforeSend,
   onDeployed,
   children,
@@ -50,6 +52,8 @@ function AgentActions({
   lead: Task;
   /** False when neither the task nor any group member has a repo tagged. */
   canDeploy: boolean;
+  /** When the parent sheet owns an editable repo chip. */
+  hideRepo?: boolean;
   beforeSend?: () => Promise<void>;
   onDeployed: (body: unknown) => void;
   children?: React.ReactNode;
@@ -96,7 +100,7 @@ function AgentActions({
             Working for {elapsed(lead.dispatchedAt)}
           </p>
         )}
-        {lead.repoUrl && (
+        {!hideRepo && lead.repoUrl && (
           <p className="truncate font-mono text-xs text-muted">{lead.repoUrl}</p>
         )}
         {lead.branch && (
@@ -158,11 +162,6 @@ function AgentActions({
                 ? "Deploy group"
                 : "Deploy agent"}
           </button>
-          {!canDeploy && (
-            <p className="mb-3 text-center font-mono text-xs text-muted">
-              Tag a repo to deploy
-            </p>
-          )}
         </>
       )}
 
@@ -186,6 +185,7 @@ function AgentActions({
 export function TaskSheet({
   task,
   canDeploy,
+  repos,
   onClose,
   onDispatched,
   onDelete,
@@ -193,21 +193,53 @@ export function TaskSheet({
   task: Task;
   /** From the page — the sheet can't see its group siblings' repos. */
   canDeploy: boolean;
+  /** Pickable GitHub repos for post-create tagging. */
+  repos: Repo[];
   onClose: () => void;
   /** Dispatching a grouped task returns every member. */
   onDispatched: (t: Task | Task[]) => void;
   onDelete: () => void;
 }) {
   const [details, setDetails] = useState(task.details ?? "");
+  const [title, setTitle] = useState(task.title);
+  const [pickingRepo, setPickingRepo] = useState(false);
+  const [repoFilter, setRepoFilter] = useState("");
+  const editable = deployable(task);
+  const tagged = repos.find((r) => r.url === task.repoUrl);
+  const repoMatches = repos
+    .filter((r) =>
+      r.name.toLowerCase().includes(repoFilter.trim().toLowerCase()),
+    )
+    .slice(0, 8);
 
-  async function saveDetails() {
-    if (details.trim() === (task.details ?? "")) return;
+  async function patch(body: Record<string, unknown>) {
     const res = await fetch(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ details }),
+      body: JSON.stringify(body),
     });
     if (res.ok) onDispatched(await res.json());
+  }
+
+  async function saveDetails() {
+    if (details.trim() === (task.details ?? "")) return;
+    await patch({ details });
+  }
+
+  async function saveTitle() {
+    const next = title.trim();
+    if (!next || next === task.title) {
+      setTitle(task.title);
+      return;
+    }
+    await patch({ title: next });
+  }
+
+  async function tagRepo(url: string | null) {
+    setPickingRepo(false);
+    setRepoFilter("");
+    if ((url ?? undefined) === task.repoUrl) return;
+    await patch({ repoUrl: url });
   }
 
   return (
@@ -217,14 +249,92 @@ export function TaskSheet({
           In a group · deploys together
         </p>
       )}
-      <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
+      {editable ? (
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={saveTitle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          aria-label="Item name"
+          className="mb-2 w-full break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
+        />
+      ) : (
+        <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
+      )}
+      {editable && (
+        <div className="mb-3">
+          {task.repoUrl ? (
+            <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs">
+              <Icon name="crosshair" className="size-3 text-blood" />
+              <span className="truncate">{tagged?.name ?? task.repoUrl}</span>
+              <button
+                type="button"
+                onClick={() => tagRepo(null)}
+                aria-label="Remove repo"
+              >
+                <Icon name="x" className="size-3 text-muted" />
+              </button>
+            </span>
+          ) : (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setPickingRepo((o) => !o)}
+                className="flex items-center gap-1.5 rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs text-muted active:opacity-80"
+              >
+                <Icon name="crosshair" className="size-3" />
+                Tag a repo
+              </button>
+              {pickingRepo && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setPickingRepo(false)}
+                  />
+                  <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                    <input
+                      value={repoFilter}
+                      onChange={(e) => setRepoFilter(e.target.value)}
+                      placeholder="Filter repos…"
+                      autoFocus
+                      className="w-full border-b border-edge bg-transparent px-4 py-2.5 font-mono text-sm outline-none placeholder:text-muted"
+                    />
+                    {repoMatches.length === 0 ? (
+                      <p className="px-4 py-2.5 font-mono text-xs text-muted">
+                        No repos
+                      </p>
+                    ) : (
+                      repoMatches.map((r) => (
+                        <button
+                          type="button"
+                          key={r.id}
+                          onClick={() => tagRepo(r.url)}
+                          className="block w-full truncate px-4 py-2.5 text-left font-mono text-sm active:bg-background"
+                        >
+                          {r.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <AgentActions
         lead={task}
         canDeploy={canDeploy}
+        hideRepo={editable}
         beforeSend={saveDetails}
         onDeployed={(body) => onDispatched(body as Task | Task[])}
       >
-        {deployable(task) ? (
+        {editable ? (
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
