@@ -385,6 +385,7 @@ export default function Home() {
                 t.groupId && t.groupId === selected.groupId && !!t.repoUrl,
             )
           }
+          repos={pickable}
           onClose={() => setSelected(null)}
           onDispatched={onDispatched}
           onDelete={() => remove(selected.id)}
