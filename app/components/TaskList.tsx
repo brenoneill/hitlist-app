@@ -148,6 +148,7 @@ export function TaskList({
   onSelectGroup,
   onToggle,
   onDelete,
+  onDeploy,
   onDraggingChange,
 }: {
   tasks: Task[];
@@ -156,6 +157,7 @@ export function TaskList({
   onSelectGroup: (groupId: string) => void;
   onToggle: (t: Task) => void;
   onDelete: (id: string) => void;
+  onDeploy: (t: Task) => void;
   onDraggingChange: (dragging: boolean) => void;
 }) {
   const units = toUnits(tasks);
@@ -344,6 +346,7 @@ export function TaskList({
                   onSelect={onSelect}
                   onToggle={onToggle}
                   onDelete={onDelete}
+                  onDeploy={onDeploy}
                 />
               </SortableShell>
             ) : (
@@ -355,6 +358,7 @@ export function TaskList({
                 onSelect={onSelect}
                 onSelectGroup={onSelectGroup}
                 onDelete={onDelete}
+                onDeploy={onDeploy}
               />
             ),
           )}
@@ -520,6 +524,7 @@ function TaskRow({
   onSelect,
   onToggle,
   onDelete,
+  onDeploy,
 }: {
   task: Task;
   highlight?: boolean;
@@ -528,8 +533,16 @@ function TaskRow({
   onSelect?: (t: Task) => void;
   onToggle?: (t: Task) => void;
   onDelete?: (id: string) => void;
+  onDeploy?: (t: Task) => void;
 }) {
   const actions: RowAction[] = [];
+  // only when a repo is tagged — otherwise open the sheet to tag one first
+  if (onDeploy && deployable(task) && task.repoUrl)
+    actions.push({
+      icon: "crosshair",
+      label: "Deploy agent",
+      onClick: () => onDeploy(task),
+    });
   if (onToggle)
     actions.push({
       icon: task.status === "done" ? "crosshair" : "check",
@@ -702,6 +715,7 @@ function SortableGroup({
   onSelect,
   onSelectGroup,
   onDelete,
+  onDeploy,
 }: {
   unit: Extract<Unit, { kind: "group" }>;
   highlight: boolean;
@@ -710,7 +724,11 @@ function SortableGroup({
   onSelect: (t: Task) => void;
   onSelectGroup: (groupId: string) => void;
   onDelete: (id: string) => void;
+  onDeploy: (t: Task) => void;
 }) {
+  // group deploys as one; any member's action dispatches the whole group
+  const canDeployGroup =
+    unit.members.every(deployable) && unit.members.some((m) => m.repoUrl);
   return (
     <SortableShell
       id={unit.id}
@@ -734,8 +752,10 @@ function SortableGroup({
               <SortableMember
                 key={m.id}
                 task={m}
+                canDeploy={canDeployGroup}
                 onSelect={onSelect}
                 onDelete={onDelete}
+                onDeploy={onDeploy}
               />
             ))}
           </ul>
@@ -747,15 +767,32 @@ function SortableGroup({
 
 function SortableMember({
   task,
+  canDeploy,
   onSelect,
   onDelete,
+  onDeploy,
 }: {
   task: Task;
+  canDeploy: boolean;
   onSelect: (t: Task) => void;
   onDelete: (id: string) => void;
+  onDeploy: (t: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: `member-${task.id}` });
+  const actions: RowAction[] = [];
+  if (canDeploy)
+    actions.push({
+      icon: "crosshair",
+      label: "Deploy group",
+      onClick: () => onDeploy(task),
+    });
+  actions.push({
+    icon: "trash",
+    label: "Delete",
+    destructive: true,
+    onClick: () => onDelete(task.id),
+  });
   return (
     <li
       ref={setNodeRef}
@@ -767,14 +804,7 @@ function SortableMember({
       }`}
     >
       <ActionRow
-        actions={[
-          {
-            icon: "trash",
-            label: "Delete",
-            destructive: true,
-            onClick: () => onDelete(task.id),
-          },
-        ]}
+        actions={actions}
         rowClassName="flex items-center gap-3 px-4 py-2.5"
       >
         {/* tap a member to give it its own context; the group still deploys as one */}
