@@ -45,6 +45,9 @@ const STATUS_DISPLAY: Record<
 /** A dispatched agent outlives the done toggle — status alone forgets it. */
 export const wasDeployed = (t: Task) => !!t.agentUrl;
 export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
+/** Work in progress: an agent is out (or its PR still landing) and it isn't archived. */
+export const inFlight = (t: Task) =>
+  t.status !== "done" && (t.status === "running" || wasDeployed(t));
 
 /** Merged PRs get GitHub's merge glyph; anything still open keeps the PR one. */
 export const prIcon = (t: Task): IconName =>

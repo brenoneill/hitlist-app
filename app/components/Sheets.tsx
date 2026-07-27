@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import type { Repo } from "@/app/components/GithubRepos";
+import type { CursorModel } from "@/app/lib/cursor";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
@@ -59,6 +60,18 @@ function AgentActions({
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [models, setModels] = useState<CursorModel[]>([]);
+  const [model, setModel] = useState("");
+
+  useEffect(() => {
+    if (!deployable(lead)) return;
+    fetch("/api/models")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setModels)
+      .catch(() => {});
+    // deployable(lead) only flips false->true per sheet open, safe to run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function send() {
     setSending(true);
@@ -66,6 +79,8 @@ function AgentActions({
     await beforeSend?.();
     const res = await fetch(`/api/tasks/${lead.id}/dispatch`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(model ? { model } : {}),
     });
     const body = await res.json();
     setSending(false);
@@ -122,6 +137,20 @@ function AgentActions({
 
       {deployable(lead) && (
         <>
+          {models.length > 0 && (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="mb-3 w-full rounded-xl border border-edge bg-background px-4 py-3 text-sm outline-none focus:border-blood"
+            >
+              <option value="">Auto (default model)</option>
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={send}
             disabled={sending || !canDeploy}
