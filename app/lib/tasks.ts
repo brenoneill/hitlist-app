@@ -26,6 +26,8 @@ export interface Task {
   dispatchedAt?: string;
   /** Optional extra context included in the agent prompt on dispatch. */
   details?: string;
+  /** User-attached screenshot URLs on litter.catbox.moe (public, expire ~72h). */
+  imageUrls?: string[];
   /** Stamped whenever status becomes "done"; orders the completed list. */
   doneAt?: string;
   /** Stamped when the PR is observed merged on GitHub; distinguishes MERGED from a manual EXECUTED. */

@@ -290,6 +290,9 @@ export function TaskSheet({
   const [pickingRepo, setPickingRepo] = useState(false);
   const [repoFilter, setRepoFilter] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const editable = deployable(task);
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
@@ -319,6 +322,23 @@ export function TaskSheet({
       return;
     }
     await patch({ title: next });
+  }
+
+  async function uploadImage(file: File) {
+    setUploading(true);
+    setUploadError(null);
+    const fd = new FormData();
+    fd.set("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const body = await res.json().catch(() => ({}));
+    setUploading(false);
+    if (!res.ok) {
+      setUploadError((body as { error?: string }).error ?? "upload failed");
+      return;
+    }
+    await patch({
+      imageUrls: [...(task.imageUrls ?? []), (body as { url: string }).url],
+    });
   }
 
   async function tagRepo(url: string | null) {
@@ -454,20 +474,113 @@ export function TaskSheet({
         onDeployed={(body) => onDispatched(body as Task | Task[])}
       >
         {editable ? (
-          <textarea
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            onBlur={saveDetails}
-            placeholder="Context for the agent — optional"
-            rows={3}
-            className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base leading-normal outline-none placeholder:text-muted focus:border-blood"
-          />
+          <>
+            <textarea
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              onBlur={saveDetails}
+              placeholder="Context for the agent — optional"
+              rows={3}
+              className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base leading-normal outline-none placeholder:text-muted focus:border-blood"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) uploadImage(file);
+              }}
+            />
+            {(task.imageUrls?.length ?? 0) > 0 ? (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {task.imageUrls!.map((url) => (
+                  <span key={url} className="relative">
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt="Attached screenshot"
+                        className="h-16 w-16 rounded-lg border border-edge object-cover"
+                      />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patch({
+                          imageUrls: (task.imageUrls ?? []).filter(
+                            (u) => u !== url,
+                          ),
+                        })
+                      }
+                      aria-label="Remove screenshot"
+                      className="absolute -right-1.5 -top-1.5 rounded-full border border-edge bg-surface p-0.5"
+                    >
+                      <Icon name="x" className="size-3 text-muted" />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Add another screenshot"
+                  className="flex h-16 w-16 items-center justify-center rounded-lg border border-edge bg-background font-mono text-lg leading-none text-muted active:opacity-80 disabled:opacity-40"
+                >
+                  {uploading ? "…" : "+"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="mb-3 flex items-center gap-1.5 rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs text-muted active:opacity-80 disabled:opacity-40"
+              >
+                <Icon name="image" className="size-3" />
+                {uploading ? "Uploading…" : "Add screenshot"}
+              </button>
+            )}
+            {(task.imageUrls?.length ?? 0) > 0 && (
+              <p className="mb-3 mt-2 font-mono text-xs text-warn">
+                Screenshots upload to a public temp host so the agent can read
+                them — anyone with the link can view them. Nothing sensitive.
+                Auto-deletes within 72h, so deploy soon after attaching.
+              </p>
+            )}
+            {uploadError && (
+              <p className="mb-3 font-mono text-xs text-blood">{uploadError}</p>
+            )}
+          </>
         ) : (
-          task.details && (
-            <p className="mb-3 min-h-[5.5rem] whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
-              {task.details}
-            </p>
-          )
+          <>
+            {task.details && (
+              <p className="mb-3 min-h-[5.5rem] whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
+                {task.details}
+              </p>
+            )}
+            {(task.imageUrls?.length ?? 0) > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {task.imageUrls!.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt="Attached screenshot"
+                      className="h-16 rounded-lg border border-edge object-cover"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </AgentActions>
     </Sheet>

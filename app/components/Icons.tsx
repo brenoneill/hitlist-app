@@ -15,7 +15,8 @@ export type IconName =
   | "list"
   | "pr"
   | "merge"
-  | "ellipsis";
+  | "ellipsis"
+  | "image";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   crosshair: (
@@ -40,6 +41,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  image: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="9" cy="10" r="1.5" />
+      <path d="M3 17l5-5 4 4 3-3 6 6" />
+    </>
+  ),
   ellipsis: (
     <>
       <circle cx="5" cy="12" r="1" fill="currentColor" />

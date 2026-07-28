@@ -36,7 +36,16 @@ function buildPrompt(members: Task[], screenshots: boolean, repoUrl: string): st
                 : ""),
           )
           .join("\n");
-  return `${body}\n\n${screenshots ? `${screenshotCriteria(repoUrl)}\n\n` : ""}${WORKING_AGREEMENT}`;
+  // ponytail: URLs in prompt text, not Cursor's base64 `prompt.images` — the host is public; switch if agents stop fetching them.
+  const images = members.flatMap((m) =>
+    (m.imageUrls ?? []).map(
+      (u) => `- ${members.length > 1 ? `${m.title}: ` : ""}${u}`,
+    ),
+  );
+  const imageSection = images.length
+    ? `## Screenshots (user-attached)\nFetch and view these before starting; they are on expiring temp hosting, so fetch them first. If one already 404s, say so in the PR rather than guessing its contents.\n${images.join("\n")}\n\n`
+    : "";
+  return `${body}\n\n${imageSection}${screenshots ? `${screenshotCriteria(repoUrl)}\n\n` : ""}${WORKING_AGREEMENT}`;
 }
 
 /**

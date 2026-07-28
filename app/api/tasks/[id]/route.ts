@@ -5,8 +5,9 @@ const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
 
 /**
  * Updates a task by id. Accepts a JSON body with optional `status`, `details`,
- * `title`, and `repoUrl` fields (details/title are trimmed; empty details clears
- * it; empty title is rejected; null/empty repoUrl clears the tag).
+ * `title`, `repoUrl`, and `imageUrls` fields (details/title are trimmed; empty
+ * details clears it; empty title is rejected; null/empty repoUrl clears the
+ * tag; imageUrls must be litter.catbox.moe URLs, empty array clears them).
  * @param req - Incoming request with a JSON patch body.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated task, or 400/404 on failure.
@@ -17,11 +18,12 @@ export async function PATCH(
 ) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
-  const { status, details, title, repoUrl } = body as {
+  const { status, details, title, repoUrl, imageUrls } = body as {
     status?: unknown;
     details?: unknown;
     title?: unknown;
     repoUrl?: unknown;
+    imageUrls?: unknown;
   };
 
   if (status !== undefined && !STATUSES.includes(status as TaskStatus)) {
@@ -42,6 +44,26 @@ export async function PATCH(
   ) {
     return Response.json({ error: "invalid repoUrl" }, { status: 400 });
   }
+  // host-pinned to the upload route's hosts: these URLs are pasted verbatim
+  // into the agent prompt
+  const allowedImageUrl = (u: unknown) => {
+    if (typeof u !== "string") return false;
+    try {
+      const { protocol, hostname } = new URL(u);
+      return (
+        protocol === "https:" &&
+        (hostname === "litter.catbox.moe" || hostname.endsWith(".uguu.se"))
+      );
+    } catch {
+      return false;
+    }
+  };
+  if (
+    imageUrls !== undefined &&
+    (!Array.isArray(imageUrls) || !imageUrls.every(allowedImageUrl))
+  ) {
+    return Response.json({ error: "invalid imageUrls" }, { status: 400 });
+  }
 
   const updated = await updateTask(id, {
     ...(status !== undefined ? { status: status as TaskStatus } : {}),
@@ -54,6 +76,9 @@ export async function PATCH(
               ? repoUrl.trim()
               : undefined,
         }
+      : {}),
+    ...(imageUrls !== undefined
+      ? { imageUrls: (imageUrls as string[]).length ? (imageUrls as string[]) : undefined }
       : {}),
   });
   if (!updated) {
