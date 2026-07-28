@@ -1,0 +1,40 @@
+{
+  "viewportMeta": "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+  "titleFocusMetrics": {
+    "scale": 1,
+    "innerWidth": 390,
+    "visualWidth": 390,
+    "sheetWidth": 390,
+    "sheetLeft": 0,
+    "sheetRight": 390
+  },
+  "detailsFocusMetrics": {
+    "scale": 1,
+    "innerWidth": 390,
+    "visualWidth": 390,
+    "sheetWidth": 390,
+    "sheetLeft": 0,
+    "sheetRight": 390,
+    "detailsFontSize": "16px"
+  },
+  "selectFocusMetrics": {
+    "scale": 1,
+    "innerWidth": 390,
+    "visualWidth": 390,
+    "sheetWidth": 390,
+    "sheetLeft": 0,
+    "sheetRight": 390,
+    "selectFontSize": "16px"
+  },
+  "titleMetrics": {
+    "scrollHeight": 84,
+    "clientHeight": 84,
+    "lineHeight": 28,
+    "approxLines": 3,
+    "tagName": "TEXTAREA",
+    "value": "Hydration error on phone when focusing the action sheet title and context fields on iOS Safari"
+  },
+  "noZoom": true,
+  "sheetFitsViewport": true,
+  "titleIsMultiline": true
+}

@@ -30,6 +30,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#0a0a0a",
   viewportFit: "cover",
+  // iOS Safari zooms focused inputs under 16px and leaves the sheet
+  // skewed; lock scale so the phone PWA stays in proportion.
+  maximumScale: 1,
 };
 
 export default function RootLayout({

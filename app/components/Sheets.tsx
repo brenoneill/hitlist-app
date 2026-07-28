@@ -216,7 +216,7 @@ function AgentActions({
             disabled={!modelsReady}
             aria-busy={!modelsReady}
             aria-label="Agent model"
-            className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-sm outline-none focus:border-blood disabled:opacity-70"
+            className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood disabled:opacity-70"
           >
             <option value="">
               {modelsReady ? "Auto (default model)" : "Loading models…"}
@@ -358,21 +358,18 @@ export function TaskSheet({
             </p>
           )}
           {editable ? (
-            <input
+            <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={saveTitle}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
+              rows={1}
               aria-label="Item name"
-              className="w-full break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
+              className="field-sizing-content w-full resize-none overflow-hidden break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
             />
           ) : (
-            <p className="break-words text-lg font-medium">{task.title}</p>
+            <p className="whitespace-pre-wrap break-words text-lg font-medium">
+              {task.title}
+            </p>
           )}
         </div>
         <button
@@ -441,7 +438,7 @@ export function TaskSheet({
                       onChange={(e) => setRepoFilter(e.target.value)}
                       placeholder="Filter repos…"
                       autoFocus
-                      className="w-full border-b border-edge bg-transparent px-4 py-2.5 font-mono text-sm outline-none placeholder:text-muted"
+                      className="w-full border-b border-edge bg-transparent px-4 py-2.5 font-mono text-base outline-none placeholder:text-muted"
                     />
                     {repoMatches.length === 0 ? (
                       <p className="px-4 py-2.5 font-mono text-xs text-muted">
