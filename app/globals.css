@@ -15,6 +15,8 @@
   --animate-slide-up: slide-up 0.38s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-fade-in: fade-in 0.32s ease-out;
   --animate-fade-out: fade-out 0.28s ease-in forwards;
+  --animate-tab-in-right: tab-in-right 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-tab-in-left: tab-in-left 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @keyframes slide-up {
@@ -32,6 +34,27 @@
 @keyframes fade-out {
   to {
     opacity: 0;
+  }
+}
+
+@keyframes tab-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes tab-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --animate-tab-in-right: fade-in 0.2s ease-out;
+    --animate-tab-in-left: fade-in 0.2s ease-out;
   }
 }
 

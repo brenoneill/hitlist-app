@@ -12,6 +12,8 @@ import { DoneList, TaskList, inFlight } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
 
+const TABS: Tab[] = ["list", "settings"];
+
 const SECTION_LABEL =
   "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
 
@@ -27,9 +29,17 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [tab, setTab] = useState<Tab>("list");
+  const [tabDir, setTabDir] = useState<"left" | "right">("right");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  function selectTab(next: Tab) {
+    const from = TABS.indexOf(tab);
+    const to = TABS.indexOf(next);
+    if (to !== from) setTabDir(to > from ? "right" : "left");
+    setTab(next);
+  }
 
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
@@ -261,11 +271,16 @@ export default function Home() {
           { id: "settings", label: "Settings", icon: "settings" },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={selectTab}
       />
 
       {tab === "settings" && (
-        <div key="settings" className="animate-fade-in">
+        <div
+          key="settings"
+          className={
+            tabDir === "right" ? "animate-tab-in-right" : "animate-tab-in-left"
+          }
+        >
           <GithubRepos
             repos={repos}
             connected={connected}
@@ -276,7 +291,12 @@ export default function Home() {
       )}
 
       {tab === "list" && (
-        <div key="list" className="animate-fade-in">
+        <div
+          key="list"
+          className={
+            tabDir === "right" ? "animate-tab-in-right" : "animate-tab-in-left"
+          }
+        >
           <form onSubmit={add} className="mb-6 flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
