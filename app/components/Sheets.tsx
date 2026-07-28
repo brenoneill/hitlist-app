@@ -7,7 +7,7 @@ import type { CursorModel } from "@/app/lib/cursor";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
-/** Bottom sheet: nearly full-height on phone, slides up on open / down on close. */
+/** Bottom sheet: sizes to content up to 92dvh, slides up on open / down on close. */
 function Sheet({
   onClose,
   children,
@@ -32,7 +32,7 @@ function Sheet({
       <div
         role="dialog"
         aria-modal="true"
-        className={`flex h-[92dvh] max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface ${
+        className={`flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface ${
           closing ? "animate-slide-down" : "animate-slide-up"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -46,7 +46,7 @@ function Sheet({
         <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
           <div className="h-1 w-10 rounded-full bg-edge" />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
           {children}
         </div>
       </div>
@@ -409,7 +409,7 @@ export function TaskSheet({
             onBlur={saveDetails}
             placeholder="Context for the agent — optional"
             rows={3}
-            className="mb-3 w-full resize-none rounded-xl border border-edge bg-background px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+            className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
           />
         ) : (
           task.details && (
