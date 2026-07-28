@@ -26,6 +26,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
+import { newId } from "@/app/lib/id";
 import { Icon, type IconName } from "@/app/components/Icons";
 
 const STATUS_DISPLAY: Record<
@@ -307,7 +308,7 @@ export function TaskList({
         setTimeout(() => setClash(null), 600);
         return;
       }
-      const gid = target.kind === "group" ? target.groupId : crypto.randomUUID();
+      const gid = target.kind === "group" ? target.groupId : newId();
       // the group's repo is its first member's with one; the target stays first
       const anchor =
         target.kind === "group"
