@@ -7,7 +7,7 @@ import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
-import { Tabs } from "@/app/components/Tabs";
+import { TabPanel, Tabs } from "@/app/components/Tabs";
 import { DoneList, TaskList, inFlight } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
@@ -262,21 +262,17 @@ export default function Home() {
         ]}
         active={tab}
         onChange={setTab}
-      />
-
-      {tab === "settings" && (
-        <div key="settings" className="animate-fade-in">
+      >
+        <TabPanel id="settings">
           <GithubRepos
             repos={repos}
             connected={connected}
             blockedRepos={blockedRepos}
             onToggleBlocked={toggleBlocked}
           />
-        </div>
-      )}
+        </TabPanel>
 
-      {tab === "list" && (
-        <div key="list" className="animate-fade-in">
+        <TabPanel id="list">
           <form onSubmit={add} className="mb-6 flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
@@ -402,8 +398,8 @@ export default function Home() {
               )}
             </>
           )}
-        </div>
-      )}
+        </TabPanel>
+      </Tabs>
 
       {undo && !dragging && (
         <div className="fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
