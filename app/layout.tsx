@@ -17,6 +17,14 @@ export const metadata: Metadata = {
   title: "HitList",
   description: "Fire small dev tasks at a cloud agent from your phone.",
   appleWebApp: { capable: true, title: "HitList", statusBarStyle: "black-translucent" },
+  // iOS data detectors wrap phone-like text in <a href="tel:…"> before
+  // hydration, which shows up as an attribute/tree mismatch on phones.
+  formatDetection: {
+    telephone: false,
+    date: false,
+    email: false,
+    address: false,
+  },
 };
 
 export const viewport: Viewport = {

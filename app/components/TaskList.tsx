@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -164,6 +164,9 @@ export function TaskList({
   onDraggingChange: (dragging: boolean) => void;
 }) {
   const units = toUnits(tasks);
+  // Stable across SSR/client — dnd-kit's default id counter is module-scoped
+  // and drifts, producing aria-describedby hydration mismatches.
+  const dndId = useId();
   const [activeId, setActiveId] = useState<string | null>(null);
   // unit id currently hovered with "absorb into group" intent
   const [combineTarget, setCombineTarget] = useState<string | null>(null);
@@ -322,6 +325,7 @@ export function TaskList({
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={collision}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}

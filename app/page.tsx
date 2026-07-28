@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
@@ -29,9 +29,16 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("list");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
+  }, []);
+
+  // Focus after mount — autoFocus on the SSR'd input trips hydration on
+  // Chrome iOS, which injects __gchrome_uniqueid before React attaches.
+  useEffect(() => {
+    titleRef.current?.focus();
   }, []);
 
   function toggleBlocked(id: number) {
@@ -273,6 +280,7 @@ export default function Home() {
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
                 <input
+                  ref={titleRef}
                   value={title}
                   onChange={(e) => {
                     setTitle(e.target.value);
@@ -282,7 +290,9 @@ export default function Home() {
                   onKeyDown={onTitleKeyDown}
                   placeholder="Name your next hit… (-- tags a repo)"
                   enterKeyHint="done"
-                  autoFocus
+                  // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
+                  // onto inputs before hydration; those are harmless and unavoidable.
+                  suppressHydrationWarning
                   className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
                 />
                 {mentionOpen && (
