@@ -61,7 +61,8 @@ export default function Home() {
   const [mIdx, setMIdx] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   // ponytail: trigger only matches at the end of the input; mid-string caret editing won't open it
-  const mention = title.match(/--(\S*)$/);
+  // iOS smart punctuation turns "--" into an em/en dash, so accept those too
+  const mention = title.match(/(?:--|[—–])(\S*)$/);
   const matches =
     mention && !dismissed
       ? pickable
@@ -74,7 +75,7 @@ export default function Home() {
 
   function pickMention(r: Repo) {
     setRepo(r);
-    setTitle((t) => t.replace(/--\S*$/, "").trimEnd());
+    setTitle((t) => t.replace(/(?:--|[—–])\S*$/, "").trimEnd());
   }
 
   function onTitleKeyDown(e: React.KeyboardEvent) {
@@ -290,6 +291,7 @@ export default function Home() {
                   onKeyDown={onTitleKeyDown}
                   placeholder="Name your next hit… (-- tags a repo)"
                   enterKeyHint="done"
+                  autoCorrect="off"
                   // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
                   // onto inputs before hydration; those are harmless and unavoidable.
                   suppressHydrationWarning
