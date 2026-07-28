@@ -3,6 +3,11 @@ import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
 
+const SCREENSHOT_CRITERIA = `## Acceptance criteria (required)
+- Run the app and capture screenshots proving each change works as described.
+- Commit the screenshots to your branch and embed them inline in the PR description (raw.githubusercontent.com URLs for your branch render inline).
+- If a screen is behind a login: check the Context section for test credentials or a dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently.`;
+
 const WORKING_AGREEMENT = `## Working agreement
 - Keep changes focused on this task; don't refactor unrelated code.
 - Follow the repo's existing patterns and conventions.
@@ -10,7 +15,7 @@ const WORKING_AGREEMENT = `## Working agreement
 - Open a PR with a clear summary of what changed and why.`;
 
 /** Wraps task title(s) + optional details in the standard agent prompt. */
-function buildPrompt(members: Task[]): string {
+function buildPrompt(members: Task[], screenshots: boolean): string {
   const body =
     members.length === 1
       ? `# Task\n${members[0].title}` +
@@ -25,7 +30,7 @@ function buildPrompt(members: Task[]): string {
                 : ""),
           )
           .join("\n");
-  return `${body}\n\n${WORKING_AGREEMENT}`;
+  return `${body}\n\n${screenshots ? `${SCREENSHOT_CRITERIA}\n\n` : ""}${WORKING_AGREEMENT}`;
 }
 
 /**
@@ -81,14 +86,15 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { ref, model } = (await req.json().catch(() => ({}))) as {
+  const { ref, model, screenshots } = (await req.json().catch(() => ({}))) as {
     ref?: string;
     model?: string;
+    screenshots?: boolean;
   };
 
   try {
     const agent = await createAgent(
-      buildPrompt(members),
+      buildPrompt(members, screenshots !== false), // on unless explicitly disabled
       repoUrl,
       ref,
       cursorApiKey,

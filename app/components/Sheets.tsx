@@ -62,6 +62,7 @@ function AgentActions({
   const [error, setError] = useState<string | null>(null);
   const [models, setModels] = useState<CursorModel[]>([]);
   const [model, setModel] = useState("");
+  const [screenshots, setScreenshots] = useState(true);
 
   useEffect(() => {
     if (!deployable(lead)) return;
@@ -80,7 +81,7 @@ function AgentActions({
     const res = await fetch(`/api/tasks/${lead.id}/dispatch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(model ? { model } : {}),
+      body: JSON.stringify({ ...(model ? { model } : {}), screenshots }),
     });
     const body = await res.json();
     setSending(false);
@@ -151,6 +152,15 @@ function AgentActions({
               ))}
             </select>
           )}
+          <label className="mb-3 flex items-center gap-2 font-mono text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={screenshots}
+              onChange={(e) => setScreenshots(e.target.checked)}
+              className="size-4 accent-blood"
+            />
+            Require inline PR screenshots as proof
+          </label>
           <button
             onClick={send}
             disabled={sending || !canDeploy}
