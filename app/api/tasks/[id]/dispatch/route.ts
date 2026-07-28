@@ -3,10 +3,13 @@ import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
 
-const SCREENSHOT_CRITERIA = `## Acceptance criteria (required)
+/** repoUrl is a `https://github.com/{owner}/{repo}` URL. */
+function screenshotCriteria(repoUrl: string): string {
+  return `## Acceptance criteria (required)
 - Run the app and capture screenshots proving each change works as described.
-- Commit the screenshots to your branch and embed them inline in the PR description (raw.githubusercontent.com URLs for your branch render inline).
+- Commit the screenshots to your branch, then embed them inline in the PR description using \`${repoUrl}/raw/<your-branch>/<path>\` — NOT raw.githubusercontent.com. That domain is unauthenticated and 404s on private repos; the github.com/raw/ form is served from the same host as the PR itself, so it renders inline for anyone who can already see the repo.
 - If a screen is behind a login: check the Context section for test credentials or a dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently.`;
+}
 
 const WORKING_AGREEMENT = `## Working agreement
 - Keep changes focused on this task; don't refactor unrelated code.
@@ -15,7 +18,7 @@ const WORKING_AGREEMENT = `## Working agreement
 - Open a PR with a clear summary of what changed and why.`;
 
 /** Wraps task title(s) + optional details in the standard agent prompt. */
-function buildPrompt(members: Task[], screenshots: boolean): string {
+function buildPrompt(members: Task[], screenshots: boolean, repoUrl: string): string {
   const body =
     members.length === 1
       ? `# Task\n${members[0].title}` +
@@ -30,7 +33,7 @@ function buildPrompt(members: Task[], screenshots: boolean): string {
                 : ""),
           )
           .join("\n");
-  return `${body}\n\n${screenshots ? `${SCREENSHOT_CRITERIA}\n\n` : ""}${WORKING_AGREEMENT}`;
+  return `${body}\n\n${screenshots ? `${screenshotCriteria(repoUrl)}\n\n` : ""}${WORKING_AGREEMENT}`;
 }
 
 /**
@@ -94,7 +97,7 @@ export async function POST(
 
   try {
     const agent = await createAgent(
-      buildPrompt(members, screenshots !== false), // on unless explicitly disabled
+      buildPrompt(members, screenshots !== false, repoUrl), // on unless explicitly disabled
       repoUrl,
       ref,
       cursorApiKey,
