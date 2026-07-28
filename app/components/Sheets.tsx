@@ -600,11 +600,43 @@ export function GroupSheet({
 }) {
   const lead = members[0];
   const editable = deployable(lead);
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Sheet onClose={onClose}>
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-        Grouped hit · {members.length} marks
-      </p>
+      <div className="relative mb-2 flex items-start gap-2">
+        <p className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-widest text-muted">
+          Grouped hit · {members.length} marks
+        </p>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="More actions"
+          className="shrink-0 p-1 text-muted hover:text-foreground"
+        >
+          <Icon name="ellipsis" className="size-4" />
+        </button>
+        {menuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDisband();
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background"
+              >
+                <Icon name="x" className="size-4" />
+                Disband group
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       <ul className="mb-2 flex flex-col gap-1">
         {members.map((m) => (
           <li key={m.id}>
@@ -629,13 +661,6 @@ export function GroupSheet({
         canDeploy={members.some((m) => m.repoUrl)}
         onDeployed={() => onDeployed()}
       />
-      <button
-        onClick={onDisband}
-        className="flex w-full items-center justify-center gap-2 py-2 text-base text-muted active:opacity-70"
-      >
-        <Icon name="x" className="size-4" />
-        Disband group
-      </button>
     </Sheet>
   );
 }
