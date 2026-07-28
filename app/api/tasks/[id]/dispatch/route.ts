@@ -7,7 +7,10 @@ import { getCursorApiKey } from "@/app/lib/userSettings";
 function screenshotCriteria(repoUrl: string): string {
   return `## Acceptance criteria (required)
 - Run the app and capture screenshots proving each change works as described.
-- Commit the screenshots to your branch, then embed them inline in the PR description using \`${repoUrl}/raw/<your-branch>/<path>\` — NOT raw.githubusercontent.com. That domain is unauthenticated and 404s on private repos; the github.com/raw/ form is served from the same host as the PR itself, so it renders inline for anyone who can already see the repo.
+- Commit the screenshots to the branch (e.g. \`.pr-assets/\`) so they live with the PR.
+- Embed them inline in the PR description using **publicly fetchable** image URLs (HTTP 200 with \`Content-Type: image/*\` and **no auth**). Private-repo GitHub raw links do **not** work in PR markdown — GitHub's image proxy fetches them unauthenticated and they 404 (this includes both \`raw.githubusercontent.com\` and \`${repoUrl}/raw/...\`).
+- After uploading, verify each embed URL with an unauthenticated \`curl -sI\` (expect 200 + image content-type) before opening/updating the PR. Do not ship broken image placeholders.
+- Preferred flow: commit files under \`.pr-assets/\`, upload the same files to a short-lived public host (e.g. litterbox.catbox.moe), embed with \`![desc](https://…)\`. Mention in the PR that originals are on the branch.
 - If a screen is behind a login: check the Context section for test credentials or a dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently.`;
 }
 
