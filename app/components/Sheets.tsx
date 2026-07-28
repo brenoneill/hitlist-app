@@ -16,33 +16,49 @@ function Sheet({
   children: React.ReactNode;
 }) {
   const [closing, setClosing] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [dragging, setDragging] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number | null>(null);
 
+  // Closing slides from wherever the sheet currently sits (dragged or resting),
+  // so it's an inline transition rather than a keyframe replay from the top.
   function requestClose() {
     if (closing) return;
+    const el = sheetRef.current;
+    if (el) {
+      el.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.68, 0.28)";
+      el.style.transform = "translateY(100%)";
+    }
     setClosing(true);
   }
 
   function onHandlePointerDown(e: React.PointerEvent) {
+    if (closing) return;
     startY.current = e.clientY;
-    setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
+    const el = sheetRef.current;
+    if (el) el.style.transition = "none";
   }
 
   function onHandlePointerMove(e: React.PointerEvent) {
-    if (startY.current == null) return;
-    setDragY(Math.max(0, e.clientY - startY.current));
+    if (startY.current == null || closing) return;
+    const el = sheetRef.current;
+    if (el)
+      el.style.transform = `translateY(${Math.max(0, e.clientY - startY.current)}px)`;
   }
 
   function onHandlePointerUp(e: React.PointerEvent) {
-    if (startY.current == null) return;
+    if (startY.current == null || closing) return;
     const dy = e.clientY - startY.current;
     startY.current = null;
-    setDragging(false);
-    setDragY(0);
-    if (dy > 80) requestClose();
+    if (dy > 80) {
+      requestClose();
+      return;
+    }
+    const el = sheetRef.current;
+    if (el) {
+      el.style.transition = "transform 0.2s ease-out";
+      el.style.transform = "";
+    }
   }
 
   return (
@@ -53,21 +69,15 @@ function Sheet({
       onClick={requestClose}
     >
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        className={`flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface ${
-          closing ? "animate-slide-down" : "animate-slide-up"
-        }`}
-        style={
-          dragY
-            ? { transform: `translateY(${dragY}px)`, transition: "none" }
-            : undefined
-        }
+        className="flex max-h-[92dvh] animate-slide-up flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface"
         onClick={(e) => e.stopPropagation()}
-        onAnimationEnd={(e) => {
+        onTransitionEnd={(e) => {
           if (!closing) return;
           if (e.target !== e.currentTarget) return;
-          if (e.animationName !== "slide-down") return;
+          if (e.propertyName !== "transform") return;
           onClose();
         }}
       >
@@ -75,7 +85,7 @@ function Sheet({
           className="flex shrink-0 touch-none justify-center pt-3 pb-1"
           aria-hidden
           onPointerDown={onHandlePointerDown}
-          onPointerMove={dragging ? onHandlePointerMove : undefined}
+          onPointerMove={onHandlePointerMove}
           onPointerUp={onHandlePointerUp}
           onPointerCancel={onHandlePointerUp}
         >
