@@ -84,6 +84,45 @@ function prLinkClass(task: Task): string {
   return task.mergedAt ? "text-ok" : "text-info";
 }
 
+/** External agent chat + PR links; both stay visible once a PR exists. */
+function TaskExternalLinks({
+  task,
+  prClassName,
+}: {
+  task: Task;
+  prClassName: string;
+}) {
+  if (!task.prUrl && !task.agentUrl) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      {task.prUrl && (
+        <a
+          href={task.prUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prClassName}`}
+        >
+          <Icon name={prIcon(task)} className="size-3.5" />
+          {task.prState === "merged" ? "MERGED" : "PR"}
+        </a>
+      )}
+      {task.agentUrl && (
+        <a
+          href={task.agentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
+        >
+          <span className="sr-only">View agent</span>
+          <Icon name="external" className="size-3.5" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function StatusBadge({ task }: { task: Task }) {
   const s = statusDisplay(task);
   return (
@@ -571,30 +610,7 @@ function TaskRow({
       } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
       rowClassName="flex items-center gap-3 px-4 py-3"
       trailing={
-        /* once a PR exists it's the call to action; the agent link lives in the sheet */
-        task.prUrl ? (
-          <a
-            href={task.prUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-ok active:opacity-70"
-          >
-            <Icon name={prIcon(task)} className="size-3.5" />
-            {task.prState === "merged" ? "MERGED" : "PR"}
-          </a>
-        ) : task.agentUrl ? (
-          <a
-            href={task.agentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
-          >
-            <span className="sr-only">View agent</span>
-            <Icon name="external" className="size-3.5" />
-          </a>
-        ) : null
+        <TaskExternalLinks task={task} prClassName="text-ok" />
       }
     >
       <button
@@ -688,29 +704,7 @@ function GroupHeader({
           <StatusBadge task={lead} />
         )}
       </button>
-      {lead.prUrl ? (
-        <a
-          href={lead.prUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prLinkClass(lead)}`}
-        >
-          <Icon name={prIcon(lead)} className="size-3.5" />
-          {lead.prState === "merged" ? "MERGED" : "PR"}
-        </a>
-      ) : lead.agentUrl ? (
-        <a
-          href={lead.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
-        >
-          <span className="sr-only">View agent</span>
-          <Icon name="external" className="size-3.5" />
-        </a>
-      ) : null}
+      <TaskExternalLinks task={lead} prClassName={prLinkClass(lead)} />
     </div>
   );
 }
