@@ -204,6 +204,7 @@ export function TaskSheet({
   const [title, setTitle] = useState(task.title);
   const [pickingRepo, setPickingRepo] = useState(false);
   const [repoFilter, setRepoFilter] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const editable = deployable(task);
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
@@ -244,28 +245,61 @@ export function TaskSheet({
 
   return (
     <Sheet onClose={onClose}>
-      {task.groupId && (
-        <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-muted">
-          In a group · deploys together
-        </p>
-      )}
-      {editable ? (
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={saveTitle}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          aria-label="Item name"
-          className="mb-2 w-full break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
-        />
-      ) : (
-        <p className="mb-2 break-words text-lg font-medium">{task.title}</p>
-      )}
+      <div className="relative mb-2 flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          {task.groupId && (
+            <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-muted">
+              In a group · deploys together
+            </p>
+          )}
+          {editable ? (
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              aria-label="Item name"
+              className="w-full break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
+            />
+          ) : (
+            <p className="break-words text-lg font-medium">{task.title}</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="More actions"
+          className="shrink-0 p-1 text-muted hover:text-foreground"
+        >
+          <Icon name="ellipsis" className="size-4" />
+        </button>
+        {menuOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background"
+              >
+                <Icon name="trash" className="size-4" />
+                Delete
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       {editable && (
         <div className="mb-3">
           {task.repoUrl ? (
@@ -351,13 +385,6 @@ export function TaskSheet({
           )
         )}
       </AgentActions>
-      <button
-        onClick={onDelete}
-        className="flex w-full items-center justify-center gap-2 py-2 text-sm text-muted active:opacity-70"
-      >
-        <Icon name="trash" className="size-4" />
-        Delete
-      </button>
     </Sheet>
   );
 }
