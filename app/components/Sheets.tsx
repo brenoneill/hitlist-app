@@ -7,7 +7,7 @@ import type { CursorModel } from "@/app/lib/cursor";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
-/** Bottom sheet: tap-outside closes, slides up on open. ponytail: no exit animation — needs the state to stay mounted; add if the snap-shut bugs you. */
+/** Bottom sheet: nearly full-height on phone, slides up on open / down on close. */
 function Sheet({
   onClose,
   children,
@@ -15,16 +15,40 @@ function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const [closing, setClosing] = useState(false);
+
+  function requestClose() {
+    if (closing) return;
+    setClosing(true);
+  }
+
   return (
     <div
-      className="fixed inset-0 z-10 flex animate-fade-in flex-col justify-end bg-black/60"
-      onClick={onClose}
+      className={`fixed inset-0 z-10 flex flex-col justify-end bg-black/60 ${
+        closing ? "animate-fade-out" : "animate-fade-in"
+      }`}
+      onClick={requestClose}
     >
       <div
-        className="animate-slide-up rounded-t-2xl border-t border-edge bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        role="dialog"
+        aria-modal="true"
+        className={`flex h-[92dvh] max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface ${
+          closing ? "animate-slide-down" : "animate-slide-up"
+        }`}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={(e) => {
+          if (!closing) return;
+          if (e.target !== e.currentTarget) return;
+          if (e.animationName !== "slide-down") return;
+          onClose();
+        }}
       >
-        {children}
+        <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
+          <div className="h-1 w-10 rounded-full bg-edge" />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+          {children}
+        </div>
       </div>
     </div>
   );
