@@ -28,7 +28,7 @@ export function CursorKeySettings() {
     setHasKey(true);
   }
 
-  if (hasKey === null) return null;
+  const loading = hasKey === null;
 
   return (
     <form onSubmit={save} className="mb-6 flex gap-2">
@@ -41,15 +41,16 @@ export function CursorKeySettings() {
           type="password"
           value={key}
           onChange={(e) => setKey(e.target.value)}
+          disabled={loading}
           placeholder={
             hasKey ? "Cursor key saved — replace it…" : "Your Cursor API key…"
           }
-          className="w-full rounded-xl border border-edge bg-surface py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood"
+          className="w-full rounded-xl border border-edge bg-surface py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
         />
       </div>
       <button
         type="submit"
-        disabled={saving || !key.trim()}
+        disabled={loading || saving || !key.trim()}
         className="rounded-xl border border-edge px-5 py-3 text-base font-medium active:bg-surface disabled:opacity-50"
       >
         {saving ? "Saving…" : "Save"}
