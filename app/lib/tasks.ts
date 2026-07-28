@@ -1,4 +1,5 @@
 import { normalizeGroups } from "./groups";
+import { newId } from "./id";
 import { jsonFile } from "./jsonStore";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
@@ -45,7 +46,7 @@ export async function listTasks(): Promise<Task[]> {
 export async function addTask(title: string, repoUrl?: string): Promise<Task> {
   const tasks = await store.read();
   const task: Task = {
-    id: crypto.randomUUID(),
+    id: newId(),
     title,
     status: "inbox",
     createdAt: new Date().toISOString(),
