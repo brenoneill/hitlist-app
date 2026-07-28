@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:phone": "AUTH_URL=http://$(ipconfig getifaddr en0 || ipconfig getifaddr en1):3000 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
