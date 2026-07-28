@@ -7,12 +7,10 @@ import { normalizeGroups } from "@/app/lib/groups";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
-import { Tabs } from "@/app/components/Tabs";
+import { TabPanel, Tabs } from "@/app/components/Tabs";
 import { DoneList, TaskList, inFlight } from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
-
-const TABS: Tab[] = ["list", "settings"];
 
 const SECTION_LABEL =
   "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
@@ -29,17 +27,9 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [tab, setTab] = useState<Tab>("list");
-  const [tabDir, setTabDir] = useState<"left" | "right">("right");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
-
-  function selectTab(next: Tab) {
-    const from = TABS.indexOf(tab);
-    const to = TABS.indexOf(next);
-    if (to !== from) setTabDir(to > from ? "right" : "left");
-    setTab(next);
-  }
 
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
@@ -271,32 +261,18 @@ export default function Home() {
           { id: "settings", label: "Settings", icon: "settings" },
         ]}
         active={tab}
-        onChange={selectTab}
-      />
-
-      {tab === "settings" && (
-        <div
-          key="settings"
-          className={
-            tabDir === "right" ? "animate-tab-in-right" : "animate-tab-in-left"
-          }
-        >
+        onChange={setTab}
+      >
+        <TabPanel id="settings">
           <GithubRepos
             repos={repos}
             connected={connected}
             blockedRepos={blockedRepos}
             onToggleBlocked={toggleBlocked}
           />
-        </div>
-      )}
+        </TabPanel>
 
-      {tab === "list" && (
-        <div
-          key="list"
-          className={
-            tabDir === "right" ? "animate-tab-in-right" : "animate-tab-in-left"
-          }
-        >
+        <TabPanel id="list">
           <form onSubmit={add} className="mb-6 flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
@@ -422,8 +398,8 @@ export default function Home() {
               )}
             </>
           )}
-        </div>
-      )}
+        </TabPanel>
+      </Tabs>
 
       {undo && !dragging && (
         <div className="fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
