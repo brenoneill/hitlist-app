@@ -207,20 +207,18 @@ function AgentActions({
 
       {deployable(lead) && (
         <>
-          {models.length > 0 && (
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="mb-3 w-full rounded-xl border border-edge bg-background px-4 py-3 text-sm outline-none focus:border-blood"
-            >
-              <option value="">Auto (default model)</option>
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="mb-3 w-full rounded-xl border border-edge bg-background px-4 py-3 text-sm outline-none focus:border-blood"
+          >
+            <option value="">Auto (default model)</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.displayName}
+              </option>
+            ))}
+          </select>
           <label className="mb-3 flex items-center gap-2 font-mono text-xs text-muted">
             <input
               type="checkbox"
