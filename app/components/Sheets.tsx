@@ -130,6 +130,7 @@ function AgentActions({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [models, setModels] = useState<CursorModel[]>([]);
+  const [modelsReady, setModelsReady] = useState(false);
   const [model, setModel] = useState("");
   const [screenshots, setScreenshots] = useState(true);
 
@@ -138,7 +139,8 @@ function AgentActions({
     fetch("/api/models")
       .then((res) => (res.ok ? res.json() : []))
       .then(setModels)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setModelsReady(true));
     // deployable(lead) only flips false->true per sheet open, safe to run once
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -207,20 +209,24 @@ function AgentActions({
 
       {deployable(lead) && (
         <>
-          {models.length > 0 && (
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="mb-3 w-full rounded-xl border border-edge bg-background px-4 py-3 text-sm outline-none focus:border-blood"
-            >
-              <option value="">Auto (default model)</option>
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* Reserve select height before /api/models resolves */}
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={!modelsReady}
+            aria-busy={!modelsReady}
+            aria-label="Agent model"
+            className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-sm outline-none focus:border-blood disabled:opacity-70"
+          >
+            <option value="">
+              {modelsReady ? "Auto (default model)" : "Loading models…"}
+            </option>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.displayName}
+              </option>
+            ))}
+          </select>
           <label className="mb-3 flex items-center gap-2 font-mono text-xs text-muted">
             <input
               type="checkbox"
@@ -454,11 +460,11 @@ export function TaskSheet({
             onBlur={saveDetails}
             placeholder="Context for the agent — optional"
             rows={3}
-            className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+            className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base leading-normal outline-none placeholder:text-muted focus:border-blood"
           />
         ) : (
           task.details && (
-            <p className="mb-3 whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
+            <p className="mb-3 min-h-[5.5rem] whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
               {task.details}
             </p>
           )
