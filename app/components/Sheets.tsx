@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
@@ -16,10 +16,33 @@ function Sheet({
   children: React.ReactNode;
 }) {
   const [closing, setClosing] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startY = useRef<number | null>(null);
 
   function requestClose() {
     if (closing) return;
     setClosing(true);
+  }
+
+  function onHandlePointerDown(e: React.PointerEvent) {
+    startY.current = e.clientY;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: React.PointerEvent) {
+    if (startY.current == null) return;
+    setDragY(Math.max(0, e.clientY - startY.current));
+  }
+
+  function onHandlePointerUp(e: React.PointerEvent) {
+    if (startY.current == null) return;
+    const dy = e.clientY - startY.current;
+    startY.current = null;
+    setDragging(false);
+    setDragY(0);
+    if (dy > 80) requestClose();
   }
 
   return (
@@ -35,6 +58,11 @@ function Sheet({
         className={`flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface ${
           closing ? "animate-slide-down" : "animate-slide-up"
         }`}
+        style={
+          dragY
+            ? { transform: `translateY(${dragY}px)`, transition: "none" }
+            : undefined
+        }
         onClick={(e) => e.stopPropagation()}
         onAnimationEnd={(e) => {
           if (!closing) return;
@@ -43,7 +71,14 @@ function Sheet({
           onClose();
         }}
       >
-        <div className="flex shrink-0 justify-center pt-3 pb-1" aria-hidden>
+        <div
+          className="flex shrink-0 touch-none justify-center pt-3 pb-1"
+          aria-hidden
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={dragging ? onHandlePointerMove : undefined}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+        >
           <div className="h-1 w-10 rounded-full bg-edge" />
         </div>
         <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
