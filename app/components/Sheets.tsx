@@ -30,6 +30,27 @@ import {
 } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
+/** Sheet-menu redeploy: last-used provider, default PR options. */
+function useQuickRedeploy() {
+  const { data: keys } = useProviderKeys();
+  const dispatch = useDispatchTask();
+  function redeploy(id: string) {
+    const provider = pickDefaultProvider(
+      PROVIDER_IDS.filter((p) => keys?.[p]),
+      typeof window === "undefined"
+        ? null
+        : localStorage.getItem(LAST_PROVIDER_KEY),
+    );
+    if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
+    dispatch.mutate({
+      id,
+      ...(provider ? { provider } : {}),
+      redeploy: true,
+    });
+  }
+  return { redeploy, pending: dispatch.isPending, error: dispatch.error };
+}
+
 /** Bottom sheet: sizes to content up to 92dvh, slides up on open / down on close. */
 function Sheet({
   onClose,
@@ -163,12 +184,10 @@ function AgentActions({
             ? null
             : localStorage.getItem(LAST_PROVIDER_KEY),
         );
-  const canSend = deployable(lead) || redeployable(lead);
-  const isRedeploy = redeployable(lead);
   // cached for the session; only a provider key change invalidates the list
   const { data: models, isLoading: modelsLoading } = useModels(
     provider,
-    canSend,
+    deployable(lead),
   );
   // the response lands in the task cache — `lead` comes from there, so no callback
   const dispatch = useDispatchTask();
@@ -181,7 +200,6 @@ function AgentActions({
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
       options,
-      ...(isRedeploy ? { redeploy: true } : {}),
     });
   }
 
@@ -241,7 +259,7 @@ function AgentActions({
         </a>
       )}
 
-      {canSend && (
+      {deployable(lead) && (
         <>
           {configured.length > 1 && (
             <select
@@ -304,16 +322,10 @@ function AgentActions({
             className={`${BLOOD_BUTTON} mb-3 w-full`}
           >
             {dispatch.isPending
-              ? isRedeploy
-                ? "Redeploying…"
-                : "Deploying…"
-              : isRedeploy
-                ? lead.groupId
-                  ? "Redeploy group"
-                  : "Redeploy"
-                : lead.groupId
-                  ? "Deploy group"
-                  : "Deploy agent"}
+              ? "Deploying…"
+              : lead.groupId
+                ? "Deploy group"
+                : "Deploy agent"}
           </button>
         </>
       )}
@@ -363,7 +375,10 @@ export function TaskSheet({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const patchTask = usePatchTask();
+  const { redeploy, pending: redeploying, error: redeployError } =
+    useQuickRedeploy();
   const editable = deployable(task);
+  const canRedeploy = redeployable(task) && canDeploy;
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
     .filter((r) =>
@@ -457,6 +472,20 @@ export function TaskSheet({
               onClick={() => setMenuOpen(false)}
             />
             <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+              {canRedeploy && (
+                <button
+                  type="button"
+                  disabled={redeploying}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    redeploy(task.id);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
+                >
+                  <Icon name="crosshair" className="size-4" />
+                  {task.groupId ? "Redeploy group" : "Redeploy"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -649,6 +678,11 @@ export function TaskSheet({
           </>
         )}
       </AgentActions>
+      {redeployError && (
+        <p className="mt-1 font-mono text-xs text-blood">
+          {redeployError.message || "redeploy failed"}
+        </p>
+      )}
     </Sheet>
   );
 }
@@ -667,6 +701,10 @@ export function GroupSheet({
 }) {
   const lead = members[0];
   const editable = deployable(lead);
+  const canRedeploy =
+    members.every(redeployable) && members.some((m) => m.repoUrl);
+  const { redeploy, pending: redeploying, error: redeployError } =
+    useQuickRedeploy();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Sheet onClose={onClose}>
@@ -689,6 +727,20 @@ export function GroupSheet({
               onClick={() => setMenuOpen(false)}
             />
             <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+              {canRedeploy && (
+                <button
+                  type="button"
+                  disabled={redeploying}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    redeploy(lead.id);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
+                >
+                  <Icon name="crosshair" className="size-4" />
+                  Redeploy group
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -724,6 +776,11 @@ export function GroupSheet({
         ))}
       </ul>
       <AgentActions lead={lead} canDeploy={members.some((m) => m.repoUrl)} />
+      {redeployError && (
+        <p className="mt-1 font-mono text-xs text-blood">
+          {redeployError.message || "redeploy failed"}
+        </p>
+      )}
     </Sheet>
   );
 }
