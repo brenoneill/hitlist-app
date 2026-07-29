@@ -268,12 +268,22 @@ export default function Home() {
       </h1>
 
       {tab === null ? (
-        <p
-          className="font-mono text-sm uppercase tracking-widest text-muted"
-          aria-live="polite"
-        >
-          Loading…
-        </p>
+        <div aria-busy="true" aria-live="polite">
+          <span className="sr-only">Loading settings</span>
+          <div className="mb-6 flex gap-1 rounded-xl border border-edge bg-surface p-1">
+            <div className="h-10 flex-1 animate-pulse rounded-lg bg-edge/80 motion-reduce:animate-none" />
+            <div className="h-10 flex-1 animate-pulse rounded-lg bg-edge/50 motion-reduce:animate-none" />
+          </div>
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <div className="h-4 w-28 animate-pulse rounded bg-edge motion-reduce:animate-none" />
+            <div className="h-4 w-16 animate-pulse rounded bg-edge/60 motion-reduce:animate-none" />
+          </div>
+          <div className="mb-6 flex gap-2">
+            <div className="h-12 min-w-0 flex-1 animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
+            <div className="h-12 w-[4.5rem] animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
+          </div>
+          <div className="h-28 animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
+        </div>
       ) : (
         <Tabs
           tabs={setupComplete ? LIST_FIRST : SETTINGS_FIRST}
