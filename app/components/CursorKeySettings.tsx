@@ -10,6 +10,7 @@ import { Icon } from "@/app/components/Icons";
 
 export function CursorKeySettings() {
   const [key, setKey] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const { data, isPending: loading } = useCursorKey();
   const save = useSaveCursorKey();
   const clear = useClearCursorKey();
@@ -41,15 +42,35 @@ export function CursorKeySettings() {
         />
       </div>
       {hasKey && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => clear.mutate()}
-          aria-label="Drop saved Cursor key"
-          className="rounded-xl border border-edge px-3 py-3 text-blood active:bg-surface disabled:opacity-50"
-        >
-          <Icon name="trash" className="size-4" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="More actions"
+            className="rounded-xl border border-edge px-3 py-3 text-muted active:bg-surface disabled:opacity-50"
+          >
+            <Icon name="ellipsis" className="size-4" />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-12 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    clear.mutate();
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background"
+                >
+                  <Icon name="trash" className="size-4" />
+                  Remove key
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
       <button
         type="submit"
