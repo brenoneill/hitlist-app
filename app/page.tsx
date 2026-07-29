@@ -15,21 +15,34 @@ type Tab = "list" | "settings";
 const SECTION_LABEL =
   "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
 
+/** True once the user can tag repos and dispatch Cursor agents. */
+function isSetupComplete(
+  status: string,
+  connected: boolean,
+  hasCursorKey: boolean | null,
+) {
+  return status === "authenticated" && connected && hasCursorKey === true;
+}
+
 export default function Home() {
   const { status } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [connected, setConnected] = useState(false);
+  const [hasCursorKey, setHasCursorKey] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
-  const [tab, setTab] = useState<Tab>("list");
+  // Settings first until GitHub repos + Cursor key are connected
+  const [tab, setTab] = useState<Tab>("settings");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+  const wasSetupComplete = useRef(false);
+  const setupComplete = isSetupComplete(status, connected, hasCursorKey);
 
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
@@ -121,14 +134,45 @@ export default function Home() {
   }, [pollMs, dragging]);
 
   useEffect(() => {
+    if (status === "unauthenticated") {
+      setConnected(false);
+      setRepos(null);
+      setHasCursorKey(false);
+      return;
+    }
     if (status !== "authenticated") return;
+
     fetch("/api/github/repos")
       .then((res) => (res.ok ? res.json() : { connected: false, repos: [] }))
       .then((body) => {
-        setConnected(body.connected);
-        setRepos(body.repos);
+        setConnected(!!body.connected);
+        setRepos(body.repos ?? []);
+      })
+      .catch(() => {
+        setConnected(false);
+        setRepos([]);
       });
+
+    fetch("/api/settings/cursor-key")
+      .then((res) => (res.ok ? res.json() : { hasKey: false }))
+      .then((body) => setHasCursorKey(!!body.hasKey))
+      .catch(() => setHasCursorKey(false));
   }, [status]);
+
+  // Keep Settings first until both connections exist; then land on List once.
+  useEffect(() => {
+    if (status === "loading") return;
+    if (status === "authenticated" && hasCursorKey === null) return;
+    if (setupComplete) {
+      if (!wasSetupComplete.current) {
+        wasSetupComplete.current = true;
+        setTab("list");
+      }
+      return;
+    }
+    wasSetupComplete.current = false;
+    setTab("settings");
+  }, [status, hasCursorKey, setupComplete]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -256,10 +300,17 @@ export default function Home() {
       </h1>
 
       <Tabs
-        tabs={[
-          { id: "list", label: "List", icon: "list" },
-          { id: "settings", label: "Settings", icon: "settings" },
-        ]}
+        tabs={
+          setupComplete
+            ? [
+                { id: "list", label: "List", icon: "list" },
+                { id: "settings", label: "Settings", icon: "settings" },
+              ]
+            : [
+                { id: "settings", label: "Settings", icon: "settings" },
+                { id: "list", label: "List", icon: "list" },
+              ]
+        }
         active={tab}
         onChange={setTab}
       >
@@ -269,6 +320,7 @@ export default function Home() {
             connected={connected}
             blockedRepos={blockedRepos}
             onToggleBlocked={toggleBlocked}
+            onHasKeyChange={setHasCursorKey}
           />
         </TabPanel>
 
