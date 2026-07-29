@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/app/components/Icons";
 
-export function CursorKeySettings() {
+export function CursorKeySettings({
+  onHasKeyChange,
+}: {
+  onHasKeyChange?: (hasKey: boolean) => void;
+}) {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -11,7 +15,8 @@ export function CursorKeySettings() {
   useEffect(() => {
     fetch("/api/settings/cursor-key")
       .then((res) => res.json())
-      .then((body) => setHasKey(body.hasKey));
+      .then((body) => setHasKey(!!body.hasKey))
+      .catch(() => setHasKey(false));
   }, []);
 
   async function save(e: React.FormEvent) {
@@ -26,6 +31,7 @@ export function CursorKeySettings() {
     setSaving(false);
     setKey("");
     setHasKey(true);
+    onHasKeyChange?.(true);
   }
 
   const loading = hasKey === null;

@@ -22,11 +22,13 @@ export function GithubRepos({
   connected,
   blockedRepos,
   onToggleBlocked,
+  onHasKeyChange,
 }: {
   repos: Repo[] | null;
   connected: boolean;
   blockedRepos: number[];
   onToggleBlocked: (id: number) => void;
+  onHasKeyChange?: (hasKey: boolean) => void;
 }) {
   const { data: session, status } = useSession();
 
@@ -58,7 +60,7 @@ export function GithubRepos({
         </button>
       </div>
 
-      <CursorKeySettings />
+      <CursorKeySettings onHasKeyChange={onHasKeyChange} />
 
       {!connected ? (
         <div className="rounded-xl border border-edge bg-surface p-4">
