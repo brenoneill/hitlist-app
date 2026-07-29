@@ -217,3 +217,16 @@ export function useSaveCursorKey() {
     },
   });
 }
+
+export function useClearCursorKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ hasKey: boolean }>("/api/settings/cursor-key", send("DELETE")),
+    onSuccess: (body) => {
+      qc.setQueryData(CURSOR_KEY, body);
+      qc.invalidateQueries({ queryKey: MODELS });
+      qc.invalidateQueries({ queryKey: TASKS });
+    },
+  });
+}
