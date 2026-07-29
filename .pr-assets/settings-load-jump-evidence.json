@@ -1,0 +1,16 @@
+{
+  "duringLoad": {
+    "tabsDuringLoad": 0,
+    "settingsVisibleDuringLoad": 0,
+    "loadingText": true
+  },
+  "afterCompleteLoad": {
+    "listPlaceholder": true,
+    "listTabSelected": "true",
+    "settingsTabSelected": "false"
+  },
+  "afterIncompleteLoad": {
+    "settingsTabSelected": "true",
+    "keyPlaceholder": true
+  }
+}
