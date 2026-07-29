@@ -1,5 +1,9 @@
 import { requireUserId } from "@/auth";
-import { getCursorApiKey, setCursorApiKey } from "@/app/lib/userSettings";
+import {
+  clearCursorApiKey,
+  getCursorApiKey,
+  setCursorApiKey,
+} from "@/app/lib/userSettings";
 
 export async function GET() {
   const userId = await requireUserId();
@@ -17,4 +21,11 @@ export async function POST(req: Request) {
   }
   await setCursorApiKey(userId, key.trim());
   return Response.json({ hasKey: true });
+}
+
+export async function DELETE() {
+  const userId = await requireUserId();
+  if (userId instanceof Response) return userId;
+  await clearCursorApiKey(userId);
+  return Response.json({ hasKey: false });
 }

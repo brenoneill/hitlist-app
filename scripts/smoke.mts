@@ -13,7 +13,11 @@ import {
   reorderTasks,
   updateTask,
 } from "../app/lib/tasks";
-import { getCursorApiKey, setCursorApiKey } from "../app/lib/userSettings";
+import {
+  clearCursorApiKey,
+  getCursorApiKey,
+  setCursorApiKey,
+} from "../app/lib/userSettings";
 
 const U = "smoke-test";
 await sql`delete from tasks where user_id = ${U}`;
@@ -82,6 +86,8 @@ const [{ cursor_api_key: stored }] = await sql`
 `;
 assert.notEqual(stored, "crsr_secret_value");
 assert.equal(await getCursorApiKey(U), "crsr_secret_value");
+await clearCursorApiKey(U);
+assert.equal(await getCursorApiKey(U), undefined);
 await sql`delete from user_settings where user_id = ${U}`;
 
 console.log("smoke ok");

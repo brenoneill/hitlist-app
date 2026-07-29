@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { CursorKeySettings } from "@/app/components/CursorKeySettings";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
@@ -29,6 +30,8 @@ export function GithubRepos({
   onToggleBlocked: (id: number) => void;
 }) {
   const { data: session, status } = useSession();
+  // Controlled so soft nav / bfcache can't leave the list open; always start collapsed.
+  const [reposOpen, setReposOpen] = useState(false);
 
   if (status === "loading") return null;
 
@@ -81,12 +84,17 @@ export function GithubRepos({
           )}
         </div>
       ) : (
-        <details className="group">
-          <summary className="mb-3 flex cursor-pointer list-none items-center justify-between">
+        <details
+          className="group"
+          open={reposOpen}
+          onToggle={(e) => setReposOpen(e.currentTarget.open)}
+        >
+          <summary className="mb-3 flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-1.5 text-xs text-muted">
-              <span className="transition-transform group-open:rotate-90">
-                ›
-              </span>
+              <Icon
+                name="chevron"
+                className="size-3.5 -rotate-90 transition-transform group-open:rotate-0"
+              />
               {blockedRepos.length
                 ? `${blockedRepos.length} blocked — hidden from the repo picker`
                 : "Tap sensitive repos to block them from the picker"}

@@ -22,6 +22,13 @@ export async function setCursorApiKey(
   `;
 }
 
+/** Clears the stored Cursor API key; leaves other settings (e.g. GitHub install) intact. */
+export async function clearCursorApiKey(userId: string): Promise<void> {
+  await sql`
+    update user_settings set cursor_api_key = null where user_id = ${userId}
+  `;
+}
+
 export async function getGithubInstallationId(
   userId: string,
 ): Promise<string | undefined> {
