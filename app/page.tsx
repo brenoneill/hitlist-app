@@ -22,7 +22,12 @@ import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { TabPanel, Tabs } from "@/app/components/Tabs";
-import { DoneList, TaskList, inFlight } from "@/app/components/TaskList";
+import {
+  DoneList,
+  TaskList,
+  inFlight,
+  wasDeployed,
+} from "@/app/components/TaskList";
 
 type Tab = "list" | "settings";
 
@@ -244,7 +249,11 @@ export default function Home() {
       localStorage.getItem(LAST_PROVIDER_KEY),
     );
     dispatch.mutate(
-      { id: task.id, ...(provider ? { provider } : {}) },
+      {
+        id: task.id,
+        ...(provider ? { provider } : {}),
+        ...(wasDeployed(task) ? { redeploy: true } : {}),
+      },
       {
         onError: () => {
           setSelectedGroup(null);

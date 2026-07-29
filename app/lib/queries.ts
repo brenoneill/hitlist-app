@@ -170,6 +170,8 @@ export function useDispatchTask() {
       provider?: ProviderId;
       model?: string;
       options?: PrOptionId[];
+      /** Replace an existing agent with a fresh run. */
+      redeploy?: boolean;
     }) => api<Task | Task[]>(`/api/tasks/${id}/dispatch`, send("POST", body)),
     onSuccess: (updated) => merge(qc, updated),
   });

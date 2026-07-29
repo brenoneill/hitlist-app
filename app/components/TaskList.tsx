@@ -46,6 +46,8 @@ const STATUS_DISPLAY: Record<
 /** A dispatched agent outlives the done toggle — status alone forgets it. */
 export const wasDeployed = (t: Task) => !!t.agentUrl;
 export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
+/** Already has an agent — can start a fresh one via Redeploy. */
+export const redeployable = (t: Task) => wasDeployed(t);
 /** Work in progress: an agent is out (or its PR still landing) and it isn't archived. */
 export const inFlight = (t: Task) =>
   t.status !== "done" && (t.status === "running" || wasDeployed(t));
@@ -590,6 +592,12 @@ function TaskRow({
       label: "Deploy agent",
       onClick: () => onDeploy(task),
     });
+  if (onDeploy && redeployable(task) && task.repoUrl)
+    actions.push({
+      icon: "crosshair",
+      label: "Redeploy",
+      onClick: () => onDeploy(task),
+    });
   if (onToggle)
     actions.push({
       icon: task.status === "done" ? "crosshair" : "check",
@@ -731,6 +739,8 @@ function SortableGroup({
   // group deploys as one; any member's action dispatches the whole group
   const canDeployGroup =
     unit.members.every(deployable) && unit.members.some((m) => m.repoUrl);
+  const canRedeployGroup =
+    unit.members.every(redeployable) && unit.members.some((m) => m.repoUrl);
   return (
     <SortableShell
       id={unit.id}
@@ -755,6 +765,7 @@ function SortableGroup({
                 key={m.id}
                 task={m}
                 canDeploy={canDeployGroup}
+                canRedeploy={canRedeployGroup}
                 onSelect={onSelect}
                 onDelete={onDelete}
                 onDeploy={onDeploy}
@@ -770,12 +781,14 @@ function SortableGroup({
 function SortableMember({
   task,
   canDeploy,
+  canRedeploy,
   onSelect,
   onDelete,
   onDeploy,
 }: {
   task: Task;
   canDeploy: boolean;
+  canRedeploy: boolean;
   onSelect: (t: Task) => void;
   onDelete: (id: string) => void;
   onDeploy: (t: Task) => void;
@@ -787,6 +800,12 @@ function SortableMember({
     actions.push({
       icon: "crosshair",
       label: "Deploy group",
+      onClick: () => onDeploy(task),
+    });
+  if (canRedeploy)
+    actions.push({
+      icon: "crosshair",
+      label: "Redeploy group",
       onClick: () => onDeploy(task),
     });
   actions.push({
