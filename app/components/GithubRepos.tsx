@@ -124,25 +124,14 @@ export function GithubRepos({
             open={reposOpen}
             onToggle={(e) => setReposOpen(e.currentTarget.open)}
           >
-            <summary className="mb-3 flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-1.5 text-xs text-muted">
-                <Icon
-                  name="chevron"
-                  className="size-3.5 -rotate-90 transition-transform group-open:rotate-0"
-                />
-                {blockedRepos.length
-                  ? `${blockedRepos.length} blocked — hidden from the repo picker`
-                  : "Tap sensitive repos to block them from the picker"}
-              </span>
-              <a
-                href={MANAGE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-xs text-muted underline underline-offset-4"
-              >
-                Manage repo access ↗
-              </a>
+            <summary className="mb-3 flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted [&::-webkit-details-marker]:hidden">
+              <Icon
+                name="chevron"
+                className="size-3.5 -rotate-90 transition-transform group-open:rotate-0"
+              />
+              {blockedRepos.length
+                ? `${blockedRepos.length} blocked — hidden from the repo picker`
+                : "Tap sensitive repos to block them from the picker"}
             </summary>
             {!repos || repos.length === 0 ? (
               <p className="font-mono text-sm text-muted">No repos shared yet.</p>
@@ -193,6 +182,14 @@ export function GithubRepos({
                 })}
               </ul>
             )}
+            <a
+              href={MANAGE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 block text-xs text-muted underline underline-offset-4"
+            >
+              Manage repo access ↗
+            </a>
           </details>
         )}
       </Section>
