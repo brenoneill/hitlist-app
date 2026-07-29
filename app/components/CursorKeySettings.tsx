@@ -1,37 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useCursorKey, useSaveCursorKey } from "@/app/lib/queries";
 import { Icon } from "@/app/components/Icons";
 
 export function CursorKeySettings() {
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
-  const [saving, setSaving] = useState(false);
+  const { data, isPending: loading } = useCursorKey();
+  const save = useSaveCursorKey();
+  const hasKey = data?.hasKey ?? false;
 
-  useEffect(() => {
-    fetch("/api/settings/cursor-key")
-      .then((res) => res.json())
-      .then((body) => setHasKey(body.hasKey));
-  }, []);
-
-  async function save(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!key.trim()) return;
-    setSaving(true);
-    await fetch("/api/settings/cursor-key", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key.trim() }),
-    });
-    setSaving(false);
-    setKey("");
-    setHasKey(true);
+    save.mutate(key.trim(), { onSuccess: () => setKey("") });
   }
 
-  const loading = hasKey === null;
-
   return (
-    <form onSubmit={save} className="mb-6 flex gap-2">
+    <form onSubmit={submit} className="mb-6 flex gap-2">
       <div className="relative min-w-0 flex-1">
         <Icon
           name="key"
@@ -50,10 +36,10 @@ export function CursorKeySettings() {
       </div>
       <button
         type="submit"
-        disabled={loading || saving || !key.trim()}
+        disabled={loading || save.isPending || !key.trim()}
         className="rounded-xl border border-edge px-5 py-3 text-base font-medium active:bg-surface disabled:opacity-50"
       >
-        {saving ? "Saving…" : "Save"}
+        {save.isPending ? "Saving…" : "Save"}
       </button>
     </form>
   );

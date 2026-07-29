@@ -2,8 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import type { Task, TaskStatus } from "@/app/lib/tasks";
-import { normalizeGroups } from "@/app/lib/groups";
+import type { Task } from "@/app/lib/tasks";
+import {
+  useAddTask,
+  useDispatchTask,
+  useRemoveTask,
+  useReorderTasks,
+  useRepos,
+  useTasks,
+  useToggleDone,
+} from "@/app/lib/queries";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
@@ -17,12 +25,8 @@ const SECTION_LABEL =
 
 export default function Home() {
   const { status } = useSession();
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
-  const [repos, setRepos] = useState<Repo[] | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Task | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
@@ -30,6 +34,20 @@ export default function Home() {
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  // dragging pauses the poll so a refetch can't clobber the drag
+  const { data, isLoading: loading } = useTasks(dragging);
+  const tasks = useMemo(() => data ?? [], [data]);
+  const { data: github } = useRepos(status === "authenticated");
+  const repos: Repo[] | null = github?.repos ?? null;
+  const addTask = useAddTask();
+  const removeTask = useRemoveTask();
+  const reorder = useReorderTasks();
+  const toggle = useToggleDone();
+  const dispatch = useDispatchTask();
+
+  // every sheet reads through the cache, so a poll or a mutation keeps it live
+  const selected = tasks.find((t) => t.id === selectedId) ?? null;
 
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
@@ -95,77 +113,27 @@ export default function Home() {
     }
   }
 
-  async function load() {
-    const res = await fetch("/api/tasks");
-    // signed out → 401: keep the empty list rather than setTasks(errorBody)
-    if (res.ok) setTasks(await res.json());
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  // ponytail: poll only while an agent is out (10s) or a PR is still open (60s —
-  // merges aren't urgent and every check costs a GitHub call). Stops dead once
-  // every PR is merged/closed. setInterval over react-query — one endpoint, no
-  // cache to share. Paused while dragging so a refetch can't clobber the drag.
-  const anyRunning = tasks.some((t) => t.status === "running");
-  const anyOpenPr = tasks.some(
-    (t) => t.prUrl && (t.prState ?? "open") === "open",
-  );
-  const pollMs = anyRunning ? 10_000 : anyOpenPr ? 60_000 : 0;
-  useEffect(() => {
-    if (!pollMs || dragging) return;
-    const id = setInterval(load, pollMs);
-    return () => clearInterval(id);
-  }, [pollMs, dragging]);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    fetch("/api/github/repos")
-      .then((res) => (res.ok ? res.json() : { connected: false, repos: [] }))
-      .then((body) => {
-        setConnected(body.connected);
-        setRepos(body.repos);
-      });
-  }, [status]);
-
-  async function add(e: React.FormEvent) {
+  function add(e: React.FormEvent) {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
     setTitle("");
-    await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: t, repoUrl: repo?.url }),
-    });
-    load();
+    addTask.mutate({ title: t, repoUrl: repo?.url });
   }
 
-  async function remove(id: string) {
-    setTasks((prev) => normalizeGroups(prev.filter((task) => task.id !== id)));
-    setSelected(null);
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+  function remove(id: string) {
+    setSelectedId(null);
+    removeTask.mutate(id);
   }
 
   /**
-   * Optimistically applies a new order/grouping, then persists and reconciles.
+   * Applies a new order/grouping (optimistically, in the query cache).
    * Snapshots the previous order so the last change can be undone; pass null to
    * skip (that's the undo itself — no undoing the undo).
    */
-  async function persistOrder(next: Task[], snapshot: Task[] | null = tasks) {
+  function persistOrder(next: Task[], snapshot: Task[] | null = tasks) {
     setUndo(snapshot);
-    setTasks(next);
-    const res = await fetch("/api/tasks", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        order: next.map((t) => ({ id: t.id, groupId: t.groupId ?? null })),
-      }),
-    });
-    if (res.ok) setTasks(await res.json());
+    reorder.mutate(next);
   }
 
   // the undo offer expires; ⌘Z / ctrl+Z takes it too, unless you're typing
@@ -196,34 +164,17 @@ export default function Home() {
     );
   }
 
-  async function toggleDone(task: Task) {
-    const status: TaskStatus = task.status === "done" ? "inbox" : "done";
-    // mirrors the server's stamp so the done list sorts right before the next load
-    const doneAt = status === "done" ? new Date().toISOString() : task.doneAt;
-    setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, status, doneAt } : t)),
-    );
-    if (selected?.id === task.id) {
-      setSelected({ ...task, status });
-    }
-    await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-  }
-
   /** Dispatches from the row menu; on failure opens the sheet so the user can retry. */
-  async function deploy(task: Task) {
-    const res = await fetch(`/api/tasks/${task.id}/dispatch`, {
-      method: "POST",
-    });
-    if (!res.ok) {
-      setSelectedGroup(null);
-      setSelected(task);
-      return;
-    }
-    onDispatched(await res.json());
+  function deploy(task: Task) {
+    dispatch.mutate(
+      { id: task.id },
+      {
+        onError: () => {
+          setSelectedGroup(null);
+          setSelectedId(task.id);
+        },
+      },
+    );
   }
 
   // done marks live at the bottom, newest kill first; the rest stay hand-sortable
@@ -241,13 +192,6 @@ export default function Home() {
   const groupMembers = selectedGroup
     ? tasks.filter((t) => t.groupId === selectedGroup)
     : [];
-
-  // a grouped task dispatches its whole group, so this can come back as a list
-  function onDispatched(updated: Task | Task[]) {
-    const next = [updated].flat();
-    setTasks((prev) => prev.map((t) => next.find((u) => u.id === t.id) ?? t));
-    setSelected((s) => next.find((u) => u.id === s?.id) ?? s);
-  }
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
@@ -267,7 +211,7 @@ export default function Home() {
         <TabPanel id="settings">
           <GithubRepos
             repos={repos}
-            connected={connected}
+            connected={github?.connected ?? false}
             blockedRepos={blockedRepos}
             onToggleBlocked={toggleBlocked}
           />
@@ -361,9 +305,9 @@ export default function Home() {
                     onReorder={(next) =>
                       persistOrder([...next, ...pending, ...done])
                     }
-                    onSelect={setSelected}
+                    onSelect={(t) => setSelectedId(t.id)}
                     onSelectGroup={setSelectedGroup}
-                    onToggle={toggleDone}
+                    onToggle={toggle.mutate}
                     onDelete={remove}
                     onDeploy={deploy}
                     onDraggingChange={setDragging}
@@ -380,9 +324,9 @@ export default function Home() {
                     onReorder={(next) =>
                       persistOrder([...flying, ...next, ...done])
                     }
-                    onSelect={setSelected}
+                    onSelect={(t) => setSelectedId(t.id)}
                     onSelectGroup={setSelectedGroup}
-                    onToggle={toggleDone}
+                    onToggle={toggle.mutate}
                     onDelete={remove}
                     onDeploy={deploy}
                     onDraggingChange={setDragging}
@@ -392,8 +336,8 @@ export default function Home() {
               {done.length > 0 && (
                 <DoneList
                   tasks={done}
-                  onSelect={setSelected}
-                  onToggle={toggleDone}
+                  onSelect={(t) => setSelectedId(t.id)}
+                  onToggle={toggle.mutate}
                   onDelete={remove}
                 />
               )}
@@ -427,8 +371,7 @@ export default function Home() {
             )
           }
           repos={pickable}
-          onClose={() => setSelected(null)}
-          onDispatched={onDispatched}
+          onClose={() => setSelectedId(null)}
           onDelete={() => remove(selected.id)}
         />
       )}
@@ -439,9 +382,8 @@ export default function Home() {
           onClose={() => setSelectedGroup(null)}
           onEditMember={(t) => {
             setSelectedGroup(null);
-            setSelected(t);
+            setSelectedId(t.id);
           }}
-          onDeployed={load}
           onDisband={() => disband(selectedGroup!)}
         />
       )}
