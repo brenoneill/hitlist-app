@@ -15,8 +15,14 @@ type Tab = "list" | "settings";
 const SECTION_LABEL =
   "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
 
+const TOAST_SHELL =
+  "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4";
+const TOAST_PILL =
+  "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
+
 export default function Home() {
   const { status } = useSession();
+  const signedIn = status === "authenticated";
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [repos, setRepos] = useState<Repo[] | null>(null);
@@ -26,8 +32,8 @@ export default function Home() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("list");
-  const [markError, setMarkError] = useState<string | null>(null);
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -135,7 +141,6 @@ export default function Home() {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
-    setMarkError(null);
     setTitle("");
     const res = await fetch("/api/tasks", {
       method: "POST",
@@ -145,7 +150,7 @@ export default function Home() {
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       setTitle(t);
-      setMarkError(body.error ?? "failed to mark");
+      setToast(body.error ?? "failed to mark");
       return;
     }
     load();
@@ -179,6 +184,7 @@ export default function Home() {
   useEffect(() => {
     const prev = undo;
     if (!prev) return;
+    setToast(null);
     const timer = setTimeout(() => setUndo(null), 6000);
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -193,6 +199,13 @@ export default function Home() {
       window.removeEventListener("keydown", onKey);
     };
   }, [undo]);
+
+  // error toasts share the undo tray; they expire the same way
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   function disband(groupId: string) {
     setSelectedGroup(null);
@@ -291,18 +304,23 @@ export default function Home() {
                     setTitle(e.target.value);
                     setDismissed(false);
                     setMIdx(0);
-                    setMarkError(null);
                   }}
                   onKeyDown={onTitleKeyDown}
-                  placeholder="Name your next hit… (-- tags a repo)"
+                  placeholder={
+                    signedIn
+                      ? "Name your next hit… (-- tags a repo)"
+                      : "Sign in to mark hits…"
+                  }
                   enterKeyHint="done"
                   autoCorrect="off"
+                  disabled={!signedIn}
                   // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
                   // onto inputs before hydration; those are harmless and unavoidable.
                   suppressHydrationWarning
-                  aria-invalid={!!markError}
-                  aria-describedby={markError ? "mark-error" : undefined}
-                  className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
+                  aria-describedby={
+                    status === "unauthenticated" ? "mark-signin-hint" : undefined
+                  }
+                  className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
                 />
                 {mentionOpen && (
                   <>
@@ -329,7 +347,7 @@ export default function Home() {
               </div>
               <button
                 type="submit"
-                disabled={!title.trim()}
+                disabled={!signedIn || !title.trim()}
                 className={`${BLOOD_BUTTON} px-5`}
               >
                 Mark
@@ -348,13 +366,12 @@ export default function Home() {
                 </button>
               </span>
             )}
-            {markError && (
+            {status === "unauthenticated" && (
               <p
-                id="mark-error"
-                role="alert"
-                className="font-mono text-xs text-blood"
+                id="mark-signin-hint"
+                className="font-mono text-xs text-muted"
               >
-                {markError}
+                Sign in from Settings to mark hits
               </p>
             )}
           </form>
@@ -421,17 +438,26 @@ export default function Home() {
         </TabPanel>
       </Tabs>
 
-      {undo && !dragging && (
-        <div className="fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
+      {undo && !dragging ? (
+        <div className={TOAST_SHELL}>
           <button
             onClick={() => persistOrder(undo, null)}
-            className="flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50 active:opacity-80"
+            className={`${TOAST_PILL} active:opacity-80`}
           >
             <Icon name="x" className="size-3.5 text-blood" />
             Undo move
             <span className="text-muted">⌘Z</span>
           </button>
         </div>
+      ) : (
+        toast && (
+          <div className={TOAST_SHELL}>
+            <div role="alert" className={TOAST_PILL}>
+              <Icon name="x" className="size-3.5 text-blood" />
+              {toast}
+            </div>
+          </div>
+        )
       )}
 
       {selected && (
