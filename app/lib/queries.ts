@@ -196,10 +196,11 @@ export function useModels(enabled: boolean) {
   });
 }
 
-export function useCursorKey() {
+export function useCursorKey(enabled = true) {
   return useQuery({
     queryKey: CURSOR_KEY,
     queryFn: () => api<{ hasKey: boolean }>("/api/settings/cursor-key"),
+    enabled,
   });
 }
 

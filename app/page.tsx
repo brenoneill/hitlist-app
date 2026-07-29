@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import {
   useAddTask,
+  useCursorKey,
   useDispatchTask,
   useRemoveTask,
   useReorderTasks,
@@ -28,6 +29,25 @@ const TOAST_SHELL =
 const TOAST_PILL =
   "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
 
+const LIST_FIRST: { id: Tab; label: string; icon: "list" | "settings" }[] = [
+  { id: "list", label: "List", icon: "list" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
+const SETTINGS_FIRST: { id: Tab; label: string; icon: "list" | "settings" }[] =
+  [
+    { id: "settings", label: "Settings", icon: "settings" },
+    { id: "list", label: "List", icon: "list" },
+  ];
+
+/** True once the user can tag repos and dispatch Cursor agents. */
+function isSetupComplete(
+  signedIn: boolean,
+  connected: boolean,
+  hasCursorKey: boolean,
+) {
+  return signedIn && connected && hasCursorKey;
+}
+
 export default function Home() {
   const { status } = useSession();
   const signedIn = status === "authenticated";
@@ -37,16 +57,25 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("list");
+  // Settings first until Cursor key + GitHub repos are connected
+  const [tab, setTab] = useState<Tab>("settings");
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+  const wasSetupComplete = useRef(false);
 
   // dragging pauses the poll so a refetch can't clobber the drag
   const { data, isLoading: loading } = useTasks(dragging);
   const tasks = useMemo(() => data ?? [], [data]);
-  const { data: github } = useRepos(status === "authenticated");
+  const { data: github, isFetched: reposFetched } = useRepos(signedIn);
+  const { data: cursorKey, isFetched: cursorKeyFetched } =
+    useCursorKey(signedIn);
   const repos: Repo[] | null = github?.repos ?? null;
+  const setupComplete = isSetupComplete(
+    signedIn,
+    github?.connected ?? false,
+    cursorKey?.hasKey ?? false,
+  );
   const addTask = useAddTask();
   const removeTask = useRemoveTask();
   const reorder = useReorderTasks();
@@ -59,6 +88,21 @@ export default function Home() {
   useEffect(() => {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
   }, []);
+
+  // Keep Settings first until both connections exist; then land on List once.
+  useEffect(() => {
+    if (status === "loading") return;
+    if (signedIn && (!reposFetched || !cursorKeyFetched)) return;
+    if (setupComplete) {
+      if (!wasSetupComplete.current) {
+        wasSetupComplete.current = true;
+        setTab("list");
+      }
+      return;
+    }
+    wasSetupComplete.current = false;
+    setTab("settings");
+  }, [status, signedIn, reposFetched, cursorKeyFetched, setupComplete]);
 
   // Focus after mount — autoFocus on the SSR'd input trips hydration on
   // Chrome iOS, which injects __gchrome_uniqueid before React attaches.
@@ -224,10 +268,7 @@ export default function Home() {
       </h1>
 
       <Tabs
-        tabs={[
-          { id: "list", label: "List", icon: "list" },
-          { id: "settings", label: "Settings", icon: "settings" },
-        ]}
+        tabs={setupComplete ? LIST_FIRST : SETTINGS_FIRST}
         active={tab}
         onChange={setTab}
       >
