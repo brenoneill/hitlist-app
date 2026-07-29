@@ -97,7 +97,8 @@ export default function Home() {
 
   async function load() {
     const res = await fetch("/api/tasks");
-    setTasks(await res.json());
+    // signed out → 401: keep the empty list rather than setTasks(errorBody)
+    if (res.ok) setTasks(await res.json());
     setLoading(false);
   }
 

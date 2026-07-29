@@ -72,12 +72,12 @@ export async function POST(
   }
 
   const { id } = await ctx.params;
-  const task = await getTask(id);
+  const task = await getTask(userId, id);
   if (!task) {
     return Response.json({ error: "task not found" }, { status: 404 });
   }
   const members = task.groupId
-    ? (await listTasks()).filter((t) => t.groupId === task.groupId)
+    ? (await listTasks(userId)).filter((t) => t.groupId === task.groupId)
     : [task];
   // cursorAgentId, not just status: a done→undone task is back in `inbox` but
   // already has an agent out there, and must not get a second one.
@@ -115,10 +115,9 @@ export async function POST(
       cursorApiKey,
       model,
     );
-    // serial: the JSON store clobbers on parallel writes
     const updated: Task[] = [];
     for (const m of members) {
-      const u = await updateTask(m.id, {
+      const u = await updateTask(userId, m.id, {
         status: "running",
         cursorAgentId: agent.id,
         agentUrl: agent.url,
