@@ -27,6 +27,7 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [tab, setTab] = useState<Tab>("list");
+  const [markError, setMarkError] = useState<string | null>(null);
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -134,12 +135,19 @@ export default function Home() {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
+    setMarkError(null);
     setTitle("");
-    await fetch("/api/tasks", {
+    const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: t, repoUrl: repo?.url }),
     });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setTitle(t);
+      setMarkError(body.error ?? "failed to mark");
+      return;
+    }
     load();
   }
 
@@ -283,6 +291,7 @@ export default function Home() {
                     setTitle(e.target.value);
                     setDismissed(false);
                     setMIdx(0);
+                    setMarkError(null);
                   }}
                   onKeyDown={onTitleKeyDown}
                   placeholder="Name your next hit… (-- tags a repo)"
@@ -291,6 +300,8 @@ export default function Home() {
                   // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
                   // onto inputs before hydration; those are harmless and unavoidable.
                   suppressHydrationWarning
+                  aria-invalid={!!markError}
+                  aria-describedby={markError ? "mark-error" : undefined}
                   className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
                 />
                 {mentionOpen && (
@@ -336,6 +347,15 @@ export default function Home() {
                   <Icon name="x" className="size-3 text-muted" />
                 </button>
               </span>
+            )}
+            {markError && (
+              <p
+                id="mark-error"
+                role="alert"
+                className="font-mono text-xs text-blood"
+              >
+                {markError}
+              </p>
             )}
           </form>
 

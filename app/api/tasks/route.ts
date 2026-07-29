@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, requireUserId } from "@/auth";
 import {
   addTask,
   listTasks,
@@ -117,6 +117,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userId = await requireUserId();
+  if (userId instanceof Response) return userId;
+
   const { title, repoUrl } = await request.json().catch(() => ({}));
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
