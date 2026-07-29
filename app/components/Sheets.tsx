@@ -22,7 +22,12 @@ import {
   PR_OPTIONS,
   type PrOptionId,
 } from "@/app/lib/prOptions";
-import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
+import {
+  StatusBadge,
+  deployable,
+  prIcon,
+  redeployable,
+} from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Bottom sheet: sizes to content up to 92dvh, slides up on open / down on close. */
@@ -158,10 +163,12 @@ function AgentActions({
             ? null
             : localStorage.getItem(LAST_PROVIDER_KEY),
         );
+  const canSend = deployable(lead) || redeployable(lead);
+  const isRedeploy = redeployable(lead);
   // cached for the session; only a provider key change invalidates the list
   const { data: models, isLoading: modelsLoading } = useModels(
     provider,
-    deployable(lead),
+    canSend,
   );
   // the response lands in the task cache — `lead` comes from there, so no callback
   const dispatch = useDispatchTask();
@@ -174,6 +181,7 @@ function AgentActions({
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
       options,
+      ...(isRedeploy ? { redeploy: true } : {}),
     });
   }
 
@@ -233,7 +241,7 @@ function AgentActions({
         </a>
       )}
 
-      {deployable(lead) && (
+      {canSend && (
         <>
           {configured.length > 1 && (
             <select
@@ -296,10 +304,16 @@ function AgentActions({
             className={`${BLOOD_BUTTON} mb-3 w-full`}
           >
             {dispatch.isPending
-              ? "Deploying…"
-              : lead.groupId
-                ? "Deploy group"
-                : "Deploy agent"}
+              ? isRedeploy
+                ? "Redeploying…"
+                : "Deploying…"
+              : isRedeploy
+                ? lead.groupId
+                  ? "Redeploy group"
+                  : "Redeploy"
+                : lead.groupId
+                  ? "Deploy group"
+                  : "Deploy agent"}
           </button>
         </>
       )}

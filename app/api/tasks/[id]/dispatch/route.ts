@@ -48,8 +48,9 @@ function buildPrompt(
  * Dispatches an inbox task — or, if the task is grouped, its whole group — to
  * ONE cloud agent. The prompt is built by `buildPrompt` (title/bullet
  * list + optional per-task context + working agreement); a group's repo is the
- * first member's with one.
- * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, and `options` (PR_OPTIONS ids) for the PR requirement sections.
+ * first member's with one. Pass `redeploy: true` to replace an existing agent
+ * with a fresh run (clears prior run/PR fields).
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, `options` (PR_OPTIONS ids) for the PR requirement sections, and `redeploy` to start a new agent on an already-dispatched task.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -68,9 +69,31 @@ export async function POST(
   const members = task.groupId
     ? (await listTasks(userId)).filter((t) => t.groupId === task.groupId)
     : [task];
-  // agentId, not just status: a done→undone task is back in `inbox` but
-  // already has an agent out there, and must not get a second one.
-  if (members.some((t) => t.status !== "inbox" || t.agentId)) {
+  const { provider: requested, ref, model, options, redeploy } = (await req
+    .json()
+    .catch(() => ({}))) as {
+    provider?: ProviderId;
+    ref?: string;
+    model?: string;
+    options?: string[];
+    redeploy?: boolean;
+  };
+
+  if (redeploy) {
+    // every member must already have been dispatched — redeploy replaces that agent
+    if (members.some((t) => !t.agentId)) {
+      return Response.json(
+        {
+          error: task.groupId
+            ? "group has tasks that were never deployed"
+            : "task has no agent to redeploy",
+        },
+        { status: 409 },
+      );
+    }
+  } else if (members.some((t) => t.status !== "inbox" || t.agentId)) {
+    // agentId, not just status: a done→undone task is back in `inbox` but
+    // already has an agent out there, and must not get a second one.
     return Response.json(
       {
         error: task.groupId
@@ -90,14 +113,6 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { provider: requested, ref, model, options } = (await req
-    .json()
-    .catch(() => ({}))) as {
-    provider?: ProviderId;
-    ref?: string;
-    model?: string;
-    options?: string[];
-  };
 
   // no provider in the body (quick deploy) ⇒ first configured one wins
   let provider = PROVIDER_IDS.find((p) => p === requested);
@@ -134,12 +149,25 @@ export async function POST(
         agentId: agent.id,
         agentUrl: agent.url,
         dispatchedAt: new Date().toISOString(),
+        // drop the previous run so the list/sheet track the new agent only
+        ...(redeploy
+          ? {
+              runStatus: undefined,
+              branch: undefined,
+              prUrl: undefined,
+              prState: undefined,
+              previewUrl: undefined,
+              agentSummary: undefined,
+              doneAt: undefined,
+              mergedAt: undefined,
+            }
+          : {}),
       });
       if (u) updated.push(u);
     }
     return Response.json(members.length === 1 ? updated[0] : updated);
   } catch (e) {
-    // ponytail: keep the task in `inbox` on failure so a bad key / transient error can be retried.
+    // ponytail: keep the task unchanged on failure so a bad key / transient error can be retried.
     return Response.json(
       { error: e instanceof Error ? e.message : String(e) },
       { status: 502 },
