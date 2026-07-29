@@ -1,6 +1,6 @@
+import { sql } from "./db";
 import { normalizeGroups } from "./groups";
 import { newId } from "./id";
-import { jsonFile } from "./jsonStore";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
@@ -37,29 +37,91 @@ export interface Task {
   groupId?: string;
 }
 
-const store = jsonFile<Task[]>("tasks.json", () => []);
+/** Patchable Task field → column. Order also drives updateTask's SET clause. */
+const COLS = {
+  title: "title",
+  status: "status",
+  cursorAgentId: "cursor_agent_id",
+  agentUrl: "agent_url",
+  repoUrl: "repo_url",
+  runStatus: "run_status",
+  branch: "branch",
+  prUrl: "pr_url",
+  prState: "pr_state",
+  agentSummary: "agent_summary",
+  dispatchedAt: "dispatched_at",
+  details: "details",
+  imageUrls: "image_urls",
+  doneAt: "done_at",
+  mergedAt: "merged_at",
+  groupId: "group_id",
+} as const;
 
-export async function listTasks(): Promise<Task[]> {
-  return store.read();
-}
+const iso = (v: unknown): string | undefined =>
+  v == null ? undefined : (v as Date).toISOString();
 
-export async function addTask(title: string, repoUrl?: string): Promise<Task> {
-  const tasks = await store.read();
-  const task: Task = {
-    id: newId(),
-    title,
-    status: "inbox",
-    createdAt: new Date().toISOString(),
-    repoUrl,
+function rowToTask(r: Record<string, unknown>): Task {
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    status: r.status as TaskStatus,
+    createdAt: iso(r.created_at)!,
+    cursorAgentId: (r.cursor_agent_id as string) ?? undefined,
+    agentUrl: (r.agent_url as string) ?? undefined,
+    repoUrl: (r.repo_url as string) ?? undefined,
+    runStatus: (r.run_status as string) ?? undefined,
+    branch: (r.branch as string) ?? undefined,
+    prUrl: (r.pr_url as string) ?? undefined,
+    prState: (r.pr_state as PrState) ?? undefined,
+    agentSummary: (r.agent_summary as string) ?? undefined,
+    dispatchedAt: iso(r.dispatched_at),
+    details: (r.details as string) ?? undefined,
+    imageUrls: (r.image_urls as string[]) ?? undefined,
+    doneAt: iso(r.done_at),
+    mergedAt: iso(r.merged_at),
+    groupId: (r.group_id as string) ?? undefined,
   };
-  tasks.unshift(task);
-  await store.write(tasks);
-  return task;
 }
 
-export async function removeTask(id: string): Promise<void> {
-  const tasks = await store.read();
-  await store.write(normalizeGroups(tasks.filter((t) => t.id !== id)));
+export async function listTasks(userId: string): Promise<Task[]> {
+  const rows = await sql`
+    select * from tasks where user_id = ${userId} order by position, id
+  `;
+  return rows.map(rowToTask);
+}
+
+export async function addTask(
+  userId: string,
+  title: string,
+  repoUrl?: string,
+): Promise<Task> {
+  // unshift: land above the current minimum; gaps/negatives are fine, only
+  // relative order matters
+  const rows = await sql`
+    insert into tasks (id, user_id, position, title, status, created_at, repo_url)
+    values (
+      ${newId()}, ${userId},
+      coalesce((select min(position) from tasks where user_id = ${userId}), 0) - 1,
+      ${title}, 'inbox', now(), ${repoUrl ?? null}
+    )
+    returning *
+  `;
+  return rowToTask(rows[0]);
+}
+
+export async function removeTask(userId: string, id: string): Promise<void> {
+  // second statement is normalizeGroups in SQL: a group left with <2 members dissolves
+  await sql.transaction((txn) => [
+    txn`delete from tasks where id = ${id} and user_id = ${userId}`,
+    txn`
+      update tasks set group_id = null
+      where user_id = ${userId} and group_id in (
+        select group_id from tasks
+        where user_id = ${userId} and group_id is not null
+        group by group_id having count(*) < 2
+      )
+    `,
+  ]);
 }
 
 /**
@@ -68,9 +130,10 @@ export async function removeTask(id: string): Promise<void> {
  * unknown ids are ignored. Only ordering and groupId can change through this.
  */
 export async function reorderTasks(
+  userId: string,
   order: { id: string; groupId: string | null }[],
 ): Promise<Task[]> {
-  const tasks = await store.read();
+  const tasks = await listTasks(userId);
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const next: Task[] = [];
   for (const { id, groupId } of order) {
@@ -81,27 +144,56 @@ export async function reorderTasks(
   }
   next.push(...byId.values());
   const normalized = normalizeGroups(next);
-  await store.write(normalized);
+  // one statement for the whole list; "" stands in for null in the text[] param
+  await sql`
+    update tasks t set position = v.pos, group_id = nullif(v.gid, '')
+    from unnest(
+      ${normalized.map((t) => t.id)}::text[],
+      ${normalized.map((_, i) => i)}::int[],
+      ${normalized.map((t) => t.groupId ?? "")}::text[]
+    ) as v(id, pos, gid)
+    where t.id = v.id and t.user_id = ${userId}
+  `;
   return normalized;
 }
 
-export async function getTask(id: string): Promise<Task | undefined> {
-  return (await store.read()).find((t) => t.id === id);
+export async function getTask(
+  userId: string,
+  id: string,
+): Promise<Task | undefined> {
+  const rows = await sql`
+    select * from tasks where id = ${id} and user_id = ${userId}
+  `;
+  return rows[0] ? rowToTask(rows[0]) : undefined;
 }
 
 export async function updateTask(
+  userId: string,
   id: string,
   patch: Partial<Task>,
 ): Promise<Task | undefined> {
-  const tasks = await store.read();
-  const i = tasks.findIndex((t) => t.id === id);
-  if (i === -1) return undefined;
+  // a key present with value undefined clears the column (PATCH route relies
+  // on this for details/repoUrl/imageUrls); an absent key leaves it alone
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, col] of Object.entries(COLS)) {
+    if (key in patch) {
+      values.push(patch[key as keyof typeof COLS] ?? null);
+      sets.push(`${col} = $${values.length}`);
+    }
+  }
   // stamped here, not at the callers — both the PATCH route and the Cursor poll land here
-  tasks[i] = {
-    ...tasks[i],
-    ...patch,
-    ...(patch.status === "done" ? { doneAt: new Date().toISOString() } : {}),
-  };
-  await store.write(tasks);
-  return tasks[i];
+  if (patch.status === "done" && !("doneAt" in patch)) {
+    values.push(new Date().toISOString());
+    sets.push(`done_at = $${values.length}`);
+  }
+  if (!sets.length) return getTask(userId, id);
+  values.push(id, userId);
+  const rows = await sql.query(
+    `update tasks set ${sets.join(", ")}
+     where id = $${values.length - 1} and user_id = $${values.length}
+     returning *`,
+    values,
+  );
+  return rows[0] ? rowToTask(rows[0] as Record<string, unknown>) : undefined;
 }

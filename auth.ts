@@ -24,6 +24,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // scoped to Metadata: Read-only, so this login can't read any code.
   providers: [GitHub],
   callbacks: {
+    // Auth.js mints a fresh random uuid per sign-in (no adapter), so every
+    // browser/device would otherwise be a different user. Pin sub to the
+    // GitHub account id — stable across sign-ins and devices.
+    async jwt({ token, account }) {
+      if (account) token.sub = account.providerAccountId;
+      return token;
+    },
     async session({ session, token }) {
       if (session.user) session.user.id = token.sub!;
       return session;

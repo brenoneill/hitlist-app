@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { requireUserId } from "@/auth";
 import { removeTask, updateTask, type TaskStatus } from "@/app/lib/tasks";
 
 const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
@@ -16,6 +17,8 @@ export async function PATCH(
   req: NextRequest,
   ctx: RouteContext<"/api/tasks/[id]">,
 ) {
+  const userId = await requireUserId();
+  if (userId instanceof Response) return userId;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const { status, details, title, repoUrl, imageUrls } = body as {
@@ -65,7 +68,7 @@ export async function PATCH(
     return Response.json({ error: "invalid imageUrls" }, { status: 400 });
   }
 
-  const updated = await updateTask(id, {
+  const updated = await updateTask(userId, id, {
     ...(status !== undefined ? { status: status as TaskStatus } : {}),
     ...(details !== undefined ? { details: details.trim() || undefined } : {}),
     ...(title !== undefined ? { title: title.trim() } : {}),
@@ -97,7 +100,9 @@ export async function DELETE(
   _req: NextRequest,
   ctx: RouteContext<"/api/tasks/[id]">,
 ) {
+  const userId = await requireUserId();
+  if (userId instanceof Response) return userId;
   const { id } = await ctx.params;
-  await removeTask(id);
+  await removeTask(userId, id);
   return new Response(null, { status: 204 });
 }

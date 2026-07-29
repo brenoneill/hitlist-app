@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import type { Repo } from "@/app/components/GithubRepos";
-import type { CursorModel } from "@/app/lib/cursor";
+import {
+  useDispatchTask,
+  useModels,
+  usePatchTask,
+  type TaskPatch,
+} from "@/app/lib/queries";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
@@ -115,7 +120,6 @@ function AgentActions({
   canDeploy,
   hideRepo,
   beforeSend,
-  onDeployed,
   children,
 }: {
   lead: Task;
@@ -124,43 +128,22 @@ function AgentActions({
   /** When the parent sheet owns an editable repo chip. */
   hideRepo?: boolean;
   beforeSend?: () => Promise<void>;
-  onDeployed: (body: unknown) => void;
   children?: React.ReactNode;
 }) {
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [models, setModels] = useState<CursorModel[]>([]);
-  const [modelsReady, setModelsReady] = useState(false);
   const [model, setModel] = useState("");
   const [screenshots, setScreenshots] = useState(true);
-
-  useEffect(() => {
-    if (!deployable(lead)) return;
-    fetch("/api/models")
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setModels)
-      .catch(() => {})
-      .finally(() => setModelsReady(true));
-    // deployable(lead) only flips false->true per sheet open, safe to run once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // cached for the session; only a Cursor key change invalidates the list
+  const { data: models, isLoading: modelsLoading } = useModels(deployable(lead));
+  // the response lands in the task cache — `lead` comes from there, so no callback
+  const dispatch = useDispatchTask();
 
   async function send() {
-    setSending(true);
-    setError(null);
     await beforeSend?.();
-    const res = await fetch(`/api/tasks/${lead.id}/dispatch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(model ? { model } : {}), screenshots }),
+    dispatch.mutate({
+      id: lead.id,
+      ...(model ? { model } : {}),
+      screenshots,
     });
-    const body = await res.json();
-    setSending(false);
-    if (!res.ok) {
-      setError((body as { error?: string }).error ?? "dispatch failed");
-      return;
-    }
-    onDeployed(body);
   }
 
   return (
@@ -213,15 +196,15 @@ function AgentActions({
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            disabled={!modelsReady}
-            aria-busy={!modelsReady}
+            disabled={modelsLoading}
+            aria-busy={modelsLoading}
             aria-label="Agent model"
             className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood disabled:opacity-70"
           >
             <option value="">
-              {modelsReady ? "Auto (default model)" : "Loading models…"}
+              {!modelsLoading ? "Auto (default model)" : "Loading models…"}
             </option>
-            {models.map((m) => (
+            {(models ?? []).map((m) => (
               <option key={m.id} value={m.id}>
                 {m.displayName}
               </option>
@@ -238,10 +221,10 @@ function AgentActions({
           </label>
           <button
             onClick={send}
-            disabled={sending || !canDeploy}
+            disabled={dispatch.isPending || !canDeploy}
             className={`${BLOOD_BUTTON} mb-3 w-full`}
           >
-            {sending
+            {dispatch.isPending
               ? "Deploying…"
               : lead.groupId
                 ? "Deploy group"
@@ -262,7 +245,11 @@ function AgentActions({
         </a>
       )}
 
-      {error && <p className="mb-3 font-mono text-xs text-blood">{error}</p>}
+      {dispatch.error && (
+        <p className="mb-3 font-mono text-xs text-blood">
+          {dispatch.error.message || "dispatch failed"}
+        </p>
+      )}
     </>
   );
 }
@@ -272,7 +259,6 @@ export function TaskSheet({
   canDeploy,
   repos,
   onClose,
-  onDispatched,
   onDelete,
 }: {
   task: Task;
@@ -281,8 +267,6 @@ export function TaskSheet({
   /** Pickable GitHub repos for post-create tagging. */
   repos: Repo[];
   onClose: () => void;
-  /** Dispatching a grouped task returns every member. */
-  onDispatched: (t: Task | Task[]) => void;
   onDelete: () => void;
 }) {
   const [details, setDetails] = useState(task.details ?? "");
@@ -293,6 +277,7 @@ export function TaskSheet({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const patchTask = usePatchTask();
   const editable = deployable(task);
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
@@ -301,13 +286,13 @@ export function TaskSheet({
     )
     .slice(0, 8);
 
-  async function patch(body: Record<string, unknown>) {
-    const res = await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) onDispatched(await res.json());
+  /**
+   * Awaitable (deploy saves details first); the updated task lands in the cache,
+   * which re-renders this sheet. A rejected edit is swallowed — the field keeps
+   * what you typed and the next blur retries.
+   */
+  function patch(body: Omit<TaskPatch, "id">) {
+    return patchTask.mutateAsync({ id: task.id, ...body }).catch(() => {});
   }
 
   async function saveDetails() {
@@ -468,7 +453,6 @@ export function TaskSheet({
         canDeploy={canDeploy}
         hideRepo={editable}
         beforeSend={saveDetails}
-        onDeployed={(body) => onDispatched(body as Task | Task[])}
       >
         {editable ? (
           <>
@@ -588,14 +572,12 @@ export function GroupSheet({
   members,
   onClose,
   onEditMember,
-  onDeployed,
   onDisband,
 }: {
   members: Task[];
   onClose: () => void;
   /** Swaps this sheet for the member's own sheet, to edit its context. */
   onEditMember: (t: Task) => void;
-  onDeployed: () => void;
   onDisband: () => void;
 }) {
   const lead = members[0];
@@ -656,11 +638,7 @@ export function GroupSheet({
           </li>
         ))}
       </ul>
-      <AgentActions
-        lead={lead}
-        canDeploy={members.some((m) => m.repoUrl)}
-        onDeployed={() => onDeployed()}
-      />
+      <AgentActions lead={lead} canDeploy={members.some((m) => m.repoUrl)} />
     </Sheet>
   );
 }
