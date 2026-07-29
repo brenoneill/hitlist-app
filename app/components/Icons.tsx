@@ -16,7 +16,9 @@ export type IconName =
   | "pr"
   | "merge"
   | "ellipsis"
-  | "image";
+  | "image"
+  | "cursor"
+  | "copilot";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   crosshair: (
@@ -70,6 +72,20 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <circle cx="6" cy="19" r="2.5" />
       <circle cx="18" cy="12" r="2.5" />
       <path d="M6 7.5v9M6 8c0 2.3 1.9 4 4.2 4h5.3" />
+    </>
+  ),
+  // Cursor's mark: an isometric cube (hexagon outline + Y of inner edges).
+  cursor: (
+    <>
+      <path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" />
+      <path d="M12 12L3 7M12 12l9-5M12 12v10" />
+    </>
+  ),
+  // Copilot-ish goggles: visor with two eye slits.
+  copilot: (
+    <>
+      <rect x="3.5" y="7.5" width="17" height="10" rx="5" />
+      <path d="M9 11v3M15 11v3" />
     </>
   ),
   github: (

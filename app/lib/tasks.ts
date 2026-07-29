@@ -1,6 +1,7 @@
 import { sql } from "./db";
 import { normalizeGroups } from "./groups";
 import { newId } from "./id";
+import type { ProviderId } from "./providerMeta";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
@@ -12,10 +13,12 @@ export interface Task {
   title: string;
   status: TaskStatus;
   createdAt: string;
-  cursorAgentId?: string;
+  /** Agent provider; column defaults to 'cursor', overwritten on dispatch. */
+  provider?: ProviderId;
+  agentId?: string;
   agentUrl?: string;
   repoUrl?: string;
-  /** Raw Cursor run phase (CREATING/RUNNING/…), refreshed while running. */
+  /** Run phase, normalized to Cursor's union (CREATING/RUNNING/…), refreshed while running. */
   runStatus?: string;
   /** Branch / PR / final summary reported by the agent's latest run. */
   branch?: string;
@@ -43,7 +46,8 @@ export interface Task {
 const COLS = {
   title: "title",
   status: "status",
-  cursorAgentId: "cursor_agent_id",
+  provider: "provider",
+  agentId: "agent_id",
   agentUrl: "agent_url",
   repoUrl: "repo_url",
   runStatus: "run_status",
@@ -69,7 +73,8 @@ function rowToTask(r: Record<string, unknown>): Task {
     title: r.title as string,
     status: r.status as TaskStatus,
     createdAt: iso(r.created_at)!,
-    cursorAgentId: (r.cursor_agent_id as string) ?? undefined,
+    provider: (r.provider as ProviderId) ?? undefined,
+    agentId: (r.agent_id as string) ?? undefined,
     agentUrl: (r.agent_url as string) ?? undefined,
     repoUrl: (r.repo_url as string) ?? undefined,
     runStatus: (r.run_status as string) ?? undefined,

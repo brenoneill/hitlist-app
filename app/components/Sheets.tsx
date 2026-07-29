@@ -7,8 +7,16 @@ import {
   useDispatchTask,
   useModels,
   usePatchTask,
+  useProviderKeys,
   type TaskPatch,
 } from "@/app/lib/queries";
+import {
+  LAST_PROVIDER_KEY,
+  PROVIDER_IDS,
+  PROVIDER_META,
+  pickDefaultProvider,
+  type ProviderId,
+} from "@/app/lib/providerMeta";
 import {
   DEFAULT_PR_OPTIONS,
   PR_OPTIONS,
@@ -137,15 +145,33 @@ function AgentActions({
 }) {
   const [model, setModel] = useState("");
   const [options, setOptions] = useState<PrOptionId[]>(DEFAULT_PR_OPTIONS);
-  // cached for the session; only a Cursor key change invalidates the list
-  const { data: models, isLoading: modelsLoading } = useModels(deployable(lead));
+  const { data: keys } = useProviderKeys();
+  const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  // derived, not seeded state — `keys` arrives async after the sheet opens
+  const [chosen, setChosen] = useState<ProviderId | null>(null);
+  const provider =
+    chosen && configured.includes(chosen)
+      ? chosen
+      : pickDefaultProvider(
+          configured,
+          typeof window === "undefined"
+            ? null
+            : localStorage.getItem(LAST_PROVIDER_KEY),
+        );
+  // cached for the session; only a provider key change invalidates the list
+  const { data: models, isLoading: modelsLoading } = useModels(
+    provider,
+    deployable(lead),
+  );
   // the response lands in the task cache — `lead` comes from there, so no callback
   const dispatch = useDispatchTask();
 
   async function send() {
     await beforeSend?.();
+    if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
     dispatch.mutate({
       id: lead.id,
+      ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
       options,
     });
@@ -209,6 +235,23 @@ function AgentActions({
 
       {deployable(lead) && (
         <>
+          {configured.length > 1 && (
+            <select
+              value={provider ?? ""}
+              onChange={(e) => {
+                setChosen(e.target.value as ProviderId);
+                setModel(""); // model lists don't overlap across providers
+              }}
+              aria-label="Agent provider"
+              className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood"
+            >
+              {configured.map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_META[p].label}
+                </option>
+              ))}
+            </select>
+          )}
           {/* Reserve select height before /api/models resolves */}
           <select
             value={model}

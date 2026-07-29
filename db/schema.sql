@@ -7,7 +7,8 @@ create table tasks (
   status text not null default 'inbox'
     check (status in ('inbox', 'running', 'done', 'failed')),
   created_at timestamptz not null,
-  cursor_agent_id text,
+  provider text not null default 'cursor',
+  agent_id text,
   agent_url text,
   repo_url text,
   run_status text,
@@ -29,5 +30,6 @@ create table user_settings (
   user_id text primary key,
   -- AES-256-GCM ciphertext (app/lib/crypto.ts), keyed by SETTINGS_ENCRYPTION_KEY.
   cursor_api_key text,
+  copilot_api_key text,
   github_installation_id text
 );

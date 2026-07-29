@@ -7,11 +7,13 @@ import {
   type PrState,
   type Task,
 } from "@/app/lib/tasks";
-import { getLatestRun, type LatestRun, type RunStatus } from "@/app/lib/cursor";
+import type { LatestRun, RunStatus } from "@/app/lib/cursor";
 import { getPreviewUrl, getPrState } from "@/app/lib/githubApp";
+import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import { PROVIDERS } from "@/app/lib/providers";
 import {
-  getCursorApiKey,
   getGithubInstallationId,
+  getProviderKey,
 } from "@/app/lib/userSettings";
 
 // A finished run does NOT auto-complete a task: it parks (rendered as "PR READY")
@@ -30,9 +32,9 @@ const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
   "EXPIRED",
 ]);
 
-/** Poll the Cursor run until it's been seen terminal once; then it can't change. */
+/** Poll the agent run until it's been seen terminal once; then it can't change. */
 const needsRunPoll = (t: Task) =>
-  !!t.cursorAgentId && !(t.runStatus && TERMINAL_RUN.has(t.runStatus as RunStatus));
+  !!t.agentId && !(t.runStatus && TERMINAL_RUN.has(t.runStatus as RunStatus));
 
 /** Poll a PR until it's merged or closed; unpolled (no prState) counts as open. */
 const needsPrPoll = (t: Task) => !!t.prUrl && (t.prState ?? "open") === "open";
@@ -45,36 +47,43 @@ const needsPreviewPoll = (t: Task) =>
   !!t.branch && !!t.repoUrl && (t.prState ?? "open") === "open";
 
 /**
- * Brings dispatched tasks up to date with their Cursor run: status, branch,
+ * Brings dispatched tasks up to date with their agent run: status, branch,
  * PR url, final summary — then with their PR's state on GitHub. Only `running`
  * tasks get their status remapped — a manually toggled done/inbox task keeps
  * its toggle, but still captures the PR. Each half no-ops without its
  * credential, so a caller without keys just gets the stored tasks back.
  */
 async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
-  const apiKey = await getCursorApiKey(userId);
+  const keys = Object.fromEntries(
+    await Promise.all(
+      PROVIDER_IDS.map(async (p) => [p, await getProviderKey(userId, p)]),
+    ),
+  ) as Record<ProviderId, string | undefined>;
   const installationId = await getGithubInstallationId(userId);
-  if (!apiKey && !installationId) return tasks;
+  if (!Object.values(keys).some(Boolean) && !installationId) return tasks;
 
-  // ponytail: serial + per-poll: up to 2 Cursor calls per running task and 1
+  // ponytail: serial + per-poll: up to 2 provider calls per running task and 1
   // GitHub call per open PR (one call covers open/closed/merged). Serial to
-  // rate-limit Cursor/GitHub, not the DB — updateTask is an atomic UPDATE now.
+  // rate-limit the provider/GitHub, not the DB — updateTask is an atomic UPDATE now.
   // Move to a webhook if it ever gets chatty. A user PATCH landing mid-poll
   // can be overwritten by this stale snapshot (ms window, next poll self-heals);
   // if it ever annoys, CAS the status remap on `and status = 'running'`.
   const out: Task[] = [];
-  // grouped tasks share a cursorAgentId / prUrl — poll each once, not per member
+  // grouped tasks share an agentId / prUrl — poll each once, not per member
   const runCache = new Map<string, LatestRun | undefined>();
   const prCache = new Map<string, PrState>();
   const previewCache = new Map<string, string | undefined>();
   for (const task of tasks) {
     const patch: Partial<Task> = {};
+    // pre-migration rows carry no provider; they were all dispatched to Cursor
+    const provider = task.provider ?? "cursor";
+    const apiKey = keys[provider];
     try {
       if (apiKey && needsRunPoll(task)) {
-        const agentId = task.cursorAgentId!;
+        const agentId = task.agentId!;
         const run = runCache.has(agentId)
           ? runCache.get(agentId)
-          : await getLatestRun(agentId, apiKey);
+          : await PROVIDERS[provider].getLatestRun(agentId, task.repoUrl, apiKey);
         runCache.set(agentId, run);
         if (run) {
           // ponytail: reuse "inbox" as the awaiting-merge rest state — statusDisplay

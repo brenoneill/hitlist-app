@@ -9,13 +9,14 @@ import {
 import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
 import { normalizeGroups } from "@/app/lib/groups";
+import type { ProviderId } from "@/app/lib/providerMeta";
 import type { PrOptionId } from "@/app/lib/prOptions";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 
 const TASKS = ["tasks"];
-const MODELS = ["models"];
+const MODELS = ["models"]; // prefix — per-provider keys are ["models", provider]
 const REPOS = ["repos"];
-const CURSOR_KEY = ["cursor-key"];
+const PROVIDER_KEYS = ["provider-keys"];
 
 /** Fetch + unwrap; non-2xx throws the API's `error` so mutations can show it. */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -166,6 +167,7 @@ export function useDispatchTask() {
       ...body
     }: {
       id: string;
+      provider?: ProviderId;
       model?: string;
       options?: PrOptionId[];
     }) => api<Task | Task[]>(`/api/tasks/${id}/dispatch`, send("POST", body)),
@@ -186,48 +188,51 @@ export function useRepos(enabled: boolean) {
   });
 }
 
-export function useModels(enabled: boolean) {
+export function useModels(provider: ProviderId | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: MODELS,
-    queryFn: () => api<CursorModel[]>("/api/models"),
-    enabled,
+    queryKey: [...MODELS, provider],
+    queryFn: () => api<CursorModel[]>(`/api/models?provider=${provider}`),
+    enabled: enabled && !!provider,
     // fixed list per key; only a key change invalidates it
     staleTime: Infinity,
     retry: false,
   });
 }
 
-export function useCursorKey(enabled = true) {
+export type ProviderKeyFlags = Record<ProviderId, boolean>;
+
+export function useProviderKeys(enabled = true) {
   return useQuery({
-    queryKey: CURSOR_KEY,
-    queryFn: () => api<{ hasKey: boolean }>("/api/settings/cursor-key"),
+    queryKey: PROVIDER_KEYS,
+    queryFn: () => api<ProviderKeyFlags>("/api/settings/keys"),
     enabled,
   });
 }
 
-export function useSaveCursorKey() {
+/** Shared onSuccess: a key change alters which models/runs the server can see. */
+function invalidateKeyDependents(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: PROVIDER_KEYS });
+  qc.invalidateQueries({ queryKey: MODELS }); // prefix match hits every provider
+  qc.invalidateQueries({ queryKey: TASKS });
+}
+
+export function useSaveProviderKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (key: string) =>
-      api<{ hasKey: boolean }>("/api/settings/cursor-key", send("POST", { key })),
-    onSuccess: (body) => {
-      qc.setQueryData(CURSOR_KEY, body);
-      // a new key changes which models — and which runs — the server can see
-      qc.invalidateQueries({ queryKey: MODELS });
-      qc.invalidateQueries({ queryKey: TASKS });
-    },
+    mutationFn: ({ provider, key }: { provider: ProviderId; key: string }) =>
+      api<{ hasKey: boolean }>(
+        `/api/settings/keys/${provider}`,
+        send("POST", { key }),
+      ),
+    onSuccess: () => invalidateKeyDependents(qc),
   });
 }
 
-export function useClearCursorKey() {
+export function useClearProviderKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      api<{ hasKey: boolean }>("/api/settings/cursor-key", send("DELETE")),
-    onSuccess: (body) => {
-      qc.setQueryData(CURSOR_KEY, body);
-      qc.invalidateQueries({ queryKey: MODELS });
-      qc.invalidateQueries({ queryKey: TASKS });
-    },
+    mutationFn: (provider: ProviderId) =>
+      api<{ hasKey: boolean }>(`/api/settings/keys/${provider}`, send("DELETE")),
+    onSuccess: () => invalidateKeyDependents(qc),
   });
 }

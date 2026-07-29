@@ -39,12 +39,12 @@ for (const [i, t] of tasks.entries()) {
   const rows = await sql`
     insert into tasks (
       id, user_id, position, title, status, created_at,
-      cursor_agent_id, agent_url, repo_url, run_status, branch, pr_url,
+      agent_id, agent_url, repo_url, run_status, branch, pr_url,
       pr_state, agent_summary, details, image_urls,
       dispatched_at, done_at, merged_at, group_id
     ) values (
       ${t.id}, ${userId}, ${i}, ${t.title}, ${t.status}, ${t.createdAt},
-      ${t.cursorAgentId ?? null}, ${t.agentUrl ?? null}, ${t.repoUrl ?? null},
+      ${(t as Task & { cursorAgentId?: string }).cursorAgentId ?? t.agentId ?? null}, ${t.agentUrl ?? null}, ${t.repoUrl ?? null},
       ${t.runStatus ?? null}, ${t.branch ?? null}, ${t.prUrl ?? null},
       ${t.prState ?? null}, ${t.agentSummary ?? null}, ${t.details ?? null},
       ${t.imageUrls ?? null},

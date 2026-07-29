@@ -5,14 +5,19 @@ import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import {
   useAddTask,
-  useCursorKey,
   useDispatchTask,
+  useProviderKeys,
   useRemoveTask,
   useReorderTasks,
   useRepos,
   useTasks,
   useToggleDone,
 } from "@/app/lib/queries";
+import {
+  LAST_PROVIDER_KEY,
+  PROVIDER_IDS,
+  pickDefaultProvider,
+} from "@/app/lib/providerMeta";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
@@ -39,13 +44,13 @@ const SETTINGS_FIRST: { id: Tab; label: string; icon: "list" | "settings" }[] =
     { id: "list", label: "List", icon: "list" },
   ];
 
-/** True once the user can tag repos and dispatch Cursor agents. */
+/** True once the user can tag repos and dispatch agents. */
 function isSetupComplete(
   signedIn: boolean,
   connected: boolean,
-  hasCursorKey: boolean,
+  hasProviderKey: boolean,
 ) {
-  return signedIn && connected && hasCursorKey;
+  return signedIn && connected && hasProviderKey;
 }
 
 export default function Home() {
@@ -68,13 +73,13 @@ export default function Home() {
   const { data, isLoading: loading } = useTasks(dragging);
   const tasks = useMemo(() => data ?? [], [data]);
   const { data: github, isFetched: reposFetched } = useRepos(signedIn);
-  const { data: cursorKey, isFetched: cursorKeyFetched } =
-    useCursorKey(signedIn);
+  const { data: providerKeys, isFetched: keysFetched } =
+    useProviderKeys(signedIn);
   const repos: Repo[] | null = github?.repos ?? null;
   const setupComplete = isSetupComplete(
     signedIn,
     github?.connected ?? false,
-    cursorKey?.hasKey ?? false,
+    Object.values(providerKeys ?? {}).some(Boolean),
   );
   const addTask = useAddTask();
   const removeTask = useRemoveTask();
@@ -89,10 +94,10 @@ export default function Home() {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
   }, []);
 
-  // Hold the tab decision until key + GitHub connection are known; then land once.
+  // Hold the tab decision until keys + GitHub connection are known; then land once.
   useEffect(() => {
     if (status === "loading") return;
-    if (signedIn && (!reposFetched || !cursorKeyFetched)) return;
+    if (signedIn && (!reposFetched || !keysFetched)) return;
     if (setupComplete) {
       if (!wasSetupComplete.current) {
         wasSetupComplete.current = true;
@@ -102,7 +107,7 @@ export default function Home() {
     }
     wasSetupComplete.current = false;
     setTab("settings");
-  }, [status, signedIn, reposFetched, cursorKeyFetched, setupComplete]);
+  }, [status, signedIn, reposFetched, keysFetched, setupComplete]);
 
   // Focus after mount — autoFocus on the SSR'd input trips hydration on
   // Chrome iOS, which injects __gchrome_uniqueid before React attaches.
@@ -233,8 +238,13 @@ export default function Home() {
 
   /** Dispatches from the row menu; on failure opens the sheet so the user can retry. */
   function deploy(task: Task) {
+    // last-used provider if still configured; undefined lets the server default
+    const provider = pickDefaultProvider(
+      PROVIDER_IDS.filter((p) => providerKeys?.[p]),
+      localStorage.getItem(LAST_PROVIDER_KEY),
+    );
     dispatch.mutate(
-      { id: task.id },
+      { id: task.id, ...(provider ? { provider } : {}) },
       {
         onError: () => {
           setSelectedGroup(null);
@@ -394,6 +404,14 @@ export default function Home() {
                 <p className="font-mono text-sm uppercase tracking-widest text-muted">
                   No active marks
                 </p>
+                {!setupComplete && (
+                  <button
+                    onClick={() => setTab("settings")}
+                    className="mt-4 font-mono text-xs text-muted underline underline-offset-4"
+                  >
+                    Finish setup in Settings →
+                  </button>
+                )}
               </div>
             ) : (
               <>

@@ -105,7 +105,7 @@ function TaskExternalLinks({
           className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prClassName}`}
         >
           <Icon name={prIcon(task)} className="size-3.5" />
-          {task.prState === "merged" ? "MERGED" : "PR"}
+          {task.status === "running" ? "DRAFT" : task.prState === "merged" ? "MERGED" : "PR"}
         </a>
       )}
       {task.agentUrl && (

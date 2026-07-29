@@ -14,11 +14,13 @@ import {
   updateTask,
 } from "../app/lib/tasks";
 import {
-  clearCursorApiKey,
-  getCursorApiKey,
-  setCursorApiKey,
+  clearProviderKey,
+  getProviderKey,
+  setProviderKey,
 } from "../app/lib/userSettings";
 import { DEFAULT_PR_OPTIONS, optionSections } from "../app/lib/prOptions";
+import { STATE_MAP } from "../app/lib/copilot";
+import type { RunStatus } from "../app/lib/cursor";
 
 // PR option selection: defaults are screenshots-only, unknown ids can't add a section
 const REPO = "https://github.com/o/r";
@@ -71,6 +73,11 @@ await updateTask(U, b.id, { details: "x" });
 assert.equal((await getTask(U, b.id))!.details, "x");
 assert.equal((await updateTask(U, b.id, { details: undefined }))!.details, undefined);
 
+// provider + agentId persist through updateTask (dispatch writes these)
+const dispatched = await updateTask(U, b.id, { provider: "copilot", agentId: "t1" });
+assert.equal(dispatched!.provider, "copilot");
+assert.equal(dispatched!.agentId, "t1");
+
 // user scoping
 assert.equal((await listTasks("smoke-other")).length, 0);
 assert.equal(await updateTask("smoke-other", b.id, { title: "hax" }), undefined);
@@ -87,16 +94,33 @@ await removeTask(U, b.id);
 await removeTask(U, c.id);
 assert.equal((await listTasks(U)).length, 0);
 
-// cursor api key round-trips through AES-GCM and isn't stored in the clear
+// provider keys round-trip through AES-GCM, aren't stored in the clear, and
+// are independent per provider (clearing one leaves the other)
 await sql`delete from user_settings where user_id = ${U}`;
-await setCursorApiKey(U, "crsr_secret_value");
-const [{ cursor_api_key: stored }] = await sql`
-  select cursor_api_key from user_settings where user_id = ${U}
+await setProviderKey(U, "cursor", "crsr_secret_value");
+await setProviderKey(U, "copilot", "ghp_secret_value");
+const [{ cursor_api_key: stored, copilot_api_key: stored2 }] = await sql`
+  select cursor_api_key, copilot_api_key from user_settings where user_id = ${U}
 `;
 assert.notEqual(stored, "crsr_secret_value");
-assert.equal(await getCursorApiKey(U), "crsr_secret_value");
-await clearCursorApiKey(U);
-assert.equal(await getCursorApiKey(U), undefined);
+assert.notEqual(stored2, "ghp_secret_value");
+assert.equal(await getProviderKey(U, "cursor"), "crsr_secret_value");
+assert.equal(await getProviderKey(U, "copilot"), "ghp_secret_value");
+await clearProviderKey(U, "cursor");
+assert.equal(await getProviderKey(U, "cursor"), undefined);
+assert.equal(await getProviderKey(U, "copilot"), "ghp_secret_value");
 await sql`delete from user_settings where user_id = ${U}`;
+
+// every documented Copilot state maps into the stored RunStatus union
+const RUN_STATUSES: RunStatus[] = [
+  "CREATING", "RUNNING", "FINISHED", "ERROR", "CANCELLED", "EXPIRED",
+];
+const COPILOT_STATES = [
+  "queued", "in_progress", "completed", "failed",
+  "cancelled", "timed_out", "waiting_for_user", "idle",
+];
+for (const s of COPILOT_STATES) {
+  assert.ok(RUN_STATUSES.includes(STATE_MAP[s]), `unmapped copilot state: ${s}`);
+}
 
 console.log("smoke ok");

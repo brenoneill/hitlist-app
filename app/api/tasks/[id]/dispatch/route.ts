@@ -1,7 +1,8 @@
 import { requireUserId } from "@/auth";
 import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
-import { createAgent } from "@/app/lib/cursor";
-import { getCursorApiKey } from "@/app/lib/userSettings";
+import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import { PROVIDERS } from "@/app/lib/providers";
+import { getProviderKey } from "@/app/lib/userSettings";
 import { DEFAULT_PR_OPTIONS, optionSections } from "@/app/lib/prOptions";
 
 const WORKING_AGREEMENT = `## Working agreement
@@ -45,10 +46,10 @@ function buildPrompt(
 
 /**
  * Dispatches an inbox task — or, if the task is grouped, its whole group — to
- * ONE Cursor cloud agent. The prompt is built by `buildPrompt` (title/bullet
+ * ONE cloud agent. The prompt is built by `buildPrompt` (title/bullet
  * list + optional per-task context + working agreement); a group's repo is the
  * first member's with one.
- * @param req - Optional JSON body with `ref` to override the starting branch, `model` to pick the agent's model, and `options` (PR_OPTIONS ids) for the PR requirement sections.
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, and `options` (PR_OPTIONS ids) for the PR requirement sections.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -58,13 +59,6 @@ export async function POST(
 ) {
   const userId = await requireUserId();
   if (userId instanceof Response) return userId;
-  const cursorApiKey = await getCursorApiKey(userId);
-  if (!cursorApiKey) {
-    return Response.json(
-      { error: "add your Cursor API key in Settings first" },
-      { status: 400 },
-    );
-  }
 
   const { id } = await ctx.params;
   const task = await getTask(userId, id);
@@ -74,14 +68,14 @@ export async function POST(
   const members = task.groupId
     ? (await listTasks(userId)).filter((t) => t.groupId === task.groupId)
     : [task];
-  // cursorAgentId, not just status: a done→undone task is back in `inbox` but
+  // agentId, not just status: a done→undone task is back in `inbox` but
   // already has an agent out there, and must not get a second one.
-  if (members.some((t) => t.status !== "inbox" || t.cursorAgentId)) {
+  if (members.some((t) => t.status !== "inbox" || t.agentId)) {
     return Response.json(
       {
         error: task.groupId
           ? "group has already-dispatched tasks"
-          : task.cursorAgentId
+          : task.agentId
             ? "task already has an agent"
             : `task already ${task.status}`,
       },
@@ -96,25 +90,48 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { ref, model, options } = (await req.json().catch(() => ({}))) as {
+  const { provider: requested, ref, model, options } = (await req
+    .json()
+    .catch(() => ({}))) as {
+    provider?: ProviderId;
     ref?: string;
     model?: string;
     options?: string[];
   };
 
+  // no provider in the body (quick deploy) ⇒ first configured one wins
+  let provider = PROVIDER_IDS.find((p) => p === requested);
+  let apiKey = provider ? await getProviderKey(userId, provider) : undefined;
+  if (!apiKey) {
+    for (const p of PROVIDER_IDS) {
+      apiKey = await getProviderKey(userId, p);
+      if (apiKey) {
+        provider = p;
+        break;
+      }
+    }
+  }
+  if (!provider || !apiKey) {
+    return Response.json(
+      { error: "add a provider API key in Settings first" },
+      { status: 400 },
+    );
+  }
+
   try {
-    const agent = await createAgent(
+    const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(members, options ?? DEFAULT_PR_OPTIONS, repoUrl), // absent body ⇒ defaults
       repoUrl,
       ref,
-      cursorApiKey,
+      apiKey,
       model,
     );
     const updated: Task[] = [];
     for (const m of members) {
       const u = await updateTask(userId, m.id, {
         status: "running",
-        cursorAgentId: agent.id,
+        provider,
+        agentId: agent.id,
         agentUrl: agent.url,
         dispatchedAt: new Date().toISOString(),
       });
