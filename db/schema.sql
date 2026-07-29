@@ -14,6 +14,7 @@ create table tasks (
   branch text,
   pr_url text,
   pr_state text,
+  preview_url text,
   agent_summary text,
   details text,
   image_urls text[],

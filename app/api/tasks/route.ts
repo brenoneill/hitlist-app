@@ -8,7 +8,7 @@ import {
   type Task,
 } from "@/app/lib/tasks";
 import { getLatestRun, type LatestRun, type RunStatus } from "@/app/lib/cursor";
-import { getPrState } from "@/app/lib/githubApp";
+import { getPreviewUrl, getPrState } from "@/app/lib/githubApp";
 import {
   getCursorApiKey,
   getGithubInstallationId,
@@ -37,6 +37,13 @@ const needsRunPoll = (t: Task) =>
 /** Poll a PR until it's merged or closed; unpolled (no prState) counts as open. */
 const needsPrPoll = (t: Task) => !!t.prUrl && (t.prState ?? "open") === "open";
 
+// ponytail: re-reads every poll rather than latching once — the provider mints a NEW
+// preview url per commit, so a cached one points at stale code the moment the agent
+// pushes again. Costs 2 GitHub calls per open-PR task; latch it if that ever bites.
+/** Poll a branch's preview until its PR is merged or closed. */
+const needsPreviewPoll = (t: Task) =>
+  !!t.branch && !!t.repoUrl && (t.prState ?? "open") === "open";
+
 /**
  * Brings dispatched tasks up to date with their Cursor run: status, branch,
  * PR url, final summary — then with their PR's state on GitHub. Only `running`
@@ -59,6 +66,7 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
   // grouped tasks share a cursorAgentId / prUrl — poll each once, not per member
   const runCache = new Map<string, LatestRun | undefined>();
   const prCache = new Map<string, PrState>();
+  const previewCache = new Map<string, string | undefined>();
   for (const task of tasks) {
     const patch: Partial<Task> = {};
     try {
@@ -96,9 +104,20 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
           patch.mergedAt = new Date().toISOString();
         }
       }
+      // last, and gated on the state just polled above: a 403 before the
+      // Deployments scope is granted then loses only the preview url, not the
+      // run/PR fields already collected — and a PR merged this pass stops here.
+      if (installationId && needsPreviewPoll({ ...task, ...patch })) {
+        const key = `${task.repoUrl}#${task.branch}`;
+        const url = previewCache.has(key)
+          ? previewCache.get(key)
+          : await getPreviewUrl(task.repoUrl!, task.branch!, installationId);
+        previewCache.set(key, url);
+        if (url !== task.previewUrl) patch.previewUrl = url;
+      }
     } catch {
-      // transient Cursor/GitHub error (incl. 403 before PR-read scope) — leave
-      // the task as-is; the next poll retries.
+      // transient Cursor/GitHub error (incl. 403 before the PR-read or
+      // Deployments scope is granted) — leave the task as-is; the next poll retries.
     }
     // only write when something changed — this runs every client poll
     out.push(

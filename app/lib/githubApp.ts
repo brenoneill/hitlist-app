@@ -59,8 +59,9 @@ async function getInstallationToken(installationId: string): Promise<string> {
   return body.token;
 }
 
-// The GitHub App backing this holds Metadata + Pull requests, both read-only —
-// no Contents, so there is no code-reading capability to misuse even server-side.
+// The GitHub App backing this holds Metadata, Pull requests and Deployments, all
+// read-only — no Contents, so there is no code-reading capability to misuse even
+// server-side.
 export async function listInstallationRepos(
   installationId: string,
 ): Promise<GitHubRepo[]> {
@@ -106,4 +107,47 @@ export async function getPrState(
   if (!res.ok) throw new Error(`GitHub API ${res.status}`);
   const pr = (await res.json()) as { merged: boolean; state: string };
   return pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open";
+}
+
+/**
+ * The preview URL for `branch`, read from GitHub Deployments (needs Deployments: Read).
+ * Vercel, Netlify, Render and Cloudflare Pages all report their preview through this
+ * API as `environment_url`, so nothing here is vendor-specific and no provider token
+ * is needed — the deploy itself still happens entirely on the provider's side.
+ * @returns The url, or undefined when nothing has deployed the branch successfully yet.
+ */
+export async function getPreviewUrl(
+  repoUrl: string,
+  branch: string,
+  installationId: string,
+): Promise<string | undefined> {
+  const m = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+  if (!m) return undefined;
+  const token = await getInstallationToken(installationId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  };
+  // newest first, so one row is the current deployment for this branch
+  const deploys = await fetch(
+    `https://api.github.com/repos/${m[1]}/${m[2]}/deployments?ref=${encodeURIComponent(branch)}&per_page=1`,
+    { headers },
+  );
+  if (deploys.status === 404) return undefined;
+  if (!deploys.ok) throw new Error(`GitHub API ${deploys.status}`);
+  const [deployment] = (await deploys.json()) as { statuses_url: string }[];
+  if (!deployment) return undefined;
+  // a deployment collects queued/in_progress/success statuses; only a success carries
+  // a usable url, and several providers may have deployed the same ref
+  const statuses = await fetch(`${deployment.statuses_url}?per_page=10`, {
+    headers,
+  });
+  if (statuses.status === 404) return undefined;
+  if (!statuses.ok) throw new Error(`GitHub API ${statuses.status}`);
+  const rows = (await statuses.json()) as {
+    state: string;
+    environment_url?: string | null;
+  }[];
+  return rows.find((s) => s.state === "success" && s.environment_url)
+    ?.environment_url as string | undefined;
 }

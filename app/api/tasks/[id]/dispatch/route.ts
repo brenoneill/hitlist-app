@@ -2,17 +2,7 @@ import { requireUserId } from "@/auth";
 import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { createAgent } from "@/app/lib/cursor";
 import { getCursorApiKey } from "@/app/lib/userSettings";
-
-/** repoUrl is a `https://github.com/{owner}/{repo}` URL. */
-function screenshotCriteria(repoUrl: string): string {
-  return `## Acceptance criteria (required)
-- Run the app and capture screenshots proving each change works as described.
-- Commit the screenshots to the branch (e.g. \`.pr-assets/\`) so they live with the PR.
-- Embed them inline in the PR description using **publicly fetchable** image URLs (HTTP 200 with \`Content-Type: image/*\` and **no auth**). Private-repo GitHub raw links do **not** work in PR markdown — GitHub's image proxy fetches them unauthenticated and they 404 (this includes \`raw.githubusercontent.com\`, \`${repoUrl}/raw/...\`, and Cursor artifact/attachment URLs).
-- After uploading, verify each embed URL with an unauthenticated \`curl -sI\` (expect 200 + image content-type) before opening/updating the PR. Do not ship broken image placeholders.
-- Preferred flow: commit files under \`.pr-assets/\`, then upload each to expiring public hosting with \`curl -sF reqtype=fileupload -F time=72h -F 'fileToUpload=@.pr-assets/<name>.png' https://litterbox.catbox.moe/resources/internals/api.php\` (the response body is the public URL, e.g. \`https://litter.catbox.moe/xxxxx.png\`), and embed with \`![desc](https://litter.catbox.moe/…)\`. Mention in the PR that the mirrors expire after 72h and the originals live on the branch under \`.pr-assets/\`.
-- If a screen is behind a login: check the Context section for test credentials or a dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently.`;
-}
+import { DEFAULT_PR_OPTIONS, optionSections } from "@/app/lib/prOptions";
 
 const WORKING_AGREEMENT = `## Working agreement
 - Keep changes focused on this task; don't refactor unrelated code.
@@ -21,7 +11,11 @@ const WORKING_AGREEMENT = `## Working agreement
 - Open a PR with a clear summary of what changed and why.`;
 
 /** Wraps task title(s) + optional details in the standard agent prompt. */
-function buildPrompt(members: Task[], screenshots: boolean, repoUrl: string): string {
+function buildPrompt(
+  members: Task[],
+  options: readonly string[],
+  repoUrl: string,
+): string {
   const body =
     members.length === 1
       ? `# Task\n${members[0].title}` +
@@ -45,7 +39,8 @@ function buildPrompt(members: Task[], screenshots: boolean, repoUrl: string): st
   const imageSection = images.length
     ? `## Screenshots (user-attached)\nFetch and view these before starting; they are on expiring temp hosting, so fetch them first. If one already 404s, say so in the PR rather than guessing its contents.\n${images.join("\n")}\n\n`
     : "";
-  return `${body}\n\n${imageSection}${screenshots ? `${screenshotCriteria(repoUrl)}\n\n` : ""}${WORKING_AGREEMENT}`;
+  const sections = optionSections(options, repoUrl).map((s) => `${s}\n\n`);
+  return `${body}\n\n${imageSection}${sections.join("")}${WORKING_AGREEMENT}`;
 }
 
 /**
@@ -53,7 +48,7 @@ function buildPrompt(members: Task[], screenshots: boolean, repoUrl: string): st
  * ONE Cursor cloud agent. The prompt is built by `buildPrompt` (title/bullet
  * list + optional per-task context + working agreement); a group's repo is the
  * first member's with one.
- * @param req - Optional JSON body with `ref` to override the starting branch and `model` to pick the agent's model.
+ * @param req - Optional JSON body with `ref` to override the starting branch, `model` to pick the agent's model, and `options` (PR_OPTIONS ids) for the PR requirement sections.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -101,15 +96,15 @@ export async function POST(
       { status: 400 },
     );
   }
-  const { ref, model, screenshots } = (await req.json().catch(() => ({}))) as {
+  const { ref, model, options } = (await req.json().catch(() => ({}))) as {
     ref?: string;
     model?: string;
-    screenshots?: boolean;
+    options?: string[];
   };
 
   try {
     const agent = await createAgent(
-      buildPrompt(members, screenshots !== false, repoUrl), // on unless explicitly disabled
+      buildPrompt(members, options ?? DEFAULT_PR_OPTIONS, repoUrl), // absent body ⇒ defaults
       repoUrl,
       ref,
       cursorApiKey,

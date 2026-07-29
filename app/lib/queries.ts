@@ -9,6 +9,7 @@ import {
 import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
 import { normalizeGroups } from "@/app/lib/groups";
+import type { PrOptionId } from "@/app/lib/prOptions";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 
 const TASKS = ["tasks"];
@@ -166,7 +167,7 @@ export function useDispatchTask() {
     }: {
       id: string;
       model?: string;
-      screenshots?: boolean;
+      options?: PrOptionId[];
     }) => api<Task | Task[]>(`/api/tasks/${id}/dispatch`, send("POST", body)),
     onSuccess: (updated) => merge(qc, updated),
   });

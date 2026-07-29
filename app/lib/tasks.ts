@@ -22,6 +22,8 @@ export interface Task {
   prUrl?: string;
   /** Polled from GitHub while the PR is open; absent means never polled (treat as open). */
   prState?: PrState;
+  /** Branch preview URL as reported to GitHub Deployments by Vercel/Netlify/etc; absent until the build goes green. */
+  previewUrl?: string;
   agentSummary?: string;
   /** Stamped when the agent is dispatched; drives "working for Xm". */
   dispatchedAt?: string;
@@ -48,6 +50,7 @@ const COLS = {
   branch: "branch",
   prUrl: "pr_url",
   prState: "pr_state",
+  previewUrl: "preview_url",
   agentSummary: "agent_summary",
   dispatchedAt: "dispatched_at",
   details: "details",
@@ -73,6 +76,7 @@ function rowToTask(r: Record<string, unknown>): Task {
     branch: (r.branch as string) ?? undefined,
     prUrl: (r.pr_url as string) ?? undefined,
     prState: (r.pr_state as PrState) ?? undefined,
+    previewUrl: (r.preview_url as string) ?? undefined,
     agentSummary: (r.agent_summary as string) ?? undefined,
     dispatchedAt: iso(r.dispatched_at),
     details: (r.details as string) ?? undefined,

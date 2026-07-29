@@ -9,6 +9,11 @@ import {
   usePatchTask,
   type TaskPatch,
 } from "@/app/lib/queries";
+import {
+  DEFAULT_PR_OPTIONS,
+  PR_OPTIONS,
+  type PrOptionId,
+} from "@/app/lib/prOptions";
 import { StatusBadge, deployable, prIcon } from "@/app/components/TaskList";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
@@ -131,7 +136,7 @@ function AgentActions({
   children?: React.ReactNode;
 }) {
   const [model, setModel] = useState("");
-  const [screenshots, setScreenshots] = useState(true);
+  const [options, setOptions] = useState<PrOptionId[]>(DEFAULT_PR_OPTIONS);
   // cached for the session; only a Cursor key change invalidates the list
   const { data: models, isLoading: modelsLoading } = useModels(deployable(lead));
   // the response lands in the task cache — `lead` comes from there, so no callback
@@ -142,7 +147,7 @@ function AgentActions({
     dispatch.mutate({
       id: lead.id,
       ...(model ? { model } : {}),
-      screenshots,
+      options,
     });
   }
 
@@ -190,6 +195,18 @@ function AgentActions({
         </a>
       )}
 
+      {lead.previewUrl && (
+        <a
+          href={lead.previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest text-foreground active:opacity-80"
+        >
+          <Icon name="external" className="size-4" />
+          Open preview
+        </a>
+      )}
+
       {deployable(lead) && (
         <>
           {/* Reserve select height before /api/models resolves */}
@@ -210,15 +227,26 @@ function AgentActions({
               </option>
             ))}
           </select>
-          <label className="mb-3 flex items-center gap-2 font-mono text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={screenshots}
-              onChange={(e) => setScreenshots(e.target.checked)}
-              className="size-4 accent-blood"
-            />
-            Require inline PR screenshots as proof
-          </label>
+          {PR_OPTIONS.map((o) => (
+            <label
+              key={o.id}
+              className="mb-3 flex items-center gap-2 font-mono text-xs text-muted"
+            >
+              <input
+                type="checkbox"
+                checked={options.includes(o.id)}
+                onChange={(e) =>
+                  setOptions((prev) =>
+                    e.target.checked
+                      ? [...prev, o.id]
+                      : prev.filter((id) => id !== o.id),
+                  )
+                }
+                className="size-4 accent-blood"
+              />
+              {o.label}
+            </label>
+          ))}
           <button
             onClick={send}
             disabled={dispatch.isPending || !canDeploy}
