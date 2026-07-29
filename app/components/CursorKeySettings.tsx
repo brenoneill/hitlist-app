@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useClearCursorKey,
   useCursorKey,
@@ -10,20 +10,25 @@ import { Icon } from "@/app/components/Icons";
 
 export function CursorKeySettings() {
   const [key, setKey] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [lastSavedKey, setLastSavedKey] = useState("");
   const { data, isPending: loading } = useCursorKey();
   const save = useSaveCursorKey();
   const clear = useClearCursorKey();
   const hasKey = data?.hasKey ?? false;
-  const busy = loading || save.isPending || clear.isPending;
+  const busy = loading || clear.isPending;
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!key.trim()) return;
-    save.mutate(key.trim(), { onSuccess: () => setKey("") });
-  }
+  useEffect(() => {
+    const trimmed = key.trim();
+    if (!trimmed || trimmed === lastSavedKey) return;
+    const timer = window.setTimeout(() => {
+      save.mutate(trimmed, { onSuccess: () => setLastSavedKey(trimmed) });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [key, lastSavedKey, save]);
 
   return (
-    <form onSubmit={submit} className="mb-6 flex gap-2">
+    <div className="mb-6 flex gap-2">
       <div className="relative min-w-0 flex-1">
         <Icon
           name="key"
@@ -41,23 +46,45 @@ export function CursorKeySettings() {
         />
       </div>
       {hasKey && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => clear.mutate()}
-          aria-label="Drop saved Cursor key"
-          className="rounded-xl border border-edge px-3 py-3 text-blood active:bg-surface disabled:opacity-50"
-        >
-          <Icon name="trash" className="size-4" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Cursor key actions"
+            className="rounded-xl border border-edge px-3 py-3 text-muted active:bg-surface disabled:opacity-50"
+          >
+            <Icon name="ellipsis" className="size-4" />
+          </button>
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-full z-20 mt-1 min-w-36 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    clear.mutate(undefined, {
+                      onSuccess: () => {
+                        setKey("");
+                        setLastSavedKey("");
+                        setMenuOpen(false);
+                      },
+                    })
+                  }
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background disabled:opacity-50"
+                >
+                  <Icon name="trash" className="size-4" />
+                  Delete key
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
-      <button
-        type="submit"
-        disabled={busy || !key.trim()}
-        className="rounded-xl border border-edge px-5 py-3 text-base font-medium active:bg-surface disabled:opacity-50"
-      >
-        {save.isPending ? "Saving…" : "Save"}
-      </button>
-    </form>
+    </div>
   );
 }
