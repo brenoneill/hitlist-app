@@ -308,6 +308,93 @@ export default function Home() {
           tabs={setupComplete ? LIST_FIRST : SETTINGS_FIRST}
           active={tab}
           onChange={setTab}
+          stickyExtra={
+            tab === "list" ? (
+              <form onSubmit={add} className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <input
+                      ref={titleRef}
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        setDismissed(false);
+                        setMIdx(0);
+                      }}
+                      onKeyDown={onTitleKeyDown}
+                      placeholder={
+                        signedIn
+                          ? "Name your next hit… (-- tags a repo)"
+                          : "Sign in to mark hits…"
+                      }
+                      enterKeyHint="done"
+                      autoCorrect="off"
+                      disabled={!signedIn}
+                      // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
+                      // onto inputs before hydration; those are harmless and unavoidable.
+                      suppressHydrationWarning
+                      aria-describedby={
+                        status === "unauthenticated"
+                          ? "mark-signin-hint"
+                          : undefined
+                      }
+                      className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
+                    />
+                    {mentionOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setDismissed(true)}
+                        />
+                        <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                          {matches.map((r, i) => (
+                            <button
+                              type="button"
+                              key={r.id}
+                              onClick={() => pickMention(r)}
+                              className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
+                                i === mIdx ? "bg-background" : ""
+                              }`}
+                            >
+                              {r.name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!signedIn || !title.trim()}
+                    className={`${BLOOD_BUTTON} px-5`}
+                  >
+                    Mark
+                  </button>
+                </div>
+                {repo && (
+                  <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs">
+                    <Icon name="crosshair" className="size-3 text-blood" />
+                    {repo.name}
+                    <button
+                      type="button"
+                      onClick={() => setRepo(null)}
+                      aria-label="Remove repo"
+                    >
+                      <Icon name="x" className="size-3 text-muted" />
+                    </button>
+                  </span>
+                )}
+                {status === "unauthenticated" && (
+                  <p
+                    id="mark-signin-hint"
+                    className="font-mono text-xs text-muted"
+                  >
+                    Sign in from Settings to mark hits
+                  </p>
+                )}
+              </form>
+            ) : undefined
+          }
         >
           <TabPanel id="settings">
             <GithubRepos
@@ -319,90 +406,6 @@ export default function Home() {
           </TabPanel>
 
           <TabPanel id="list">
-            <form onSubmit={add} className="mb-6 flex flex-col gap-2">
-              <div className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <input
-                    ref={titleRef}
-                    value={title}
-                    onChange={(e) => {
-                      setTitle(e.target.value);
-                      setDismissed(false);
-                      setMIdx(0);
-                    }}
-                    onKeyDown={onTitleKeyDown}
-                    placeholder={
-                      signedIn
-                        ? "Name your next hit… (-- tags a repo)"
-                        : "Sign in to mark hits…"
-                    }
-                    enterKeyHint="done"
-                    autoCorrect="off"
-                    disabled={!signedIn}
-                    // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
-                    // onto inputs before hydration; those are harmless and unavoidable.
-                    suppressHydrationWarning
-                    aria-describedby={
-                      status === "unauthenticated"
-                        ? "mark-signin-hint"
-                        : undefined
-                    }
-                    className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
-                  />
-                  {mentionOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setDismissed(true)}
-                      />
-                      <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-                        {matches.map((r, i) => (
-                          <button
-                            type="button"
-                            key={r.id}
-                            onClick={() => pickMention(r)}
-                            className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
-                              i === mIdx ? "bg-background" : ""
-                            }`}
-                          >
-                            {r.name}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  disabled={!signedIn || !title.trim()}
-                  className={`${BLOOD_BUTTON} px-5`}
-                >
-                  Mark
-                </button>
-              </div>
-              {repo && (
-                <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs">
-                  <Icon name="crosshair" className="size-3 text-blood" />
-                  {repo.name}
-                  <button
-                    type="button"
-                    onClick={() => setRepo(null)}
-                    aria-label="Remove repo"
-                  >
-                    <Icon name="x" className="size-3 text-muted" />
-                  </button>
-                </span>
-              )}
-              {status === "unauthenticated" && (
-                <p
-                  id="mark-signin-hint"
-                  className="font-mono text-xs text-muted"
-                >
-                  Sign in from Settings to mark hits
-                </p>
-              )}
-            </form>
-
             {loading ? (
               <p className="font-mono text-sm uppercase tracking-widest text-muted">
                 Scanning…
