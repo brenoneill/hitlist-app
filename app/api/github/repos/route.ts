@@ -1,5 +1,8 @@
 import { requireUserId } from "@/auth";
-import { getGithubInstallationId } from "@/app/lib/userSettings";
+import {
+  getGithubInstallationId,
+  listReposWithNotes,
+} from "@/app/lib/userSettings";
 import { listInstallationRepos } from "@/app/lib/githubApp";
 import type { Repo } from "@/app/components/GithubRepos";
 
@@ -13,7 +16,11 @@ export async function GET() {
       return Response.json({ connected: false, repos: [] });
     }
 
-    const repos = await listInstallationRepos(installationId);
+    const [repos, notedUrls] = await Promise.all([
+      listInstallationRepos(installationId),
+      listReposWithNotes(userId),
+    ]);
+    const noted = new Set(notedUrls);
     return Response.json({
       connected: true,
       // typed against the client's Repo so contract drift fails typecheck
@@ -22,6 +29,7 @@ export async function GET() {
         name: r.full_name,
         url: r.html_url,
         private: r.private,
+        hasNotes: noted.has(r.html_url),
       })),
     });
   } catch (err) {

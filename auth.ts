@@ -1,5 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import GitHub from "next-auth/providers/github";
+import Credentials from "next-auth/providers/credentials";
 
 declare module "next-auth" {
   interface Session {
@@ -22,7 +23,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // default scope (read:user user:email) — identity only, no repo access.
   // Repo listing goes through a separate GitHub App install (see app/lib/githubApp.ts)
   // scoped to Metadata: Read-only, so this login can't read any code.
-  providers: [GitHub],
+  providers: [
+    GitHub,
+    // Sandbox sign-in for agent/E2E runs (npm run dev:e2e) — GitHub OAuth can't
+    // complete in a sandbox (callback URL points at prod). Only registered when
+    // AUTH_E2E=1, which is never set in real deployments.
+    ...(process.env.AUTH_E2E === "1"
+      ? [
+          Credentials({
+            id: "e2e",
+            name: "E2E test user",
+            credentials: {},
+            // id must match the seed data in app/lib/db.ts
+            authorize: async () => ({ id: "e2e-user", name: "E2E Tester" }),
+          }),
+        ]
+      : []),
+  ],
   callbacks: {
     // Auth.js mints a fresh random uuid per sign-in (no adapter), so every
     // browser/device would otherwise be a different user. Pin sub to the

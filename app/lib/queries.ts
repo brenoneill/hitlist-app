@@ -17,6 +17,7 @@ const TASKS = ["tasks"];
 const MODELS = ["models"]; // prefix — per-provider keys are ["models", provider]
 const REPOS = ["repos"];
 const PROVIDER_KEYS = ["provider-keys"];
+const REPO_NOTES = ["repo-notes"]; // prefix — per-repo keys are ["repo-notes", url]
 
 /** Fetch + unwrap; non-2xx throws the API's `error` so mutations can show it. */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -90,7 +91,7 @@ export function useTasks(paused = false) {
 export function useAddTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { title: string; repoUrl?: string }) =>
+    mutationFn: (v: { title: string; repoUrl?: string; details?: string }) =>
       api<Task>("/api/tasks", send("POST", v)),
     // the server unshifts, so a new mark lands on top
     onSuccess: (task) =>
@@ -198,6 +199,37 @@ export function useModels(provider: ProviderId | undefined, enabled: boolean) {
     // fixed list per key; only a key change invalidates it
     staleTime: Infinity,
     retry: false,
+  });
+}
+
+/** Per-repo agent access notes (plain text, injected into dispatch prompts). */
+export function useRepoNotes(repoUrl: string) {
+  return useQuery({
+    queryKey: [...REPO_NOTES, repoUrl],
+    queryFn: () =>
+      api<{ notes: string }>(
+        `/api/settings/repo-notes?repo=${encodeURIComponent(repoUrl)}`,
+      ),
+  });
+}
+
+export function useSaveRepoNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { repoUrl: string; notes: string }) =>
+      api<{ notes: string }>("/api/settings/repo-notes", send("PUT", v)),
+    onSuccess: (data, v) => {
+      qc.setQueryData([...REPO_NOTES, v.repoUrl], data);
+      // keep the repo list's "notes set" dot in step without re-hitting GitHub
+      qc.setQueryData<{ connected: boolean; repos: Repo[] }>(REPOS, (prev) =>
+        prev && {
+          ...prev,
+          repos: prev.repos.map((r) =>
+            r.url === v.repoUrl ? { ...r, hasNotes: !!data.notes } : r,
+          ),
+        },
+      );
+    },
   });
 }
 

@@ -33,3 +33,12 @@ create table user_settings (
   copilot_api_key text,
   github_installation_id text
 );
+
+create table repo_settings (
+  user_id text not null,
+  repo_url text not null,
+  -- Plain text by choice: instructions ("run npm run demo, log in as x") more
+  -- than secrets, and users must be able to read back what they wrote.
+  agent_access_notes text,
+  primary key (user_id, repo_url)
+);

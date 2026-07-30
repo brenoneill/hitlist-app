@@ -18,7 +18,8 @@ export type IconName =
   | "ellipsis"
   | "image"
   | "cursor"
-  | "copilot";
+  | "copilot"
+  | "lock";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   crosshair: (
@@ -48,6 +49,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <circle cx="9" cy="10" r="1.5" />
       <path d="M3 17l5-5 4 4 3-3 6 6" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+      <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5" />
     </>
   ),
   ellipsis: (

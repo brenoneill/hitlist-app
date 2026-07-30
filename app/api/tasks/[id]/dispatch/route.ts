@@ -2,7 +2,10 @@ import { requireUserId } from "@/auth";
 import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
 import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { PROVIDERS } from "@/app/lib/providers";
-import { getProviderKey } from "@/app/lib/userSettings";
+import {
+  getAgentAccessNotes,
+  getProviderKey,
+} from "@/app/lib/userSettings";
 import { DEFAULT_PR_OPTIONS, optionSections } from "@/app/lib/prOptions";
 
 const WORKING_AGREEMENT = `## Working agreement
@@ -16,6 +19,7 @@ function buildPrompt(
   members: Task[],
   options: readonly string[],
   repoUrl: string,
+  accessNotes?: string,
 ): string {
   const body =
     members.length === 1
@@ -40,8 +44,11 @@ function buildPrompt(
   const imageSection = images.length
     ? `## Screenshots (user-attached)\nFetch and view these before starting; they are on expiring temp hosting, so fetch them first. If one already 404s, say so in the PR rather than guessing its contents.\n${images.join("\n")}\n\n`
     : "";
+  const notesSection = accessNotes
+    ? `## Repo access notes (from the user)\nHow to run this app and get past login for testing/screenshots:\n${accessNotes}\n\n`
+    : "";
   const sections = optionSections(options, repoUrl).map((s) => `${s}\n\n`);
-  return `${body}\n\n${imageSection}${sections.join("")}${WORKING_AGREEMENT}`;
+  return `${body}\n\n${imageSection}${notesSection}${sections.join("")}${WORKING_AGREEMENT}`;
 }
 
 /**
@@ -135,7 +142,12 @@ export async function POST(
 
   try {
     const agent = await PROVIDERS[provider].createAgent(
-      buildPrompt(members, options ?? DEFAULT_PR_OPTIONS, repoUrl), // absent body ⇒ defaults
+      buildPrompt(
+        members,
+        options ?? DEFAULT_PR_OPTIONS, // absent body ⇒ defaults
+        repoUrl,
+        await getAgentAccessNotes(userId, repoUrl),
+      ),
       repoUrl,
       ref,
       apiKey,

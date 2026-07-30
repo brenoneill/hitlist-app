@@ -13,7 +13,7 @@ function screenshotCriteria(repoUrl: string): string {
 - Embed them inline in the PR description using **publicly fetchable** image URLs (HTTP 200 with \`Content-Type: image/*\` and **no auth**). Private-repo GitHub raw links do **not** work in PR markdown — GitHub's image proxy fetches them unauthenticated and they 404 (this includes \`raw.githubusercontent.com\`, \`${repoUrl}/raw/...\`, and agent-tool artifact/attachment URLs).
 - After uploading, verify each embed URL with an unauthenticated \`curl -sI\` (expect 200 + image content-type) before opening/updating the PR. Do not ship broken image placeholders.
 - Preferred flow: upload each to expiring public hosting with \`curl -sF reqtype=fileupload -F time=72h -F 'fileToUpload=@/tmp/<name>.png' https://litterbox.catbox.moe/resources/internals/api.php\` (the response body is the public URL, e.g. \`https://litter.catbox.moe/xxxxx.png\`), and embed with \`![desc](https://litter.catbox.moe/…)\`. Mention in the PR that the images expire after 72h.
-- If a screen is behind a login: check the Context section for test credentials or a dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently.`;
+- If a screen is behind a login: check the "Repo access notes" section of this prompt, the Context section, and the repo's agent docs (AGENTS.md / CLAUDE.md) for test credentials or a documented dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently — do not forge sessions or stub out auth.`;
 }
 
 export const PR_OPTIONS = [

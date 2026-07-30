@@ -103,15 +103,16 @@ export async function addTask(
   userId: string,
   title: string,
   repoUrl?: string,
+  details?: string,
 ): Promise<Task> {
   // unshift: land above the current minimum; gaps/negatives are fine, only
   // relative order matters
   const rows = await sql`
-    insert into tasks (id, user_id, position, title, status, created_at, repo_url)
+    insert into tasks (id, user_id, position, title, status, created_at, repo_url, details)
     values (
       ${newId()}, ${userId},
       coalesce((select min(position) from tasks where user_id = ${userId}), 0) - 1,
-      ${title}, 'inbox', now(), ${repoUrl ?? null}
+      ${title}, 'inbox', now(), ${repoUrl ?? null}, ${details ?? null}
     )
     returning *
   `;

@@ -59,6 +59,46 @@ export async function getProviderKeyFlags(
   };
 }
 
+/** Per-repo instructions injected into the dispatch prompt (plain text). */
+export async function getAgentAccessNotes(
+  userId: string,
+  repoUrl: string,
+): Promise<string | undefined> {
+  const rows = await sql`
+    select agent_access_notes from repo_settings
+    where user_id = ${userId} and repo_url = ${repoUrl}
+  `;
+  return rows[0]?.agent_access_notes ?? undefined;
+}
+
+/** Repo URLs that have notes saved — one read, drives the settings list state. */
+export async function listReposWithNotes(userId: string): Promise<string[]> {
+  const rows = await sql`
+    select repo_url from repo_settings where user_id = ${userId}
+  `;
+  return rows.map((r) => r.repo_url as string);
+}
+
+export async function setAgentAccessNotes(
+  userId: string,
+  repoUrl: string,
+  notes: string,
+): Promise<void> {
+  if (!notes.trim()) {
+    await sql`
+      delete from repo_settings
+      where user_id = ${userId} and repo_url = ${repoUrl}
+    `;
+    return;
+  }
+  await sql`
+    insert into repo_settings (user_id, repo_url, agent_access_notes)
+    values (${userId}, ${repoUrl}, ${notes})
+    on conflict (user_id, repo_url) do update
+      set agent_access_notes = excluded.agent_access_notes
+  `;
+}
+
 export async function getGithubInstallationId(
   userId: string,
 ): Promise<string | undefined> {

@@ -15,7 +15,9 @@ import {
 } from "../app/lib/tasks";
 import {
   clearProviderKey,
+  getAgentAccessNotes,
   getProviderKey,
+  setAgentAccessNotes,
   setProviderKey,
 } from "../app/lib/userSettings";
 import { DEFAULT_PR_OPTIONS, optionSections } from "../app/lib/prOptions";
@@ -110,6 +112,16 @@ await clearProviderKey(U, "cursor");
 assert.equal(await getProviderKey(U, "cursor"), undefined);
 assert.equal(await getProviderKey(U, "copilot"), "ghp_secret_value");
 await sql`delete from user_settings where user_id = ${U}`;
+
+// repo access notes: upsert round-trip, per-repo scoping, blank clears the row
+await sql`delete from repo_settings where user_id = ${U}`;
+await setAgentAccessNotes(U, REPO, "npm run demo; log in as demo/demo");
+await setAgentAccessNotes(U, REPO, "npm run demo2");
+assert.equal(await getAgentAccessNotes(U, REPO), "npm run demo2");
+assert.equal(await getAgentAccessNotes(U, "https://github.com/o/other"), undefined);
+await setAgentAccessNotes(U, REPO, "  ");
+assert.equal(await getAgentAccessNotes(U, REPO), undefined);
+assert.equal((await sql`select * from repo_settings where user_id = ${U}`).length, 0);
 
 // every documented Copilot state maps into the stored RunStatus union
 const RUN_STATUSES: RunStatus[] = [

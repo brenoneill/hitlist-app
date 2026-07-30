@@ -147,13 +147,15 @@ export async function GET() {
 export async function POST(request: Request) {
   const userId = await requireUserId();
   if (userId instanceof Response) return userId;
-  const { title, repoUrl } = await request.json().catch(() => ({}));
+  const { title, repoUrl, details } = await request.json().catch(() => ({}));
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "title required" }, { status: 400 });
   }
   const repo =
     typeof repoUrl === "string" && repoUrl.trim() ? repoUrl.trim() : undefined;
-  return Response.json(await addTask(userId, title.trim(), repo), {
+  const detail =
+    typeof details === "string" && details.trim() ? details : undefined;
+  return Response.json(await addTask(userId, title.trim(), repo, detail), {
     status: 201,
   });
 }
