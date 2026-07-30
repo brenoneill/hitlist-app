@@ -262,21 +262,57 @@ function AgentActions({
       {deployable(lead) && (
         <>
           {configured.length > 1 && (
-            <select
-              value={provider ?? ""}
-              onChange={(e) => {
-                setChosen(e.target.value as ProviderId);
-                setModel(""); // model lists don't overlap across providers
-              }}
+            <div
+              role="radiogroup"
               aria-label="Agent provider"
-              className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood"
+              className="mb-3 flex gap-2"
             >
-              {configured.map((p) => (
-                <option key={p} value={p}>
-                  {PROVIDER_META[p].label}
-                </option>
-              ))}
-            </select>
+              {configured.map((p) => {
+                const selected = provider === p;
+                const meta = PROVIDER_META[p];
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={meta.label}
+                    onClick={() => {
+                      setChosen(p);
+                      setModel(""); // model lists don't overlap across providers
+                    }}
+                    className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-xl border px-3 py-3 text-center transition-colors outline-none focus-visible:border-blood ${
+                      selected
+                        ? "border-blood bg-blood/10 text-foreground"
+                        : "border-edge bg-background text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-9 items-center justify-center rounded-lg border ${
+                        selected
+                          ? "border-blood/40 bg-blood/15 text-foreground"
+                          : "border-edge bg-surface text-muted"
+                      }`}
+                    >
+                      <Icon name={meta.icon} className="size-5" />
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium leading-none">
+                        {meta.label}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={`size-2.5 shrink-0 rounded-full border-2 ${
+                          selected
+                            ? "border-blood bg-blood shadow-[0_0_8px_rgba(220,38,38,0.45)]"
+                            : "border-edge bg-transparent"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
           {/* Reserve select height before /api/models resolves */}
           <select
