@@ -107,7 +107,7 @@ function Sheet({
 
   return (
     <div
-      className={`fixed inset-0 z-10 flex flex-col justify-end bg-black/60 ${
+      className={`fixed inset-0 z-40 flex flex-col justify-end bg-black/60 ${
         closing ? "animate-fade-out" : "animate-fade-in"
       }`}
       onClick={requestClose}
