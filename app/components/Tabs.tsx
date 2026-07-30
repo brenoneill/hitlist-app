@@ -76,6 +76,10 @@ export function Tabs<T extends string>({
 
   return (
     <TabContext.Provider value={{ active, dir }}>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top,0px)] bg-background"
+      />
       <div className="sticky top-[env(safe-area-inset-top,0px)] z-30 -mx-4 bg-background px-4 pb-4">
         <div
           ref={listRef}
