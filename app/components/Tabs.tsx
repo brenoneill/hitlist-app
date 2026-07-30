@@ -23,16 +23,19 @@ const TabContext = createContext<TabContextValue | null>(null);
 /**
  * Segmented control with a sliding pill, plus directional panel transitions.
  * Pass `TabPanel` children for each tab id; panels animate based on tab order.
+ * `stickyExtra` sits under the tablist in the same sticky chrome (e.g. mark input).
  */
 export function Tabs<T extends string>({
   tabs,
   active,
   onChange,
+  stickyExtra,
   children,
 }: {
   tabs: { id: T; label: string; icon: IconName }[];
   active: T;
   onChange: (id: T) => void;
+  stickyExtra?: ReactNode;
   children?: ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -73,45 +76,50 @@ export function Tabs<T extends string>({
 
   return (
     <TabContext.Provider value={{ active, dir }}>
-      <div
-        ref={listRef}
-        role="tablist"
-        className="relative mb-6 flex gap-1 rounded-xl border border-edge bg-surface p-1"
-      >
-        {indicator && (
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute top-1 bottom-1 left-0 rounded-lg bg-blood shadow-[0_0_16px_rgba(220,38,38,0.4)] motion-reduce:transition-none ${
-              ready
-                ? "transition-[transform,width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                : ""
-            }`}
-            style={{
-              width: indicator.width,
-              transform: `translateX(${indicator.left}px)`,
-            }}
-          />
-        )}
-        {tabs.map((tab) => {
-          const isActive = tab.id === active;
-          return (
-            <button
-              key={tab.id}
-              data-tab={tab.id}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => select(tab.id)}
-              className={`relative z-10 flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 font-mono text-xs font-bold uppercase tracking-widest transition-colors duration-300 motion-reduce:transition-none ${
-                isActive
-                  ? "text-white"
-                  : "text-muted active:bg-background/60"
+      <div className="sticky top-[env(safe-area-inset-top,0px)] z-30 -mx-4 bg-background px-4 pb-4">
+        <div
+          ref={listRef}
+          role="tablist"
+          className={`relative flex gap-1 rounded-xl border border-edge bg-surface p-1 ${
+            stickyExtra ? "mb-4" : ""
+          }`}
+        >
+          {indicator && (
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute top-1 bottom-1 left-0 rounded-lg bg-blood shadow-[0_0_16px_rgba(220,38,38,0.4)] motion-reduce:transition-none ${
+                ready
+                  ? "transition-[transform,width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                  : ""
               }`}
-            >
-              <Icon name={tab.icon} className="size-4" />
-              {tab.label}
-            </button>
-          );
-        })}
+              style={{
+                width: indicator.width,
+                transform: `translateX(${indicator.left}px)`,
+              }}
+            />
+          )}
+          {tabs.map((tab) => {
+            const isActive = tab.id === active;
+            return (
+              <button
+                key={tab.id}
+                data-tab={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => select(tab.id)}
+                className={`relative z-10 flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 font-mono text-xs font-bold uppercase tracking-widest transition-colors duration-300 motion-reduce:transition-none ${
+                  isActive
+                    ? "text-white"
+                    : "text-muted active:bg-background/60"
+                }`}
+              >
+                <Icon name={tab.icon} className="size-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        {stickyExtra}
       </div>
       {children}
     </TabContext.Provider>
