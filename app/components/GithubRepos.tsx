@@ -108,6 +108,13 @@ export function GithubRepos({
             {INSTALL_URL ? (
               <a
                 href={INSTALL_URL}
+                // GitHub redirects installs to the App's one registered Setup
+                // URL (production). Send our origin as `state` so the callback
+                // can bounce back here when we're a preview deployment.
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
+                }}
                 className={`${BLOOD_BUTTON} block w-full text-center`}
               >
                 Connect repos on GitHub

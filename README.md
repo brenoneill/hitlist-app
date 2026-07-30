@@ -29,6 +29,20 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## OAuth on Vercel preview deployments
+
+GitHub OAuth apps and GitHub Apps each accept exactly one callback/setup URL,
+so previews route both flows through production:
+
+- **Sign-in** uses Auth.js's built-in redirect proxy. In Vercel, set
+  `AUTH_REDIRECT_PROXY_URL=https://<prod-domain>/api/auth` for the Production
+  and Preview environments, and make sure `AUTH_SECRET`, `AUTH_GITHUB_ID`, and
+  `AUTH_GITHUB_SECRET` are shared with Preview. The GitHub OAuth app's callback
+  URL stays `https://<prod-domain>/api/auth/callback/github`.
+- **App installs** pass the deployment's origin as `state`; the production
+  Setup URL (`https://<prod-domain>/api/github/install/callback`) bounces the
+  callback to that origin (https `*.vercel.app` only).
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
