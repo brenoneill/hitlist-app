@@ -281,34 +281,32 @@ function AgentActions({
                       setChosen(p);
                       setModel(""); // model lists don't overlap across providers
                     }}
-                    className={`flex min-w-0 flex-1 flex-col items-center gap-2 rounded-xl border px-3 py-3 text-center transition-colors outline-none focus-visible:border-blood ${
+                    className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:border-info ${
                       selected
-                        ? "border-blood bg-blood/10 text-foreground"
+                        ? "border-info bg-info/10 text-foreground"
                         : "border-edge bg-background text-muted hover:text-foreground"
                     }`}
                   >
                     <span
-                      className={`flex size-9 items-center justify-center rounded-lg border ${
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
                         selected
-                          ? "border-blood/40 bg-blood/15 text-foreground"
+                          ? "border-info/40 bg-info/15 text-foreground"
                           : "border-edge bg-surface text-muted"
                       }`}
                     >
-                      <Icon name={meta.icon} className="size-5" />
+                      <Icon name={meta.icon} className="size-4" />
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium leading-none">
-                        {meta.label}
-                      </span>
-                      <span
-                        aria-hidden
-                        className={`size-2.5 shrink-0 rounded-full border-2 ${
-                          selected
-                            ? "border-blood bg-blood shadow-[0_0_8px_rgba(220,38,38,0.45)]"
-                            : "border-edge bg-transparent"
-                        }`}
-                      />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {p === "copilot" ? "Copilot" : meta.label}
                     </span>
+                    <span
+                      aria-hidden
+                      className={`size-3.5 shrink-0 rounded-full border-2 ${
+                        selected
+                          ? "border-info bg-info shadow-[0_0_8px_rgba(59,130,246,0.45)]"
+                          : "border-edge bg-transparent"
+                      }`}
+                    />
                   </button>
                 );
               })}
