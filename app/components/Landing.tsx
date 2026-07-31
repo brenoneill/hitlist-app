@@ -1,15 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
-import { newId } from "@/app/lib/id";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
 import {
-  DoneList,
-  TaskList,
+  StatusBadge,
   inFlight,
+  prIcon,
   wasDeployed,
 } from "@/app/components/TaskList";
 
@@ -30,7 +28,7 @@ const DEMO_SEED: Task[] = [
     status: "running",
     createdAt: "2026-07-31T10:05:00.000Z",
     repoUrl: "https://github.com/demo/hitlist-app",
-    agentUrl: "https://example.com/agent/demo-2",
+    agentUrl: "agent",
     runStatus: "RUNNING",
     dispatchedAt: "2026-07-31T10:06:00.000Z",
   },
@@ -40,8 +38,8 @@ const DEMO_SEED: Task[] = [
     status: "inbox",
     createdAt: "2026-07-31T09:30:00.000Z",
     repoUrl: "https://github.com/demo/docs",
-    agentUrl: "https://example.com/agent/demo-3",
-    prUrl: "https://github.com/demo/docs/pull/12",
+    agentUrl: "agent",
+    prUrl: "pr",
     prState: "open",
   },
   {
@@ -51,9 +49,9 @@ const DEMO_SEED: Task[] = [
     createdAt: "2026-07-30T18:00:00.000Z",
     doneAt: "2026-07-30T19:00:00.000Z",
     mergedAt: "2026-07-30T19:00:00.000Z",
-    prUrl: "https://github.com/demo/hitlist-app/pull/8",
+    prUrl: "pr",
     prState: "merged",
-    agentUrl: "https://example.com/agent/demo-4",
+    agentUrl: "agent",
     repoUrl: "https://github.com/demo/hitlist-app",
   },
 ];
@@ -111,8 +109,8 @@ const BENEFITS = [
 ];
 
 /**
- * Marketing landing for signed-out visitors. Includes a local interactive hit
- * list demo that reuses the app TaskList / DoneList components.
+ * Marketing landing for signed-out visitors, with a static hit-list preview
+ * that reuses StatusBadge styling from the app.
  */
 export function Landing() {
   return (
@@ -168,34 +166,43 @@ export function Landing() {
                 Sign in with GitHub
               </button>
               <a
-                href="#demo"
+                href="#preview"
                 className="rounded-xl border border-edge px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
               >
-                Try the demo
+                See a hit list
               </a>
             </div>
           </div>
         </section>
 
         <section
-          id="demo"
+          id="preview"
           className="scroll-mt-8 animate-rise-delay-1 border-t border-edge/80 pt-12"
         >
-          <p className={SECTION_LABEL}>Interactive</p>
+          <p className={SECTION_LABEL}>Preview</p>
           <h2 className="text-2xl font-bold tracking-tight">
-            Same list you’ll use in the app
+            Stop losing the one-line fixes
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-            Drag to reorder, swipe or open the menu to mark executed, delete, or
-            simulate a deploy. Nothing here is saved — it’s a sandbox of the
-            real components.
+            Sign in and this becomes your live queue — mark a tiny task, tag a
+            repo, and fire an agent before you’re back at a desk.
           </p>
           <div className="relative mx-auto mt-8 max-w-md">
             <div
               aria-hidden
               className="absolute -inset-3 rounded-[1.75rem] bg-blood/10 blur-2xl animate-glow"
             />
-            <DemoHitList />
+            <PreviewHitList />
+            <div className="mt-5 text-center">
+              <button
+                type="button"
+                onClick={() => signIn("github")}
+                className={`${BLOOD_BUTTON} inline-flex items-center gap-2 px-6`}
+              >
+                <Icon name="github" className="size-4" />
+                Make it yours
+              </button>
+            </div>
           </div>
         </section>
 
@@ -275,139 +282,47 @@ export function Landing() {
 }
 
 /**
- * Local-only hit list sandbox that reuses TaskList / DoneList from the app.
- * Mutations stay in component state and never hit the API.
+ * Static hit-list chrome for the landing page. Reuses StatusBadge visuals;
+ * rows are not interactive and never navigate away.
  */
-function DemoHitList() {
-  const [tasks, setTasks] = useState<Task[]>(DEMO_SEED);
-  const [title, setTitle] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
-
-  const flying = useMemo(() => tasks.filter(inFlight), [tasks]);
-  const pending = useMemo(
-    () => tasks.filter((t) => t.status !== "done" && !inFlight(t)),
-    [tasks],
-  );
-  const done = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.status === "done")
-        .sort((a, b) =>
-          (b.doneAt ?? b.createdAt).localeCompare(a.doneAt ?? a.createdAt),
-        ),
-    [tasks],
-  );
-
-  function flash(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 2200);
-  }
-
-  function add(e: React.FormEvent) {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
-    setTitle("");
-    setTasks((prev) => [
-      {
-        id: newId(),
-        title: t,
-        status: "inbox",
-        createdAt: new Date().toISOString(),
-        repoUrl: "https://github.com/demo/hitlist-app",
-      },
-      ...prev,
-    ]);
-  }
-
-  function toggle(task: Task) {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              status: t.status === "done" ? "inbox" : "done",
-              doneAt:
-                t.status === "done" ? undefined : new Date().toISOString(),
-            }
-          : t,
-      ),
-    );
-  }
-
-  function remove(id: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  function deploy(task: Task) {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              status: "running",
-              runStatus: "RUNNING",
-              agentUrl: t.agentUrl ?? `https://example.com/agent/${t.id}`,
-              dispatchedAt: new Date().toISOString(),
-            }
-          : t,
-      ),
-    );
-    flash(wasDeployed(task) ? "Redeployed (demo)" : "Agent deployed (demo)");
-  }
-
-  function reorderSection(
-    nextFlying: Task[],
-    nextPending: Task[],
-    nextDone: Task[],
-  ) {
-    setTasks([...nextFlying, ...nextPending, ...nextDone]);
-  }
+function PreviewHitList() {
+  const flying = DEMO_SEED.filter(inFlight);
+  const pending = DEMO_SEED.filter((t) => t.status !== "done" && !inFlight(t));
+  const done = DEMO_SEED.filter((t) => t.status === "done");
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-edge bg-background shadow-2xl shadow-black/60">
+    <div
+      aria-hidden
+      className="relative overflow-hidden rounded-2xl border border-edge bg-background shadow-2xl shadow-black/60"
+    >
       <div className="flex items-center justify-between border-b border-edge px-4 py-3">
         <span className="flex items-center gap-2 text-sm font-bold tracking-tight">
           <Icon name="crosshair" className="size-4 text-blood" />
           HITLIST
         </span>
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
-          Demo
+          Preview
         </span>
       </div>
 
       <div className="px-4 pb-5 pt-4">
-        <form onSubmit={add} className="mb-4 flex gap-2">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Name your next hit…"
-            enterKeyHint="done"
-            autoCorrect="off"
-            className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood"
-          />
-          <button
-            type="submit"
-            disabled={!title.trim()}
-            className={`${BLOOD_BUTTON} px-5`}
-          >
-            Mark
-          </button>
-        </form>
+        <div className="mb-4 flex gap-2">
+          <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">
+            Name your next hit…
+          </div>
+          <div className={`${BLOOD_BUTTON} px-5 opacity-40`}>Mark</div>
+        </div>
 
         {flying.length > 0 && (
           <>
             <h3 className={SECTION_LABEL}>{flying.length} deployed</h3>
-            <TaskList
-              tasks={flying}
-              onReorder={(next) => reorderSection(next, pending, done)}
-              onSelect={() => flash("Open the app for the full sheet")}
-              onSelectGroup={() => flash("Groups work in the app")}
-              onToggle={toggle}
-              onDelete={remove}
-              onDeploy={deploy}
-              onDraggingChange={() => {}}
-            />
+            <ul className="flex flex-col gap-2">
+              {flying.map((t) => (
+                <li key={t.id}>
+                  <PreviewRow task={t} />
+                </li>
+              ))}
+            </ul>
           </>
         )}
 
@@ -416,48 +331,85 @@ function DemoHitList() {
             {flying.length > 0 && (
               <h3 className={SECTION_LABEL}>{pending.length} marked</h3>
             )}
-            <TaskList
-              tasks={pending}
-              onReorder={(next) => reorderSection(flying, next, done)}
-              onSelect={() => flash("Open the app for the full sheet")}
-              onSelectGroup={() => flash("Groups work in the app")}
-              onToggle={toggle}
-              onDelete={remove}
-              onDeploy={deploy}
-              onDraggingChange={() => {}}
-            />
+            <ul className="flex flex-col gap-2">
+              {pending.map((t) => (
+                <li key={t.id}>
+                  <PreviewRow task={t} />
+                </li>
+              ))}
+            </ul>
           </>
         )}
 
         {done.length > 0 && (
-          <DoneList
-            tasks={done}
-            onSelect={() => flash("Open the app for the full sheet")}
-            onToggle={toggle}
-            onDelete={remove}
-          />
-        )}
-
-        {tasks.length === 0 && (
-          <div className="flex flex-col items-center pt-8 pb-4">
-            <Icon name="crosshair" className="mb-3 size-10 text-edge" />
-            <p className="font-mono text-sm uppercase tracking-widest text-muted">
-              No active marks
+          <div className="mt-4">
+            <p className="flex items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+              <Icon name="chevron" className="size-4" />
+              {done.length} executed
             </p>
+            <ul className="flex flex-col gap-2 pt-2">
+              {done.map((t) => (
+                <li key={t.id}>
+                  <PreviewRow task={t} />
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {toast && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
-          <div
-            role="status"
-            className="rounded-xl border border-edge bg-surface px-3 py-2 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50"
+/** Read-only row matching app list chrome, without links or menus. */
+function PreviewRow({ task }: { task: Task }) {
+  const showStatus = task.status !== "inbox" || wasDeployed(task);
+  const prLabel =
+    task.status === "running"
+      ? "DRAFT"
+      : task.prState === "merged"
+        ? "MERGED"
+        : task.prUrl
+          ? "PR"
+          : null;
+
+  return (
+    <div className="rounded-xl border border-edge bg-surface">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+          <span
+            className={`w-full break-words ${
+              task.status === "done"
+                ? "text-muted line-through decoration-blood/70"
+                : ""
+            }`}
           >
-            {toast}
-          </div>
+            {task.title}
+          </span>
+          {task.repoUrl && (
+            <span className="text-xs text-muted">
+              --{task.repoUrl.split("/").pop()}
+            </span>
+          )}
+          {(showStatus || prLabel) && (
+            <div className="flex w-full items-end justify-between gap-3">
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                {showStatus && <StatusBadge task={task} />}
+              </div>
+              {prLabel && (
+                <span
+                  className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest ${
+                    task.prState === "merged" ? "text-ok" : "text-info"
+                  }`}
+                >
+                  <Icon name={prIcon(task)} className="size-3.5" />
+                  {prLabel}
+                </span>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
