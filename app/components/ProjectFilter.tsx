@@ -231,13 +231,13 @@ export function ProjectFilterSlideout({
                   onClick={() => toggle(p.url)}
                   aria-pressed={on}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                    on ? "bg-blood/15" : "active:bg-background"
+                    on ? "bg-info/15" : "active:bg-background"
                   }`}
                 >
                   <span
                     className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                       on
-                        ? "border-blood bg-blood text-white"
+                        ? "border-info bg-info text-white"
                         : "border-edge bg-background text-transparent"
                     }`}
                   >
@@ -254,7 +254,7 @@ export function ProjectFilterSlideout({
                   <Icon
                     name="crosshair"
                     className={`size-3.5 shrink-0 ${
-                      on ? "text-blood" : "text-edge"
+                      on ? "text-info" : "text-edge"
                     }`}
                   />
                 </button>
