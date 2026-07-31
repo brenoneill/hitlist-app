@@ -20,6 +20,12 @@ import {
 } from "@/app/lib/providerMeta";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import {
+  ProjectFilterButton,
+  ProjectFilterSlideout,
+  matchesProjectFilter,
+  projectsWithHits,
+} from "@/app/components/ProjectFilter";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { TabPanel, Tabs } from "@/app/components/Tabs";
 import {
@@ -64,6 +70,10 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -195,6 +205,16 @@ export default function Home() {
     removeTask.mutate(id);
   }
 
+  const projects = projectsWithHits(tasks);
+  // Ignore selections for projects that no longer have hits (deleted/retagged).
+  const liveProjectUrls = new Set(projects.map((p) => p.url));
+  const activeProjectFilter = new Set(
+    [...selectedProjects].filter((url) => liveProjectUrls.has(url)),
+  );
+  const visible = tasks.filter((t) =>
+    matchesProjectFilter(t, activeProjectFilter, tasks),
+  );
+
   /**
    * Applies a new order/grouping (optimistically, in the query cache).
    * Snapshots the previous order so the last change can be undone; pass null to
@@ -203,6 +223,30 @@ export default function Home() {
   function persistOrder(next: Task[], snapshot: Task[] | null = tasks) {
     setUndo(snapshot);
     reorder.mutate(next);
+  }
+
+  /**
+   * Persists a section reorder from the filtered list without dropping hits
+   * that are hidden by the project filter (they keep their relative slots).
+   */
+  function persistVisibleOrder(
+    nextFlying: Task[],
+    nextPending: Task[],
+    nextDone: Task[],
+  ) {
+    const nextVisible = [...nextFlying, ...nextPending, ...nextDone];
+    if (activeProjectFilter.size === 0) {
+      persistOrder(nextVisible);
+      return;
+    }
+    const queue = [...nextVisible];
+    persistOrder(
+      tasks.map((t) =>
+        matchesProjectFilter(t, activeProjectFilter, tasks)
+          ? queue.shift()!
+          : t,
+      ),
+    );
   }
 
   // the undo offer expires; ⌘Z / ctrl+Z takes it too, unless you're typing
@@ -264,11 +308,11 @@ export default function Home() {
   }
 
   // done marks live at the bottom, newest kill first; the rest stay hand-sortable
-  const active = tasks.filter((t) => t.status !== "done");
+  const active = visible.filter((t) => t.status !== "done");
   // deployed work rises to its own list above the untouched marks
   const flying = active.filter(inFlight);
   const pending = active.filter((t) => !inFlight(t));
-  const done = tasks
+  const done = visible
     .filter((t) => t.status === "done")
     .sort((a, b) =>
       (b.doneAt ?? b.createdAt).localeCompare(a.doneAt ?? a.createdAt),
@@ -279,12 +323,23 @@ export default function Home() {
     ? tasks.filter((t) => t.groupId === selectedGroup)
     : [];
 
+  const filterActive = activeProjectFilter.size > 0;
+  const listEmpty = visible.length === 0;
+
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <h1 className="mb-4 flex items-center gap-2 text-2xl font-bold tracking-tight">
-        <Icon name="crosshair" className="size-6 text-blood" />
-        HITLIST
-      </h1>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Icon name="crosshair" className="size-6 text-blood" />
+          HITLIST
+        </h1>
+        {projects.length > 0 && (
+          <ProjectFilterButton
+            activeCount={activeProjectFilter.size}
+            onClick={() => setProjectFilterOpen(true)}
+          />
+        )}
+      </div>
 
       {tab === null ? (
         <div aria-busy="true" aria-live="polite">
@@ -406,6 +461,30 @@ export default function Home() {
           </TabPanel>
 
           <TabPanel id="list">
+            {filterActive && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {[...activeProjectFilter].map((url) => {
+                  const name = url.split("/").pop() ?? url;
+                  return (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => {
+                        const next = new Set(activeProjectFilter);
+                        next.delete(url);
+                        setSelectedProjects(next);
+                      }}
+                      className="flex items-center gap-1.5 rounded-full border border-blood/40 bg-blood/10 px-3 py-1 font-mono text-xs text-blood transition-colors active:bg-blood/20"
+                    >
+                      <Icon name="filter" className="size-3" />
+                      {name}
+                      <Icon name="x" className="size-3" />
+                      <span className="sr-only">Remove {name} filter</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {loading ? (
               <p className="font-mono text-sm uppercase tracking-widest text-muted">
                 Scanning…
@@ -425,6 +504,20 @@ export default function Home() {
                   </button>
                 )}
               </div>
+            ) : listEmpty ? (
+              <div className="flex flex-col items-center pt-12">
+                <Icon name="filter" className="mb-3 size-10 text-edge" />
+                <p className="font-mono text-sm uppercase tracking-widest text-muted">
+                  No hits match filter
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProjects(new Set())}
+                  className="mt-4 font-mono text-xs text-muted underline underline-offset-4"
+                >
+                  Clear project filter
+                </button>
+              </div>
             ) : (
               <>
                 {flying.length > 0 && (
@@ -433,7 +526,7 @@ export default function Home() {
                     <TaskList
                       tasks={flying}
                       onReorder={(next) =>
-                        persistOrder([...next, ...pending, ...done])
+                        persistVisibleOrder(next, pending, done)
                       }
                       onSelect={(t) => setSelectedId(t.id)}
                       onSelectGroup={setSelectedGroup}
@@ -452,7 +545,7 @@ export default function Home() {
                     <TaskList
                       tasks={pending}
                       onReorder={(next) =>
-                        persistOrder([...flying, ...next, ...done])
+                        persistVisibleOrder(flying, next, done)
                       }
                       onSelect={(t) => setSelectedId(t.id)}
                       onSelectGroup={setSelectedGroup}
@@ -525,6 +618,15 @@ export default function Home() {
             setSelectedId(t.id);
           }}
           onDisband={() => disband(selectedGroup!)}
+        />
+      )}
+
+      {projectFilterOpen && (
+        <ProjectFilterSlideout
+          projects={projects}
+          selected={activeProjectFilter}
+          onChange={setSelectedProjects}
+          onClose={() => setProjectFilterOpen(false)}
         />
       )}
     </main>
