@@ -7,7 +7,10 @@ import { Icon } from "@/app/components/Icons";
 export type ProjectOption = {
   url: string;
   name: string;
-  count: number;
+  /** Marks that are not yet executed (inbox / running / failed). */
+  open: number;
+  /** Marks marked executed. */
+  executed: number;
 };
 
 /**
@@ -15,21 +18,30 @@ export type ProjectOption = {
  * Only repos that appear on at least one task are included.
  *
  * @param tasks - All tasks currently loaded for the user.
- * @returns Projects sorted by hit count (desc), then name.
+ * @returns Projects sorted by open marks (desc), then executed, then name.
  */
 export function projectsWithHits(tasks: Task[]): ProjectOption[] {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { open: number; executed: number }>();
   for (const t of tasks) {
     if (!t.repoUrl) continue;
-    counts.set(t.repoUrl, (counts.get(t.repoUrl) ?? 0) + 1);
+    const cur = counts.get(t.repoUrl) ?? { open: 0, executed: 0 };
+    if (t.status === "done") cur.executed += 1;
+    else cur.open += 1;
+    counts.set(t.repoUrl, cur);
   }
   return [...counts.entries()]
-    .map(([url, count]) => ({
+    .map(([url, { open, executed }]) => ({
       url,
       name: url.split("/").pop() ?? url,
-      count,
+      open,
+      executed,
     }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        b.open - a.open ||
+        b.executed - a.executed ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 /**
@@ -248,7 +260,7 @@ export function ProjectFilterSlideout({
                       {p.name}
                     </span>
                     <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                      {p.count} {p.count === 1 ? "hit" : "hits"}
+                      {p.open} ({p.executed})
                     </span>
                   </span>
                   <Icon
