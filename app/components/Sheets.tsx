@@ -8,6 +8,7 @@ import {
   useModels,
   usePatchTask,
   useProviderKeys,
+  useToggleDone,
   type TaskPatch,
 } from "@/app/lib/queries";
 import {
@@ -409,10 +410,12 @@ export function TaskSheet({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const patchTask = usePatchTask();
+  const toggleDone = useToggleDone();
   const { redeploy, pending: redeploying, error: redeployError } =
     useQuickRedeploy();
   const editable = deployable(task);
   const canRedeploy = redeployable(task) && canDeploy;
+  const markExecuted = () => toggleDone.mutate(task);
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
     .filter((r) =>
@@ -522,6 +525,21 @@ export function TaskSheet({
               )}
               <button
                 type="button"
+                disabled={toggleDone.isPending}
+                onClick={() => {
+                  setMenuOpen(false);
+                  markExecuted();
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
+              >
+                <Icon
+                  name={task.status === "done" ? "crosshair" : "check"}
+                  className="size-4"
+                />
+                {task.status === "done" ? "Unmark" : "Mark executed"}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setMenuOpen(false);
                   onDelete();
@@ -595,6 +613,18 @@ export function TaskSheet({
             </div>
           )}
         </div>
+      )}
+      {/* Botched / failed: archive without a merge — work may have landed outside the app */}
+      {task.status === "failed" && (
+        <button
+          type="button"
+          disabled={toggleDone.isPending}
+          onClick={markExecuted}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black active:opacity-80 disabled:opacity-40"
+        >
+          <Icon name="check" className="size-4" />
+          Mark executed
+        </button>
       )}
       <AgentActions
         lead={task}

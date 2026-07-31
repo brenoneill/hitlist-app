@@ -16,10 +16,11 @@ function e2eSql(): NeonQueryFunction<false, false> {
     await db.exec(await readFile("db/schema.sql", "utf8"));
     // "e2e-user" matches the id minted by the E2E credentials provider (auth.ts)
     await db.exec(`
-      insert into tasks (id, user_id, position, title, status, created_at, repo_url, provider, agent_id, agent_url, run_status, branch, pr_url, dispatched_at, done_at) values
-        ('e2e-1', 'e2e-user', 0, 'Add dark mode toggle to settings', 'inbox', now(), 'https://github.com/example/hitlist-app', 'cursor', null, null, null, null, null, null, null),
-        ('e2e-2', 'e2e-user', 1, 'Fix drag handle hit area on mobile', 'running', now(), 'https://github.com/example/hitlist-app', 'cursor', 'agent-demo', 'https://example.com/agent', 'RUNNING', null, null, now(), null),
-        ('e2e-3', 'e2e-user', 2, 'Show PR preview links on task cards', 'done', now(), 'https://github.com/example/hitlist-app', 'copilot', 'agent-done', 'https://example.com/agent2', 'FINISHED', 'feat/preview-links', 'https://github.com/example/hitlist-app/pull/1', now(), now());
+      insert into tasks (id, user_id, position, title, status, created_at, repo_url, provider, agent_id, agent_url, run_status, branch, pr_url, agent_summary, dispatched_at, done_at) values
+        ('e2e-1', 'e2e-user', 0, 'Add dark mode toggle to settings', 'inbox', now(), 'https://github.com/example/hitlist-app', 'cursor', null, null, null, null, null, null, null, null),
+        ('e2e-2', 'e2e-user', 1, 'Fix drag handle hit area on mobile', 'running', now(), 'https://github.com/example/hitlist-app', 'cursor', 'agent-demo', 'https://example.com/agent', 'RUNNING', null, null, null, now(), null),
+        ('e2e-4', 'e2e-user', 2, 'Ship hotfix that landed outside the agent', 'failed', now(), 'https://github.com/example/hitlist-app', 'cursor', 'agent-botched', 'https://example.com/agent-botched', 'ERROR', null, null, 'Agent errored mid-run — finished by hand', now(), null),
+        ('e2e-3', 'e2e-user', 3, 'Show PR preview links on task cards', 'done', now(), 'https://github.com/example/hitlist-app', 'copilot', 'agent-done', 'https://example.com/agent2', 'FINISHED', 'feat/preview-links', 'https://github.com/example/hitlist-app/pull/1', null, now(), now());
     `);
     return db;
   })());

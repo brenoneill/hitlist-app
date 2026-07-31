@@ -406,6 +406,7 @@ export function TaskList({
                 denied={clash === u.id}
                 onSelect={onSelect}
                 onSelectGroup={onSelectGroup}
+                onToggle={onToggle}
                 onDelete={onDelete}
                 onDeploy={onDeploy}
               />
@@ -724,6 +725,7 @@ function SortableGroup({
   denied,
   onSelect,
   onSelectGroup,
+  onToggle,
   onDelete,
   onDeploy,
 }: {
@@ -733,6 +735,7 @@ function SortableGroup({
   denied: boolean;
   onSelect: (t: Task) => void;
   onSelectGroup: (groupId: string) => void;
+  onToggle: (t: Task) => void;
   onDelete: (id: string) => void;
   onDeploy: (t: Task) => void;
 }) {
@@ -767,6 +770,7 @@ function SortableGroup({
                 canDeploy={canDeployGroup}
                 canRedeploy={canRedeployGroup}
                 onSelect={onSelect}
+                onToggle={onToggle}
                 onDelete={onDelete}
                 onDeploy={onDeploy}
               />
@@ -783,6 +787,7 @@ function SortableMember({
   canDeploy,
   canRedeploy,
   onSelect,
+  onToggle,
   onDelete,
   onDeploy,
 }: {
@@ -790,6 +795,7 @@ function SortableMember({
   canDeploy: boolean;
   canRedeploy: boolean;
   onSelect: (t: Task) => void;
+  onToggle: (t: Task) => void;
   onDelete: (id: string) => void;
   onDeploy: (t: Task) => void;
 }) {
@@ -808,6 +814,11 @@ function SortableMember({
       label: "Redeploy group",
       onClick: () => onDeploy(task),
     });
+  actions.push({
+    icon: task.status === "done" ? "crosshair" : "check",
+    label: task.status === "done" ? "Unmark" : "Mark executed",
+    onClick: () => onToggle(task),
+  });
   actions.push({
     icon: "trash",
     label: "Delete",
