@@ -364,14 +364,13 @@ function PreviewHitList() {
 /** Read-only row matching app list chrome, without links or menus. */
 function PreviewRow({ task }: { task: Task }) {
   const showStatus = task.status !== "inbox" || wasDeployed(task);
-  const prLabel =
-    task.status === "running"
+  const prLabel = !task.prUrl
+    ? null
+    : task.status === "running"
       ? "DRAFT"
       : task.prState === "merged"
         ? "MERGED"
-        : task.prUrl
-          ? "PR"
-          : null;
+        : "PR";
 
   return (
     <div className="rounded-xl border border-edge bg-surface">
