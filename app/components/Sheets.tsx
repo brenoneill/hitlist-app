@@ -107,7 +107,7 @@ function Sheet({
 
   return (
     <div
-      className={`fixed inset-0 z-10 flex flex-col justify-end bg-black/60 ${
+      className={`fixed inset-0 z-40 flex flex-col justify-end bg-black/60 ${
         closing ? "animate-fade-out" : "animate-fade-in"
       }`}
       onClick={requestClose}
@@ -262,21 +262,55 @@ function AgentActions({
       {deployable(lead) && (
         <>
           {configured.length > 1 && (
-            <select
-              value={provider ?? ""}
-              onChange={(e) => {
-                setChosen(e.target.value as ProviderId);
-                setModel(""); // model lists don't overlap across providers
-              }}
+            <div
+              role="radiogroup"
               aria-label="Agent provider"
-              className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood"
+              className="mb-3 flex gap-2"
             >
-              {configured.map((p) => (
-                <option key={p} value={p}>
-                  {PROVIDER_META[p].label}
-                </option>
-              ))}
-            </select>
+              {configured.map((p) => {
+                const selected = provider === p;
+                const meta = PROVIDER_META[p];
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={meta.label}
+                    onClick={() => {
+                      setChosen(p);
+                      setModel(""); // model lists don't overlap across providers
+                    }}
+                    className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:border-info ${
+                      selected
+                        ? "border-info bg-info/10 text-foreground"
+                        : "border-edge bg-background text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
+                        selected
+                          ? "border-info/40 bg-info/15 text-foreground"
+                          : "border-edge bg-surface text-muted"
+                      }`}
+                    >
+                      <Icon name={meta.icon} className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {p === "copilot" ? "Copilot" : meta.label}
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`size-3.5 shrink-0 rounded-full border-2 ${
+                        selected
+                          ? "border-info bg-info shadow-[0_0_8px_rgba(59,130,246,0.45)]"
+                          : "border-edge bg-transparent"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
           )}
           {/* Reserve select height before /api/models resolves */}
           <select
