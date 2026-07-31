@@ -474,7 +474,7 @@ export default function Home() {
                         next.delete(url);
                         setSelectedProjects(next);
                       }}
-                      className="flex items-center gap-1.5 rounded-full border border-blood/40 bg-blood/10 px-3 py-1 font-mono text-xs text-blood transition-colors active:bg-blood/20"
+                      className="flex items-center gap-1.5 rounded-full border border-info/40 bg-info/10 px-3 py-1 font-mono text-xs text-info transition-colors active:bg-info/20"
                     >
                       <Icon name="filter" className="size-3" />
                       {name}
