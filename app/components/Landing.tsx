@@ -5,11 +5,10 @@ import { signIn } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
 import {
-  StatusBadge,
+  TaskItem,
   inFlight,
-  prIcon,
-  wasDeployed,
-} from "@/app/components/TaskList";
+  taskItemShellClass,
+} from "@/app/components/TaskItem";
 
 const SECTION_LABEL =
   "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
@@ -17,14 +16,14 @@ const SECTION_LABEL =
 const DEMO_SEED: Task[] = [
   {
     id: "demo-1",
-    title: "Rename the empty state copy",
+    title: "Add empty-state copy for the mark list",
     status: "inbox",
     createdAt: "2026-07-31T10:00:00.000Z",
     repoUrl: "https://github.com/demo/hitlist-app",
   },
   {
     id: "demo-2",
-    title: "Tighten the mark input hint",
+    title: "Polish mark-input hint on first run",
     status: "running",
     createdAt: "2026-07-31T10:05:00.000Z",
     repoUrl: "https://github.com/demo/hitlist-app",
@@ -44,7 +43,7 @@ const DEMO_SEED: Task[] = [
   },
   {
     id: "demo-4",
-    title: "Strip unused toast styles",
+    title: "Remove unused toast styles from the list",
     status: "done",
     createdAt: "2026-07-30T18:00:00.000Z",
     doneAt: "2026-07-30T19:00:00.000Z",
@@ -64,7 +63,7 @@ const FEATURES: {
   {
     icon: "crosshair",
     title: "Mark small hits",
-    body: "Capture tiny tasks the moment they show up — before they evaporate between meetings.",
+    body: "Capture the small tasks you can review well in a PR — before they slip between meetings.",
   },
   {
     icon: "github",
@@ -74,7 +73,7 @@ const FEATURES: {
   {
     icon: "cursor",
     title: "Deploy a cloud agent",
-    body: "Hand the hit to Cursor or Copilot from your phone. Come back when the PR is ready.",
+    body: "Hand the hit to Cursor or Copilot from your phone. Come back when the PR is ready to review.",
   },
   {
     icon: "pr",
@@ -96,21 +95,21 @@ const FEATURES: {
 const BENEFITS = [
   {
     title: "Built for pocket work",
-    body: "Running a major agent session from mobile is rough. Marking a small hit and dispatching it isn’t.",
+    body: "Running a major agent session from mobile is rough. Marking a small, reviewable hit and dispatching it isn’t.",
   },
   {
     title: "Thought → agent → PR",
-    body: "Capture the task, tag the repo, fire an agent provider, and follow the pull request from the same list.",
+    body: "Capture the task, tag the repo, fire an agent provider, and review the pull request from the same list.",
   },
   {
     title: "Keep the big work elsewhere",
-    body: "Save deep refactors for a real machine. Use HitList for the cuts, copy tweaks, and one-file fixes.",
+    body: "Save deep refactors for a real machine. Use HitList for scoped changes that make a clean PR review.",
   },
 ];
 
 /**
  * Marketing landing for signed-out visitors, with a static hit-list preview
- * that reuses StatusBadge styling from the app.
+ * that reuses TaskItem from the app.
  */
 export function Landing() {
   return (
@@ -153,8 +152,8 @@ export function Landing() {
             </p>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
               Major agent work belongs on a real machine. HitList is for the
-              tiny tasks — mark them, tag a repo, and fire a web agent while
-              you’re on the go.
+              small tasks you can review well in a PR — mark them, tag a repo,
+              and fire a web agent while you’re on the go.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
@@ -181,10 +180,10 @@ export function Landing() {
         >
           <p className={SECTION_LABEL}>Preview</p>
           <h2 className="text-2xl font-bold tracking-tight">
-            Stop losing the one-line fixes
+            Small enough to review. Ready to dispatch.
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-            Sign in and this becomes your live queue — mark a tiny task, tag a
+            Sign in and this becomes your live queue — mark a scoped task, tag a
             repo, and fire an agent before you’re back at a desk.
           </p>
           <div className="relative mx-auto mt-8 max-w-md">
@@ -209,7 +208,7 @@ export function Landing() {
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
           <p className={SECTION_LABEL}>Why HitList</p>
           <h2 className="text-2xl font-bold tracking-tight">
-            Built for the cuts, not the campaigns
+            Built for reviewable PRs, not sprawling refactors
           </h2>
           <ul className="mt-8 space-y-8">
             {BENEFITS.map((b) => (
@@ -282,8 +281,8 @@ export function Landing() {
 }
 
 /**
- * Static hit-list chrome for the landing page. Reuses StatusBadge visuals;
- * rows are not interactive and never navigate away.
+ * Static hit-list chrome for the landing page. Rows use the shared TaskItem
+ * with inert links so nothing navigates away.
  */
 function PreviewHitList() {
   const flying = DEMO_SEED.filter(inFlight);
@@ -319,7 +318,11 @@ function PreviewHitList() {
             <ul className="flex flex-col gap-2">
               {flying.map((t) => (
                 <li key={t.id}>
-                  <PreviewRow task={t} />
+                  <div className={taskItemShellClass()}>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <TaskItem task={t} links="inert" />
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -334,7 +337,11 @@ function PreviewHitList() {
             <ul className="flex flex-col gap-2">
               {pending.map((t) => (
                 <li key={t.id}>
-                  <PreviewRow task={t} />
+                  <div className={taskItemShellClass()}>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <TaskItem task={t} links="inert" />
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -350,64 +357,16 @@ function PreviewHitList() {
             <ul className="flex flex-col gap-2 pt-2">
               {done.map((t) => (
                 <li key={t.id}>
-                  <PreviewRow task={t} />
+                  <div className={taskItemShellClass()}>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <TaskItem task={t} links="inert" />
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-/** Read-only row matching app list chrome, without links or menus. */
-function PreviewRow({ task }: { task: Task }) {
-  const showStatus = task.status !== "inbox" || wasDeployed(task);
-  const prLabel = !task.prUrl
-    ? null
-    : task.status === "running"
-      ? "DRAFT"
-      : task.prState === "merged"
-        ? "MERGED"
-        : "PR";
-
-  return (
-    <div className="rounded-xl border border-edge bg-surface">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-          <span
-            className={`w-full break-words ${
-              task.status === "done"
-                ? "text-muted line-through decoration-blood/70"
-                : ""
-            }`}
-          >
-            {task.title}
-          </span>
-          {task.repoUrl && (
-            <span className="text-xs text-muted">
-              --{task.repoUrl.split("/").pop()}
-            </span>
-          )}
-          {(showStatus || prLabel) && (
-            <div className="flex w-full items-end justify-between gap-3">
-              <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                {showStatus && <StatusBadge task={task} />}
-              </div>
-              {prLabel && (
-                <span
-                  className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest ${
-                    task.prState === "merged" ? "text-ok" : "text-info"
-                  }`}
-                >
-                  <Icon name={prIcon(task)} className="size-3.5" />
-                  {prLabel}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

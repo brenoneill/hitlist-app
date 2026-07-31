@@ -28,7 +28,7 @@ import {
   deployable,
   prIcon,
   redeployable,
-} from "@/app/components/TaskList";
+} from "@/app/components/TaskItem";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
 
 /** Sheet-menu redeploy: last-used provider, default PR options. */

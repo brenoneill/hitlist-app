@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "HitList",
     short_name: "HitList",
     description:
-      "Small hits. Cloud agents. From your phone. Track tiny tasks and dispatch web agent providers on the go.",
+      "Small hits. Cloud agents. From your phone. Track small, reviewable tasks and dispatch web agent providers on the go.",
     start_url: "/app",
     display: "standalone",
     background_color: "#0a0a0a",
