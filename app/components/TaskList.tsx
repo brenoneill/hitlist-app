@@ -492,14 +492,11 @@ function ActionRow({
   actions,
   className = "",
   rowClassName,
-  trailing,
   children,
 }: {
   actions: RowAction[];
   className?: string;
   rowClassName: string;
-  /** Card call-to-action (PR / View agent) pinned to the bottom-right. */
-  trailing?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -507,24 +504,19 @@ function ActionRow({
     <div className={`relative ${className}`}>
       <div className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[inherit] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div
-          className={`w-full shrink-0 snap-start ${rowClassName} ${
-            actions.length ? "pointer-fine:pr-2" : ""
+          className={`relative w-full shrink-0 snap-start ${rowClassName} ${
+            actions.length ? "pointer-fine:pr-8" : ""
           }`}
         >
           {children}
-          {(actions.length > 0 || trailing) && (
-            <div className="flex shrink-0 flex-col items-end self-stretch">
-              {actions.length > 0 && (
-                <button
-                  onClick={() => setOpen((o) => !o)}
-                  aria-label="More actions"
-                  className="hidden p-1 text-muted hover:text-foreground pointer-fine:block"
-                >
-                  <Icon name="ellipsis" className="size-4" />
-                </button>
-              )}
-              {trailing && <div className="mt-auto">{trailing}</div>}
-            </div>
+          {actions.length > 0 && (
+            <button
+              onClick={() => setOpen((o) => !o)}
+              aria-label="More actions"
+              className="absolute right-1 top-1 hidden p-1 text-muted hover:text-foreground pointer-fine:block"
+            >
+              <Icon name="ellipsis" className="size-4" />
+            </button>
           )}
         </div>
         {actions.map((a) => (
@@ -612,6 +604,8 @@ function TaskRow({
       destructive: true,
       onClick: () => onDelete(task.id),
     });
+  const showStatus = task.status !== "inbox" || wasDeployed(task);
+  const hasLinks = !!(task.prUrl || task.agentUrl);
   return (
     <ActionRow
       actions={actions}
@@ -619,16 +613,13 @@ function TaskRow({
         highlight ? "scale-[1.02] ring-2 ring-blood" : ""
       } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
       rowClassName="flex items-center gap-3 px-4 py-3"
-      trailing={
-        <TaskExternalLinks task={task} prClassName="text-ok" />
-      }
     >
       <button
         onClick={() => onSelect?.(task)}
         className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
       >
         <span
-          className={`break-words ${
+          className={`w-full break-words ${
             task.status === "done"
               ? "text-muted line-through decoration-blood/70"
               : ""
@@ -641,13 +632,18 @@ function TaskRow({
             --{task.repoUrl.split("/").pop()}
           </span>
         )}
-        {(task.status !== "inbox" || wasDeployed(task)) && (
-          <StatusBadge task={task} />
-        )}
-        {task.agentSummary && (
-          <span className="w-full truncate text-xs text-muted">
-            {task.agentSummary}
-          </span>
+        {(showStatus || hasLinks || task.agentSummary) && (
+          <div className="flex w-full items-end justify-between gap-3">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+              {showStatus && <StatusBadge task={task} />}
+              {task.agentSummary && (
+                <span className="w-full truncate text-xs text-muted">
+                  {task.agentSummary}
+                </span>
+              )}
+            </div>
+            <TaskExternalLinks task={task} prClassName="text-ok" />
+          </div>
         )}
       </button>
     </ActionRow>
