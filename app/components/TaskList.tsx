@@ -24,119 +24,30 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Task, TaskStatus } from "@/app/lib/tasks";
+import type { Task } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
 import { newId } from "@/app/lib/id";
 import { Icon, type IconName } from "@/app/components/Icons";
+import {
+  StatusBadge,
+  TaskItem,
+  TaskItemLinks,
+  deployable,
+  inFlight,
+  prLinkClass,
+  redeployable,
+  taskItemShellClass,
+  wasDeployed,
+} from "@/app/components/TaskItem";
 
-const STATUS_DISPLAY: Record<
-  TaskStatus,
-  { label: string; cls: string; icon: IconName }
-> = {
-  inbox: { label: "MARKED", cls: "text-muted", icon: "crosshair" },
-  running: {
-    label: "AGENT DEPLOYED",
-    cls: "text-warn animate-pulse",
-    icon: "crosshair",
-  },
-  done: { label: "EXECUTED", cls: "text-ok", icon: "check" },
-  failed: { label: "BOTCHED", cls: "text-blood", icon: "x" },
-};
-
-/** A dispatched agent outlives the done toggle — status alone forgets it. */
-export const wasDeployed = (t: Task) => !!t.agentUrl;
-export const deployable = (t: Task) => t.status === "inbox" && !wasDeployed(t);
-/** Already has an agent — can start a fresh one via Redeploy. */
-export const redeployable = (t: Task) => wasDeployed(t);
-/** Work in progress: an agent is out (or its PR still landing) and it isn't archived. */
-export const inFlight = (t: Task) =>
-  t.status !== "done" && (t.status === "running" || wasDeployed(t));
-
-/** Merged PRs get GitHub's merge glyph; anything still open keeps the PR one. */
-export const prIcon = (t: Task): IconName =>
-  t.prState === "merged" ? "merge" : "pr";
-
-/** Status refined by what the run reported: merged, PR waiting, agent mid-work. */
-function statusDisplay(t: Task): { label: string; cls: string; icon: IconName } {
-  // real GitHub merge only — a manual "mark executed" stays EXECUTED, not MERGED
-  if (t.prState === "merged") {
-    return { label: "MERGED", cls: "text-ok", icon: "merge" };
-  }
-  if (t.prState === "closed") {
-    return { label: "PR CLOSED", cls: "text-muted", icon: "x" };
-  }
-  // archived by hand without a merge → EXECUTED (before the PR-READY branch below)
-  if (t.status === "done") {
-    return STATUS_DISPLAY.done;
-  }
-  // a PR exists → the agent's done; blue PR READY wins over the amber pulse
-  if (t.prUrl && t.status !== "running" && t.status !== "failed") {
-    return { label: "PR READY", cls: "text-info", icon: "pr" };
-  }
-  if (t.status === "inbox" && wasDeployed(t)) {
-    return { ...STATUS_DISPLAY.running, cls: "text-muted" }; // deployed, not running
-  }
-  if (t.status === "running" && t.runStatus === "RUNNING") {
-    return { label: "AGENT WORKING", cls: "text-warn animate-pulse", icon: "crosshair" };
-  }
-  return STATUS_DISPLAY[t.status];
-}
-
-/** A merged PR's link is green; an open one is blue. */
-function prLinkClass(task: Task): string {
-  return task.mergedAt ? "text-ok" : "text-info";
-}
-
-/** External agent chat + PR links; both stay visible once a PR exists. */
-function TaskExternalLinks({
-  task,
-  prClassName,
-}: {
-  task: Task;
-  prClassName: string;
-}) {
-  if (!task.prUrl && !task.agentUrl) return null;
-  return (
-    <div className="flex shrink-0 items-center gap-2">
-      {task.prUrl && (
-        <a
-          href={task.prUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prClassName}`}
-        >
-          <Icon name={prIcon(task)} className="size-3.5" />
-          {task.status === "running" ? "DRAFT" : task.prState === "merged" ? "MERGED" : "PR"}
-        </a>
-      )}
-      {task.agentUrl && (
-        <a
-          href={task.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
-        >
-          <span className="sr-only">View agent</span>
-          <Icon name="external" className="size-3.5" />
-        </a>
-      )}
-    </div>
-  );
-}
-
-export function StatusBadge({ task }: { task: Task }) {
-  const s = statusDisplay(task);
-  return (
-    <span
-      className={`flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest ${s.cls}`}
-    >
-      <Icon name={s.icon} className="size-3" />
-      {s.label}
-    </span>
-  );
-}
+export {
+  StatusBadge,
+  deployable,
+  inFlight,
+  prIcon,
+  redeployable,
+  wasDeployed,
+} from "@/app/components/TaskItem";
 
 // combine-* droppable ids mark the "absorb into group" middle band of a card
 const COMBINE = "combine-";
@@ -604,48 +515,13 @@ function TaskRow({
       destructive: true,
       onClick: () => onDelete(task.id),
     });
-  const showStatus = task.status !== "inbox" || wasDeployed(task);
-  const hasLinks = !!(task.prUrl || task.agentUrl);
   return (
     <ActionRow
       actions={actions}
-      className={`rounded-xl border border-edge bg-surface transition-transform ${
-        highlight ? "scale-[1.02] ring-2 ring-blood" : ""
-      } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
+      className={taskItemShellClass({ highlight, denied })}
       rowClassName="flex items-center gap-3 px-4 py-3"
     >
-      <button
-        onClick={() => onSelect?.(task)}
-        className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
-      >
-        <span
-          className={`w-full break-words ${
-            task.status === "done"
-              ? "text-muted line-through decoration-blood/70"
-              : ""
-          }`}
-        >
-          {task.title}
-        </span>
-        {task.repoUrl && (
-          <span className="text-xs text-muted">
-            --{task.repoUrl.split("/").pop()}
-          </span>
-        )}
-        {(showStatus || hasLinks || task.agentSummary) && (
-          <div className="flex w-full items-end justify-between gap-3">
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-              {showStatus && <StatusBadge task={task} />}
-              {task.agentSummary && (
-                <span className="w-full truncate text-xs text-muted">
-                  {task.agentSummary}
-                </span>
-              )}
-            </div>
-            <TaskExternalLinks task={task} prClassName="text-ok" />
-          </div>
-        )}
-      </button>
+      <TaskItem task={task} links="live" onSelect={onSelect} />
     </ActionRow>
   );
 }
@@ -710,7 +586,11 @@ function GroupHeader({
           <StatusBadge task={lead} />
         )}
       </button>
-      <TaskExternalLinks task={lead} prClassName={prLinkClass(lead)} />
+      <TaskItemLinks
+        task={lead}
+        mode="live"
+        prClassName={prLinkClass(lead)}
+      />
     </div>
   );
 }
@@ -745,11 +625,7 @@ function SortableGroup({
       id={unit.id}
       combinable={unit.members.every(deployable)}
     >
-      <div
-        className={`rounded-xl border border-edge bg-surface transition-transform ${
-          highlight ? "scale-[1.02] ring-2 ring-blood" : ""
-        } ${denied ? "animate-pulse ring-2 ring-blood/50" : ""}`}
-      >
+      <div className={taskItemShellClass({ highlight, denied })}>
         <GroupHeader
           members={unit.members}
           onClick={() => onSelectGroup(unit.groupId)}
