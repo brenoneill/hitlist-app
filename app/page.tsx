@@ -403,6 +403,9 @@ export default function Home() {
               blockedRepos={blockedRepos}
               onToggleBlocked={toggleBlocked}
             />
+            <p className="pt-8 text-center font-mono text-[10px] tracking-widest text-edge">
+              updated {(process.env.NEXT_PUBLIC_LAST_UPDATED ?? "").slice(0, 10)}
+            </p>
           </TabPanel>
 
           <TabPanel id="list">
