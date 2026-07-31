@@ -29,7 +29,8 @@ import {
   prIcon,
   redeployable,
 } from "@/app/components/TaskItem";
-import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { Icon } from "@/app/components/Icons";
+import { Button } from "@/app/components/Button";
 
 /** Sheet-menu redeploy: last-used provider, default PR options. */
 function useQuickRedeploy() {
@@ -351,17 +352,17 @@ function AgentActions({
               {o.label}
             </label>
           ))}
-          <button
+          <Button
             onClick={send}
             disabled={dispatch.isPending || !canDeploy}
-            className={`${BLOOD_BUTTON} mb-3 w-full`}
+            className="mb-3 w-full"
           >
             {dispatch.isPending
               ? "Deploying…"
               : lead.groupId
                 ? "Deploy group"
                 : "Deploy agent"}
-          </button>
+          </Button>
         </>
       )}
 

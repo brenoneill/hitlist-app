@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { ProviderKeySettings } from "@/app/components/ProviderKeySettings";
 import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { Button } from "@/app/components/Button";
 import {
   SETUP_TASK_DETAILS,
   SETUP_TASK_TITLE,
@@ -440,12 +441,13 @@ export function GithubRepos({
             <span className="text-sm text-muted">
               {session?.user?.name ?? session?.user?.email}
             </span>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => signOut()}
-              className="text-sm text-muted underline underline-offset-4"
+              className="text-sm"
             >
               Sign out
-            </button>
+            </Button>
           </div>
         ) : (
           <button

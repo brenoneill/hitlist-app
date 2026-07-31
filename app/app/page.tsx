@@ -19,7 +19,8 @@ import {
   pickDefaultProvider,
 } from "@/app/lib/providerMeta";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
-import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { Icon } from "@/app/components/Icons";
+import { Button } from "@/app/components/Button";
 import {
   ProjectFilterButton,
   ProjectFilterSlideout,
@@ -418,13 +419,13 @@ export default function Home() {
                       </>
                     )}
                   </div>
-                  <button
+                  <Button
                     type="submit"
                     disabled={!signedIn || !title.trim()}
-                    className={`${BLOOD_BUTTON} px-5`}
+                    className="px-5"
                   >
                     Mark
-                  </button>
+                  </Button>
                 </div>
                 {repo && (
                   <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs">
@@ -496,12 +497,13 @@ export default function Home() {
                   No active marks
                 </p>
                 {!setupComplete && (
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => setTab("settings")}
-                    className="mt-4 font-mono text-xs text-muted underline underline-offset-4"
+                    className="mt-4 font-mono text-xs"
                   >
                     Finish setup in Settings →
-                  </button>
+                  </Button>
                 )}
               </div>
             ) : listEmpty ? (
@@ -510,13 +512,13 @@ export default function Home() {
                 <p className="font-mono text-sm uppercase tracking-widest text-muted">
                   No hits match filter
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => setSelectedProjects(new Set())}
-                  className="mt-4 font-mono text-xs text-muted underline underline-offset-4"
+                  className="mt-4 font-mono text-xs"
                 >
                   Clear project filter
-                </button>
+                </Button>
               </div>
             ) : (
               <>

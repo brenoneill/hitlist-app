@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
+import { Button } from "@/app/components/Button";
 import {
   TaskItem,
   inFlight,
@@ -156,14 +157,13 @@ export function Landing() {
               and fire a web agent while you’re on the go.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
+              <Button
                 onClick={() => signIn("github")}
-                className={`${BLOOD_BUTTON} inline-flex items-center gap-2 px-6`}
+                className="inline-flex items-center gap-2 px-6"
               >
                 <Icon name="github" className="size-4" />
                 Sign in with GitHub
-              </button>
+              </Button>
               <a
                 href="#preview"
                 className="rounded-xl border border-edge px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
@@ -193,14 +193,13 @@ export function Landing() {
             />
             <PreviewHitList />
             <div className="mt-5 text-center">
-              <button
-                type="button"
+              <Button
                 onClick={() => signIn("github")}
-                className={`${BLOOD_BUTTON} inline-flex items-center gap-2 px-6`}
+                className="inline-flex items-center gap-2 px-6"
               >
                 <Icon name="github" className="size-4" />
                 Make it yours
-              </button>
+              </Button>
             </div>
           </div>
         </section>
@@ -255,14 +254,13 @@ export function Landing() {
             that shouldn’t wait until you’re back at a desk.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
+            <Button
               onClick={() => signIn("github")}
-              className={`${BLOOD_BUTTON} inline-flex items-center gap-2 px-6`}
+              className="inline-flex items-center gap-2 px-6"
             >
               <Icon name="github" className="size-4" />
               Get started
-            </button>
+            </Button>
             <Link
               href="/app"
               className="rounded-xl border border-edge px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
