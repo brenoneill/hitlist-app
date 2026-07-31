@@ -18,6 +18,11 @@
   --animate-fade-out: fade-out 0.28s ease-in forwards;
   --animate-tab-in-right: tab-in-right 0.32s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-tab-in-left: tab-in-left 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-rise: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-rise-delay-1: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  --animate-rise-delay-2: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
+  --animate-crosshair: crosshair-pulse 3.2s ease-in-out infinite;
+  --animate-glow: glow-pulse 3.6s ease-in-out infinite;
 }
 
 @keyframes slide-up {
@@ -58,11 +63,45 @@
   }
 }
 
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes crosshair-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgba(220, 38, 38, 0));
+  }
+  50% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 12px rgba(220, 38, 38, 0.55));
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --animate-tab-in-right: fade-in 0.2s ease-out;
     --animate-tab-in-left: fade-in 0.2s ease-out;
     --animate-slide-in-right: fade-in 0.2s ease-out;
+    --animate-rise: fade-in 0.2s ease-out both;
+    --animate-rise-delay-1: fade-in 0.2s ease-out both;
+    --animate-rise-delay-2: fade-in 0.2s ease-out both;
+    --animate-crosshair: none;
+    --animate-glow: none;
   }
 }
 

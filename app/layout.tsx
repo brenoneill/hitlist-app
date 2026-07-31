@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "HitList",
-  description: "Fire small dev tasks at a cloud agent from your phone.",
+  description:
+    "Small hits. Cloud agents. From your phone. Track tiny tasks and dispatch web agent providers on the go.",
   appleWebApp: { capable: true, title: "HitList", statusBarStyle: "black-translucent" },
   // iOS data detectors wrap phone-like text in <a href="tel:…"> before
   // hydration, which shows up as an attribute/tree mismatch on phones.
