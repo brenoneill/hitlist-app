@@ -260,7 +260,7 @@ export function ProjectFilterSlideout({
                       {p.name}
                     </span>
                     <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                      {p.open} ({p.executed})
+                      {p.open} active {p.open === 1 ? "hit" : "hits"}
                     </span>
                   </span>
                   <Icon
