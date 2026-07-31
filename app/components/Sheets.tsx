@@ -614,18 +614,6 @@ export function TaskSheet({
           )}
         </div>
       )}
-      {/* Botched / failed: archive without a merge — work may have landed outside the app */}
-      {task.status === "failed" && (
-        <button
-          type="button"
-          disabled={toggleDone.isPending}
-          onClick={markExecuted}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black active:opacity-80 disabled:opacity-40"
-        >
-          <Icon name="check" className="size-4" />
-          Mark executed
-        </button>
-      )}
       <AgentActions
         lead={task}
         canDeploy={canDeploy}
