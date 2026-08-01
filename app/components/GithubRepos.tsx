@@ -349,12 +349,14 @@ function RepoList({
  * Collapsible steps fold themselves once, the first time `done` turns true —
  * after that the user's own toggling always wins. `summary` renders in place
  * of `children` while folded (e.g. a one-line status readout).
+ * `disabled` mutes the step and blocks expand/collapse (used before sign-in).
  */
 function Section({
   n,
   title,
   done,
   collapsible = true,
+  disabled = false,
   summary,
   children,
 }: {
@@ -362,6 +364,7 @@ function Section({
   title: string;
   done: boolean;
   collapsible?: boolean;
+  disabled?: boolean;
   summary?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -374,7 +377,8 @@ function Section({
     setOpen(false);
   }, [collapsible, done]);
 
-  const expanded = !collapsible || open;
+  // Disabled steps stay open on the lock message; otherwise fold like before.
+  const expanded = disabled || !collapsible || open;
   const chip = (
     <span
       className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
@@ -386,22 +390,31 @@ function Section({
   );
 
   return (
-    <section className="mb-6">
+    <section
+      className={`mb-6 ${disabled ? "opacity-50" : ""}`}
+      aria-disabled={disabled || undefined}
+    >
       {collapsible ? (
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            if (disabled) return;
+            setOpen((o) => !o);
+          }}
           aria-expanded={expanded}
-          className="mb-3 flex w-full items-center gap-2 text-left"
+          disabled={disabled}
+          className="mb-3 flex w-full items-center gap-2 text-left disabled:cursor-not-allowed"
         >
           {chip}
           <h2 className="flex-1 text-sm font-medium">{title}</h2>
-          <Icon
-            name="chevron"
-            className={`size-4 shrink-0 text-muted transition-transform ${
-              expanded ? "rotate-180" : ""
-            }`}
-          />
+          {!disabled && (
+            <Icon
+              name="chevron"
+              className={`size-4 shrink-0 text-muted transition-transform ${
+                expanded ? "rotate-180" : ""
+              }`}
+            />
+          )}
         </button>
       ) : (
         <div className="mb-3 flex items-center gap-2">
@@ -432,6 +445,15 @@ export function GithubRepos({
   const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  // Defaults stay visible the whole time — last + disabled until ready, then move to top.
+  const defaultsReady = signedIn && hasAnyKey && connected;
+  // Numbers follow visual order for the current phase:
+  // unsigned → 1 Sign in, 2 Provider, 3 Repos, 4 Defaults (last, disabled)
+  // signed in, not ready → 1 Provider, 2 Repos, 3 Defaults (last, disabled)
+  // ready → 1 Defaults (top), 2 Provider, 3 Repos
+  const providerStep = defaultsReady ? 2 : signedIn ? 1 : 2;
+  const reposStep = defaultsReady ? 3 : signedIn ? 2 : 3;
+  const defaultsStep = defaultsReady ? 1 : signedIn ? 3 : 4;
   const defaultProvider =
     pickDefaultProvider(
       configured,
@@ -447,6 +469,7 @@ export function GithubRepos({
   const visualConfirmation =
     defaults?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
   const defaultModel = defaults?.model ?? "";
+  const repoCount = repos?.length ?? 0;
 
   if (status === "loading") return null;
 
@@ -462,6 +485,14 @@ export function GithubRepos({
           {PROVIDER_META[p].label}
         </span>
       ))}
+    </p>
+  );
+
+  const reposSummary = (
+    <p className="text-xs text-muted">
+      {connected
+        ? `${repoCount} ${repoCount === 1 ? "repo" : "repos"} connected`
+        : "No repos connected"}
     </p>
   );
 
@@ -491,23 +522,85 @@ export function GithubRepos({
     saveDefaults.mutate({ provider: next });
   }
 
+  const defaultsLockHint = !signedIn
+    ? "Sign in first."
+    : !hasAnyKey
+      ? "Connect a provider and repos to set defaults."
+      : !connected
+        ? "Connect repos to set defaults."
+        : null;
+
+  const defaultsSection = defaultsReady ? (
+    <Section
+      n={defaultsStep}
+      title="Default options"
+      done
+      summary={defaultsSummary}
+    >
+      <p className="mb-3 text-sm text-muted">
+        Used when you deploy. Override per run in the action sheet.
+      </p>
+      {configured.length > 1 && (
+        <>
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Provider
+          </p>
+          <ProviderRadio
+            providers={configured}
+            value={defaultProvider}
+            onChange={setDefaultProvider}
+            className="mb-3"
+          />
+        </>
+      )}
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        Model
+      </p>
+      <ModelSelect
+        value={defaultModel}
+        onChange={(next) =>
+          saveDefaults.mutate({ model: next.trim() ? next : null })
+        }
+        models={models}
+        loading={modelsLoading}
+        disabled={!defaultProvider}
+        className="mb-3"
+      />
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        Visual confirmation
+      </p>
+      <VisualConfirmationRadio
+        value={visualConfirmation}
+        onChange={(next) =>
+          saveDefaults.mutate({ visualConfirmation: next })
+        }
+      />
+      {saveDefaults.error && (
+        <p className="mt-2 font-mono text-xs text-blood">
+          {saveDefaults.error.message || "save failed"}
+        </p>
+      )}
+    </Section>
+  ) : (
+    <Section
+      n={defaultsStep}
+      title="Default options"
+      done={false}
+      disabled
+      summary={defaultsSummary}
+    >
+      <div>
+        {defaultsSummary}
+        <p className="mt-2 text-sm text-muted">{defaultsLockHint}</p>
+      </div>
+    </Section>
+  );
+
   return (
     <div className="mb-6">
-      <Section n={1} title="Sign in with GitHub" done={signedIn} collapsible={false}>
-        {signedIn ? (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">
-              {session?.user?.name ?? session?.user?.email}
-            </span>
-            <Button
-              variant="ghost"
-              onClick={() => signOut()}
-              className="text-sm"
-            >
-              Sign out
-            </Button>
-          </div>
-        ) : (
+      {/* Sign in button = step 1 at top while unsigned */}
+      {!signedIn && (
+        <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
           <button
             onClick={() => signIn("github")}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
@@ -515,13 +608,17 @@ export function GithubRepos({
             <Icon name="github" className="size-5" />
             Sign in with GitHub
           </button>
-        )}
-      </Section>
+        </Section>
+      )}
+
+      {/* Defaults move to the top once they become usable */}
+      {defaultsReady && defaultsSection}
 
       <Section
-        n={2}
+        n={providerStep}
         title="Add an agent provider"
         done={signedIn && hasAnyKey}
+        disabled={!signedIn}
         summary={providerSummary}
       >
         {!signedIn ? (
@@ -539,7 +636,13 @@ export function GithubRepos({
         )}
       </Section>
 
-      <Section n={3} title="Connect your repos" done={signedIn && connected}>
+      <Section
+        n={reposStep}
+        title="Connect your repos"
+        done={signedIn && connected}
+        disabled={!signedIn}
+        summary={reposSummary}
+      >
         {!signedIn ? (
           <p className="text-sm text-muted">Sign in first.</p>
         ) : !connected ? (
@@ -578,57 +681,22 @@ export function GithubRepos({
         )}
       </Section>
 
-      {signedIn && hasAnyKey && (
-        <Section
-          n={4}
-          title="Default options"
-          done
-          summary={defaultsSummary}
-        >
-          <p className="mb-3 text-sm text-muted">
-            Used when you deploy. Override per run in the action sheet.
-          </p>
-          {configured.length > 1 && (
-            <>
-              <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-                Provider
-              </p>
-              <ProviderRadio
-                providers={configured}
-                value={defaultProvider}
-                onChange={setDefaultProvider}
-                className="mb-3"
-              />
-            </>
-          )}
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Model
-          </p>
-          <ModelSelect
-            value={defaultModel}
-            onChange={(next) =>
-              saveDefaults.mutate({ model: next.trim() ? next : null })
-            }
-            models={models}
-            loading={modelsLoading}
-            disabled={!defaultProvider}
-            className="mb-3"
-          />
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Visual confirmation
-          </p>
-          <VisualConfirmationRadio
-            value={visualConfirmation}
-            onChange={(next) =>
-              saveDefaults.mutate({ visualConfirmation: next })
-            }
-          />
-          {saveDefaults.error && (
-            <p className="mt-2 font-mono text-xs text-blood">
-              {saveDefaults.error.message || "save failed"}
-            </p>
-          )}
-        </Section>
+      {/* Defaults stay last (and disabled) until provider + repos are ready */}
+      {!defaultsReady && defaultsSection}
+
+      {signedIn && (
+        <div className="mb-6 flex items-center justify-between border-t border-edge pt-4">
+          <span className="text-sm text-muted">
+            {session?.user?.name ?? session?.user?.email}
+          </span>
+          <Button
+            variant="ghost"
+            onClick={() => signOut()}
+            className="text-sm"
+          >
+            Sign out
+          </Button>
+        </div>
       )}
     </div>
   );
