@@ -192,19 +192,11 @@ export async function setVisualConfirmation(
 export async function getDeployDefaults(
   userId: string,
 ): Promise<DeployDefaults> {
-  const hasCols = await ensureDeployDefaultColumns();
-  if (!hasCols) {
-    const rows = await sql`
-      select visual_confirmation from user_settings where user_id = ${userId}
-    `;
-    const value = rows[0]?.visual_confirmation;
+  if (!(await ensureDeployDefaultColumns())) {
     return {
       provider: null,
       model: null,
-      visualConfirmation:
-        typeof value === "string" && isVisualConfirmationId(value)
-          ? value
-          : DEFAULT_VISUAL_CONFIRMATION,
+      visualConfirmation: DEFAULT_VISUAL_CONFIRMATION,
     };
   }
   const rows = await sql`
@@ -244,7 +236,9 @@ export async function setDeployDefaults(
     visualConfirmation?: VisualConfirmationId;
   },
 ): Promise<DeployDefaults> {
-  const hasCols = await ensureDeployDefaultColumns();
+  if (!(await ensureDeployDefaultColumns())) {
+    throw new Error("could not prepare user_settings columns for defaults");
+  }
   const current = await getDeployDefaults(userId);
   const next: DeployDefaults = {
     provider: patch.provider !== undefined ? patch.provider : current.provider,
@@ -261,17 +255,6 @@ export async function setDeployDefaults(
     patch.model === undefined
   ) {
     next.model = null;
-  }
-
-  if (!hasCols) {
-    // Old schema: only visual_confirmation is writable until migration runs.
-    await sql`
-      insert into user_settings (user_id, visual_confirmation)
-      values (${userId}, ${next.visualConfirmation})
-      on conflict (user_id) do update
-        set visual_confirmation = excluded.visual_confirmation
-    `;
-    return { ...next, provider: null, model: null };
   }
 
   await sql`
