@@ -121,6 +121,10 @@ export function Landing() {
       />
       <div
         aria-hidden
+        className="pointer-events-none absolute -left-[12%] top-[8%] size-[min(28rem,70vw)] rounded-full bg-blood/25 blur-3xl animate-scope will-change-transform"
+      />
+      <div
+        aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(237,237,237,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(237,237,237,0.8)_1px,transparent_1px)] [background-size:48px_48px]"
       />
 
