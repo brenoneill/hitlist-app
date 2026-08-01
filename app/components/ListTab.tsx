@@ -111,19 +111,20 @@ export function ListTab({
       ) : (
         <>
           {flying.length > 0 && (
-            <>
-              <h2 className={SECTION_LABEL}>{flying.length} deployed</h2>
-              <TaskList
-                tasks={flying}
-                onReorder={(next) => onReorderVisible(next, pending, done)}
-                onSelect={(t) => onSelectId(t.id)}
-                onSelectGroup={onSelectGroup}
-                onToggle={onToggleTask}
-                onDelete={onRemoveTask}
-                onDeploy={onDeployTask}
-                onDraggingChange={onDraggingChange}
-              />
-            </>
+            <FoldSection label={`${flying.length} deployed`} className="mt-0">
+              <div className="pt-2">
+                <TaskList
+                  tasks={flying}
+                  onReorder={(next) => onReorderVisible(next, pending, done)}
+                  onSelect={(t) => onSelectId(t.id)}
+                  onSelectGroup={onSelectGroup}
+                  onToggle={onToggleTask}
+                  onDelete={onRemoveTask}
+                  onDeploy={onDeployTask}
+                  onDraggingChange={onDraggingChange}
+                />
+              </div>
+            </FoldSection>
           )}
           {pending.length > 0 && (
             <FoldSection
