@@ -525,7 +525,7 @@ export function TaskSheet({
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
               >
                 <Icon
-                  name={task.status === "done" ? "crosshair" : "check"}
+                  name={task.status === "done" ? "x" : "check"}
                   className="size-4"
                 />
                 {task.status === "done" ? "Unmark" : "Mark executed"}

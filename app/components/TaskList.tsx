@@ -504,7 +504,7 @@ function TaskRow({
     });
   if (onToggle)
     actions.push({
-      icon: task.status === "done" ? "crosshair" : "check",
+      icon: task.status === "done" ? "x" : "check",
       label: task.status === "done" ? "Unmark" : "Mark executed",
       onClick: () => onToggle(task),
     });
@@ -687,7 +687,7 @@ function SortableMember({
       onClick: () => onDeploy(task),
     });
   actions.push({
-    icon: task.status === "done" ? "crosshair" : "check",
+    icon: task.status === "done" ? "x" : "check",
     label: task.status === "done" ? "Unmark" : "Mark executed",
     onClick: () => onToggle(task),
   });
