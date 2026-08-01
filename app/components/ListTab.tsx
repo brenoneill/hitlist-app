@@ -108,7 +108,11 @@ export function ListTab({
       ) : (
         <>
           {flying.length > 0 && (
-            <FoldSection label={`${flying.length} deployed`} className="mt-0">
+            <FoldSection
+              label={`${flying.length} deployed`}
+              className="mt-0"
+              defaultOpen
+            >
               <div className="pt-2">
                 <TaskList
                   tasks={flying}
@@ -127,6 +131,7 @@ export function ListTab({
             <FoldSection
               label={`${pending.length} marked`}
               className={flying.length > 0 ? "mt-4" : "mt-0"}
+              defaultOpen
             >
               <div className="pt-2">
                 <TaskList

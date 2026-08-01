@@ -351,25 +351,27 @@ export function TaskList({
 }
 
 /**
- * Collapsible section chrome shared by marked and executed lists.
- * Collapsed by default (no `open` attribute).
+ * Collapsible section chrome shared by deployed, marked, and executed lists.
  *
  * @param label - Summary text shown next to the chevron (e.g. "3 marked").
  * @param children - Content revealed when the section is expanded.
  * @param className - Optional wrapper classes; defaults to top margin.
+ * @param defaultOpen - When true, section starts expanded so items show immediately.
  * @returns A native `<details>` fold with chevron summary styling.
  */
 export function FoldSection({
   label,
   children,
   className = "mt-4",
+  defaultOpen = false,
 }: {
   label: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 }) {
   return (
-    <details className={`group ${className}`}>
+    <details className={`group ${className}`} defaultOpen={defaultOpen}>
       <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
         <Icon
           name="chevron"
