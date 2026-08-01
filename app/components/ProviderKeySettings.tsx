@@ -40,7 +40,11 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
   }
 
   return (
-    <div className="mb-2 overflow-hidden rounded-xl border border-edge bg-surface">
+    <div
+      className={`mb-2 rounded-xl border border-edge bg-surface ${
+        open ? "overflow-visible" : "overflow-hidden"
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
