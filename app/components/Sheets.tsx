@@ -301,9 +301,9 @@ function AgentActions({
                 <span className="block text-sm font-medium">Defaults</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                   {defaultsChips.map((chip) => (
-                    <span key={chip} className="flex items-center gap-1.5">
-                      <span className="size-1.5 shrink-0 rounded-full bg-ok" />
-                      {chip}
+                    <span key={chip.label} className="flex items-center gap-1.5">
+                      <Icon name={chip.icon} className="size-3 shrink-0" />
+                      {chip.label}
                     </span>
                   ))}
                 </span>

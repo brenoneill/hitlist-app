@@ -1,16 +1,28 @@
+import type { IconName } from "@/app/components/Icons";
 import {
   VISUAL_CONFIRMATION_OPTIONS,
   type VisualConfirmationId,
 } from "@/app/lib/prOptions";
 import { PROVIDER_META, type ProviderId } from "@/app/lib/providerMeta";
 
+const VISUAL_ICONS: Record<VisualConfirmationId, IconName> = {
+  "image-video": "film",
+  image: "image",
+  none: "ban",
+};
+
+export type DeployDefaultsChip = {
+  icon: IconName;
+  label: string;
+};
+
 /**
- * Short labels for a deploy-defaults summary (sheet collapsed row / settings).
+ * Short labeled chips for a deploy-defaults summary (sheet / settings).
  * @param provider - Selected provider, if any.
  * @param modelId - Selected model id, or empty/null for Auto.
  * @param modelName - Display name when known from the models list.
  * @param visualConfirmation - Selected visual confirmation mode.
- * @returns Ordered chip labels for the summary row.
+ * @returns Ordered chips with icon + label.
  */
 export function deployDefaultsChips({
   provider,
@@ -24,21 +36,25 @@ export function deployDefaultsChips({
   modelName?: string;
   visualConfirmation: VisualConfirmationId;
   showProvider: boolean;
-}): string[] {
-  const chips: string[] = [];
+}): DeployDefaultsChip[] {
+  const chips: DeployDefaultsChip[] = [];
   if (showProvider && provider) {
-    chips.push(
-      provider === "copilot" ? "Copilot" : PROVIDER_META[provider].label,
-    );
+    chips.push({
+      icon: PROVIDER_META[provider].icon,
+      label:
+        provider === "copilot" ? "Copilot" : PROVIDER_META[provider].label,
+    });
   }
-  chips.push(
-    modelId
-      ? (modelName ?? modelId)
-      : "Auto",
-  );
+  chips.push({
+    icon: "settings",
+    label: modelId ? (modelName ?? modelId) : "Auto",
+  });
   const visual =
     VISUAL_CONFIRMATION_OPTIONS.find((o) => o.id === visualConfirmation)
       ?.label ?? visualConfirmation;
-  chips.push(visual === "None" ? "No proof" : visual);
+  chips.push({
+    icon: VISUAL_ICONS[visualConfirmation],
+    label: visual === "None" ? "No proof" : visual,
+  });
   return chips;
 }
