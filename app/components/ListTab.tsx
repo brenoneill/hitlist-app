@@ -3,9 +3,6 @@ import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { DoneList, FoldSection, TaskList } from "@/app/components/TaskList";
 
-const SECTION_LABEL =
-  "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
-
 interface ListTabProps {
   activeProjectFilter: Set<string>;
   onSelectProjectsChange: (projects: Set<string>) => void;
