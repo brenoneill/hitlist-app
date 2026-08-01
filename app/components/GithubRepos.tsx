@@ -432,6 +432,7 @@ export function GithubRepos({
   const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  const defaultsReady = hasAnyKey && connected;
   const defaultProvider =
     pickDefaultProvider(
       configured,
@@ -447,6 +448,7 @@ export function GithubRepos({
   const visualConfirmation =
     defaults?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
   const defaultModel = defaults?.model ?? "";
+  const repoCount = repos?.length ?? 0;
 
   if (status === "loading") return null;
 
@@ -462,6 +464,14 @@ export function GithubRepos({
           {PROVIDER_META[p].label}
         </span>
       ))}
+    </p>
+  );
+
+  const reposSummary = (
+    <p className="text-xs text-muted">
+      {connected
+        ? `${repoCount} ${repoCount === 1 ? "repo" : "repos"} connected`
+        : "No repos connected"}
     </p>
   );
 
@@ -493,94 +503,9 @@ export function GithubRepos({
 
   return (
     <div className="mb-6">
-      <Section n={1} title="Sign in with GitHub" done={signedIn} collapsible={false}>
-        {signedIn ? (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">
-              {session?.user?.name ?? session?.user?.email}
-            </span>
-            <Button
-              variant="ghost"
-              onClick={() => signOut()}
-              className="text-sm"
-            >
-              Sign out
-            </Button>
-          </div>
-        ) : (
-          <button
-            onClick={() => signIn("github")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
-          >
-            <Icon name="github" className="size-5" />
-            Sign in with GitHub
-          </button>
-        )}
-      </Section>
-
-      <Section
-        n={2}
-        title="Add an agent provider"
-        done={signedIn && hasAnyKey}
-        summary={providerSummary}
-      >
-        {!signedIn ? (
-          <p className="text-sm text-muted">Sign in first.</p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-muted">
-              Add a key for at least one provider — it&apos;s who does the work
-              when you deploy an agent.
-            </p>
-            {PROVIDER_IDS.map((p) => (
-              <ProviderKeySettings key={p} provider={p} />
-            ))}
-          </>
-        )}
-      </Section>
-
-      <Section n={3} title="Connect your repos" done={signedIn && connected}>
-        {!signedIn ? (
-          <p className="text-sm text-muted">Sign in first.</p>
-        ) : !connected ? (
-          <div className="rounded-xl border border-edge bg-surface p-4">
-            <p className="mb-3 text-sm text-muted">
-              Connect GitHub to pick which repos HitList can see. We only ever
-              request read-only access to a repo&apos;s name and URL — never its
-              code.
-            </p>
-            {INSTALL_URL ? (
-              <a
-                href={INSTALL_URL}
-                // GitHub redirects installs to the App's one registered Setup
-                // URL (production). Send our origin as `state` so the callback
-                // can bounce back here when we're a preview deployment.
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
-                }}
-                className={`${BLOOD_BUTTON} block w-full text-center`}
-              >
-                Connect repos on GitHub
-              </a>
-            ) : (
-              <p className="font-mono text-xs text-muted">
-                Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.
-              </p>
-            )}
-          </div>
-        ) : (
-          <RepoList
-            repos={repos ?? []}
-            blockedRepos={blockedRepos}
-            onToggleBlocked={onToggleBlocked}
-          />
-        )}
-      </Section>
-
-      {signedIn && hasAnyKey && (
+      {defaultsReady ? (
         <Section
-          n={4}
+          n={1}
           title="Default options"
           done
           summary={defaultsSummary}
@@ -629,7 +554,112 @@ export function GithubRepos({
             </p>
           )}
         </Section>
+      ) : (
+        <section className="mb-6 opacity-50" aria-disabled="true">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-edge text-xs text-muted">
+              1
+            </span>
+            <h2 className="text-sm font-medium">Default options</h2>
+          </div>
+          <div className="pointer-events-none">
+            {defaultsSummary}
+            <p className="mt-2 text-xs text-muted">
+              Connect a provider and repos to set defaults.
+            </p>
+          </div>
+        </section>
       )}
+
+      <Section
+        n={2}
+        title="Add an agent provider"
+        done={signedIn && hasAnyKey}
+        summary={providerSummary}
+      >
+        {!signedIn ? (
+          <p className="text-sm text-muted">Sign in first.</p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-muted">
+              Add a key for at least one provider — it&apos;s who does the work
+              when you deploy an agent.
+            </p>
+            {PROVIDER_IDS.map((p) => (
+              <ProviderKeySettings key={p} provider={p} />
+            ))}
+          </>
+        )}
+      </Section>
+
+      <Section
+        n={3}
+        title="Connect your repos"
+        done={signedIn && connected}
+        summary={reposSummary}
+      >
+        {!signedIn ? (
+          <p className="text-sm text-muted">Sign in first.</p>
+        ) : !connected ? (
+          <div className="rounded-xl border border-edge bg-surface p-4">
+            <p className="mb-3 text-sm text-muted">
+              Connect GitHub to pick which repos HitList can see. We only ever
+              request read-only access to a repo&apos;s name and URL — never its
+              code.
+            </p>
+            {INSTALL_URL ? (
+              <a
+                href={INSTALL_URL}
+                // GitHub redirects installs to the App's one registered Setup
+                // URL (production). Send our origin as `state` so the callback
+                // can bounce back here when we're a preview deployment.
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
+                }}
+                className={`${BLOOD_BUTTON} block w-full text-center`}
+              >
+                Connect repos on GitHub
+              </a>
+            ) : (
+              <p className="font-mono text-xs text-muted">
+                Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.
+              </p>
+            )}
+          </div>
+        ) : (
+          <RepoList
+            repos={repos ?? []}
+            blockedRepos={blockedRepos}
+            onToggleBlocked={onToggleBlocked}
+          />
+        )}
+      </Section>
+
+      <Section n={4} title="Sign in with GitHub" done={signedIn} collapsible={false}>
+        {signedIn ? (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted">
+              {session?.user?.name ?? session?.user?.email}
+            </span>
+            <Button
+              variant="ghost"
+              onClick={() => signOut()}
+              className="text-sm"
+            >
+              Sign out
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={() => signIn("github")}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
+          >
+            <Icon name="github" className="size-5" />
+            Sign in with GitHub
+          </button>
+        )}
+      </Section>
     </div>
   );
 }
