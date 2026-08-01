@@ -14,7 +14,8 @@ const ICONS: Record<VisualConfirmationId, IconName> = {
 
 /**
  * Shared radiogroup for visual confirmation (image & video / image / none).
- * Used in deploy action sheets (per run) and Settings (user default).
+ * Icon-only flex row (same card chrome as Cursor / Copilot); labels are
+ * sr-only. Used in deploy action sheets and Settings.
  * @param value - Currently selected mode.
  * @param onChange - Called when the user picks a different mode.
  * @param className - Optional layout classes on the radiogroup.
@@ -32,7 +33,7 @@ export function VisualConfirmationRadio({
     <div
       role="radiogroup"
       aria-label="Visual confirmation"
-      className={`flex flex-col gap-2 ${className}`.trim()}
+      className={`flex gap-2 ${className}`.trim()}
     >
       {VISUAL_CONFIRMATION_OPTIONS.map((o) => {
         const selected = value === o.id;
@@ -43,14 +44,14 @@ export function VisualConfirmationRadio({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={label}
             onClick={() => onChange(o.id)}
-            className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:border-info ${
+            className={`flex min-w-0 flex-1 items-center justify-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors outline-none focus-visible:border-info ${
               selected
                 ? "border-info bg-info/10 text-foreground"
                 : "border-edge bg-background text-muted hover:text-foreground"
             }`}
           >
+            <span className="sr-only">{label}</span>
             <span
               className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
                 selected
@@ -59,9 +60,6 @@ export function VisualConfirmationRadio({
               }`}
             >
               <Icon name={ICONS[o.id]} className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {o.label}
             </span>
             <span
               aria-hidden
