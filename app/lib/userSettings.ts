@@ -134,13 +134,17 @@ export async function setGithubInstallationId(
 
 /**
  * Ensures deploy-default columns exist. Preview/prod Neon branches often predate
- * schema.sql; without this, GET/PUT /api/settings/defaults 500s and Settings
- * shows a bare "save failed".
+ * schema.sql (visual_confirmation was never given a migration either); without
+ * this, GET/PUT /api/settings/defaults 500s.
  */
 let deployDefaultsReady: Promise<boolean> | undefined;
 function ensureDeployDefaultColumns(): Promise<boolean> {
   return (deployDefaultsReady ??= (async () => {
     try {
+      await sql`
+        alter table user_settings
+          add column if not exists visual_confirmation text not null default 'image'
+      `;
       await sql`
         alter table user_settings
           add column if not exists default_provider text
