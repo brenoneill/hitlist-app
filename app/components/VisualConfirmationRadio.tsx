@@ -14,8 +14,8 @@ const ICONS: Record<VisualConfirmationId, IconName> = {
 
 /**
  * Shared radiogroup for visual confirmation (image & video / image / none).
- * Icon-only flex row (same card chrome as Cursor / Copilot); labels are
- * sr-only. Used in deploy action sheets and Settings.
+ * Flex row (same card chrome as Cursor / Copilot); icon-only below `lg`
+ * with sr-only labels, text shown on large screens.
  * @param value - Currently selected mode.
  * @param onChange - Called when the user picks a different mode.
  * @param className - Optional layout classes on the radiogroup.
@@ -45,13 +45,12 @@ export function VisualConfirmationRadio({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(o.id)}
-            className={`flex min-w-0 flex-1 items-center justify-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors outline-none focus-visible:border-info ${
+            className={`flex min-w-0 flex-1 items-center justify-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors outline-none focus-visible:border-info lg:justify-start ${
               selected
                 ? "border-info bg-info/10 text-foreground"
                 : "border-edge bg-background text-muted hover:text-foreground"
             }`}
           >
-            <span className="sr-only">{label}</span>
             <span
               className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
                 selected
@@ -60,6 +59,13 @@ export function VisualConfirmationRadio({
               }`}
             >
               <Icon name={ICONS[o.id]} className="size-4" />
+            </span>
+            <span className="sr-only lg:hidden">{label}</span>
+            <span
+              aria-hidden
+              className="hidden min-w-0 flex-1 truncate text-sm font-medium lg:inline"
+            >
+              {label}
             </span>
             <span
               aria-hidden
