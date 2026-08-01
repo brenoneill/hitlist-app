@@ -17,15 +17,17 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
   const meta = PROVIDER_META[provider];
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const { data, isPending: loading } = useProviderKeys();
   const save = useSaveProviderKey();
   const clear = useClearProviderKey();
   const hasKey = data?.[provider] ?? false;
   const busy = loading || save.isPending || clear.isPending;
+  const canSave = key.trim().length > 0;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!key.trim()) return;
+    if (!canSave) return;
     save.mutate(
       { provider, key: key.trim() },
       {
@@ -100,23 +102,54 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
               />
             </div>
             {hasKey && (
+              <div className="relative">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setMenuOpen((o) => !o)}
+                  aria-label={`${meta.label} key actions`}
+                  aria-expanded={menuOpen}
+                  className="rounded-xl border border-edge px-3 py-3 text-muted active:bg-background disabled:opacity-50"
+                >
+                  <Icon name="ellipsis" className="size-4" />
+                </button>
+                {menuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-36 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          clear.mutate(provider, {
+                            onSuccess: () => {
+                              setKey("");
+                              setMenuOpen(false);
+                            },
+                          })
+                        }
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background disabled:opacity-50"
+                      >
+                        <Icon name="trash" className="size-4" aria-hidden />
+                        Delete key
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {canSave && (
               <button
-                type="button"
+                type="submit"
                 disabled={busy}
-                onClick={() => clear.mutate(provider)}
-                aria-label={`Drop saved ${meta.label} key`}
-                className="rounded-xl border border-edge px-3 py-3 text-blood active:bg-background disabled:opacity-50"
+                className="rounded-xl border border-edge px-4 py-3 text-base font-medium active:bg-background disabled:opacity-50"
               >
-                <Icon name="trash" className="size-4" />
+                {save.isPending ? "Saving…" : "Save"}
               </button>
             )}
-            <button
-              type="submit"
-              disabled={busy || !key.trim()}
-              className="rounded-xl border border-edge px-4 py-3 text-base font-medium active:bg-background disabled:opacity-50"
-            >
-              {save.isPending ? "Saving…" : "Save"}
-            </button>
           </form>
         </div>
       )}
