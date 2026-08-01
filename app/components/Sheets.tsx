@@ -4,18 +4,17 @@ import { useRef, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import type { Repo } from "@/app/components/GithubRepos";
 import {
+  useDeployDefaults,
   useDispatchTask,
   useModels,
   usePatchTask,
   useProviderKeys,
   useToggleDone,
-  useVisualConfirmation,
   type TaskPatch,
 } from "@/app/lib/queries";
 import {
   LAST_PROVIDER_KEY,
   PROVIDER_IDS,
-  PROVIDER_META,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -24,6 +23,7 @@ import {
   optionsForMode,
   type VisualConfirmationId,
 } from "@/app/lib/prOptions";
+import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
 import {
   StatusBadge,
   deployable,
@@ -32,23 +32,31 @@ import {
 } from "@/app/components/TaskItem";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
+import { ModelSelect } from "@/app/components/ModelSelect";
+import { ProviderRadio } from "@/app/components/ProviderRadio";
 import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
 
-/** Sheet-menu redeploy: last-used provider, default PR options. */
+/** Sheet-menu redeploy: Settings defaults (provider / model / visual). */
 function useQuickRedeploy() {
   const { data: keys } = useProviderKeys();
+  const { data: defaults } = useDeployDefaults();
   const dispatch = useDispatchTask();
   function redeploy(id: string) {
     const provider = pickDefaultProvider(
       PROVIDER_IDS.filter((p) => keys?.[p]),
-      typeof window === "undefined"
-        ? null
-        : localStorage.getItem(LAST_PROVIDER_KEY),
+      defaults?.provider ??
+        (typeof window === "undefined"
+          ? null
+          : localStorage.getItem(LAST_PROVIDER_KEY)),
     );
     if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
     dispatch.mutate({
       id,
       ...(provider ? { provider } : {}),
+      ...(defaults?.model ? { model: defaults.model } : {}),
+      ...(defaults?.visualConfirmation
+        ? { options: optionsForMode(defaults.visualConfirmation) }
+        : {}),
       redeploy: true,
     });
   }
@@ -173,15 +181,12 @@ function AgentActions({
   beforeSend?: () => Promise<void>;
   children?: React.ReactNode;
 }) {
-  const [model, setModel] = useState("");
-  const { data: visualDefault } = useVisualConfirmation();
+  const { data: defaults } = useDeployDefaults();
   // null until the user overrides — tracks the Settings default as it loads
+  const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [visualOverride, setVisualOverride] =
     useState<VisualConfirmationId | null>(null);
-  const visualConfirmation =
-    visualOverride ??
-    visualDefault?.visualConfirmation ??
-    DEFAULT_VISUAL_CONFIRMATION;
+  const [defaultsOpen, setDefaultsOpen] = useState(false);
   const { data: keys } = useProviderKeys();
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
   // derived, not seeded state — `keys` arrives async after the sheet opens
@@ -191,17 +196,30 @@ function AgentActions({
       ? chosen
       : pickDefaultProvider(
           configured,
-          typeof window === "undefined"
-            ? null
-            : localStorage.getItem(LAST_PROVIDER_KEY),
+          defaults?.provider ??
+            (typeof window === "undefined"
+              ? null
+              : localStorage.getItem(LAST_PROVIDER_KEY)),
         );
   // cached for the session; only a provider key change invalidates the list
   const { data: models, isLoading: modelsLoading } = useModels(
     provider,
     deployable(lead),
   );
+  const model = modelOverride ?? defaults?.model ?? "";
+  const visualConfirmation =
+    visualOverride ??
+    defaults?.visualConfirmation ??
+    DEFAULT_VISUAL_CONFIRMATION;
   // the response lands in the task cache — `lead` comes from there, so no callback
   const dispatch = useDispatchTask();
+  const defaultsChips = deployDefaultsChips({
+    provider,
+    modelId: model || null,
+    modelName: models?.find((m) => m.id === model)?.displayName,
+    visualConfirmation,
+    showProvider: configured.length > 1,
+  });
 
   async function send() {
     await beforeSend?.();
@@ -272,83 +290,59 @@ function AgentActions({
 
       {deployable(lead) && (
         <>
-          {configured.length > 1 && (
-            <div
-              role="radiogroup"
-              aria-label="Agent provider"
-              className="mb-3 flex gap-2"
+          <div className="mb-3 overflow-hidden rounded-xl border border-edge bg-background">
+            <button
+              type="button"
+              onClick={() => setDefaultsOpen((o) => !o)}
+              aria-expanded={defaultsOpen}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-surface"
             >
-              {configured.map((p) => {
-                const selected = provider === p;
-                const meta = PROVIDER_META[p];
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    aria-label={meta.label}
-                    onClick={() => {
-                      setChosen(p);
-                      setModel(""); // model lists don't overlap across providers
-                    }}
-                    className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:border-info ${
-                      selected
-                        ? "border-info bg-info/10 text-foreground"
-                        : "border-edge bg-background text-muted hover:text-foreground"
-                    }`}
-                  >
-                    <span
-                      className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
-                        selected
-                          ? "border-info/40 bg-info/15 text-foreground"
-                          : "border-edge bg-surface text-muted"
-                      }`}
-                    >
-                      <Icon name={meta.icon} className="size-4" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">Settings</span>
+                <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                  {defaultsChips.map((chip) => (
+                    <span key={chip.label} className="flex items-center gap-1.5">
+                      <Icon name={chip.icon} className="size-3 shrink-0" />
+                      {chip.label}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                      {p === "copilot" ? "Copilot" : meta.label}
-                    </span>
-                    <span
-                      aria-hidden
-                      className={`size-3.5 shrink-0 rounded-full border-2 ${
-                        selected
-                          ? "border-info bg-info shadow-[0_0_8px_rgba(59,130,246,0.45)]"
-                          : "border-edge bg-transparent"
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {/* Reserve select height before /api/models resolves */}
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={modelsLoading}
-            aria-busy={modelsLoading}
-            aria-label="Agent model"
-            className="mb-3 h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood disabled:opacity-70"
-          >
-            <option value="">
-              {!modelsLoading ? "Auto (default model)" : "Loading models…"}
-            </option>
-            {(models ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.displayName}
-              </option>
-            ))}
-          </select>
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Visual confirmation
-          </p>
-          <VisualConfirmationRadio
-            value={visualConfirmation}
-            onChange={setVisualOverride}
-            className="mb-3"
-          />
+                  ))}
+                </span>
+              </span>
+              <Icon
+                name="chevron"
+                className={`size-4 shrink-0 text-muted transition-transform ${
+                  defaultsOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {defaultsOpen && (
+              <div className="border-t border-edge px-4 py-3">
+                <ProviderRadio
+                  providers={configured}
+                  value={provider}
+                  onChange={(p) => {
+                    setChosen(p);
+                    setModelOverride(""); // model lists don't overlap across providers
+                  }}
+                  className="mb-3"
+                />
+                <ModelSelect
+                  value={model}
+                  onChange={setModelOverride}
+                  models={models}
+                  loading={modelsLoading}
+                  className="mb-3"
+                />
+                <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+                  Visual confirmation
+                </p>
+                <VisualConfirmationRadio
+                  value={visualConfirmation}
+                  onChange={setVisualOverride}
+                />
+              </div>
+            )}
+          </div>
           <Button
             onClick={send}
             disabled={dispatch.isPending || !canDeploy}

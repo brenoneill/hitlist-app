@@ -4,8 +4,8 @@ import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { PROVIDERS } from "@/app/lib/providers";
 import {
   getAgentAccessNotes,
+  getDeployDefaults,
   getProviderKey,
-  getVisualConfirmation,
 } from "@/app/lib/userSettings";
 import {
   optionSections,
@@ -61,7 +61,7 @@ function buildPrompt(
  * list + optional per-task context + working agreement); a group's repo is the
  * first member's with one. Pass `redeploy: true` to replace an existing agent
  * with a fresh run (clears prior run/PR fields).
- * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task.
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Settings default), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -125,9 +125,15 @@ export async function POST(
     );
   }
 
-  // no provider in the body (quick deploy) ⇒ first configured one wins
+  const defaults = await getDeployDefaults(userId);
+
+  // no provider in the body (quick deploy) ⇒ Settings default, else first key
   let provider = PROVIDER_IDS.find((p) => p === requested);
   let apiKey = provider ? await getProviderKey(userId, provider) : undefined;
+  if (!apiKey && defaults.provider) {
+    apiKey = await getProviderKey(userId, defaults.provider);
+    if (apiKey) provider = defaults.provider;
+  }
   if (!apiKey) {
     for (const p of PROVIDER_IDS) {
       apiKey = await getProviderKey(userId, p);
@@ -147,7 +153,8 @@ export async function POST(
   try {
     // absent body ⇒ user's Settings default; explicit [] means none required
     const resolvedOptions =
-      options ?? optionsForMode(await getVisualConfirmation(userId));
+      options ?? optionsForMode(defaults.visualConfirmation);
+    const resolvedModel = model ?? defaults.model ?? undefined;
     const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(
         members,
@@ -158,7 +165,7 @@ export async function POST(
       repoUrl,
       ref,
       apiKey,
-      model,
+      resolvedModel,
     );
     const updated: Task[] = [];
     for (const m of members) {

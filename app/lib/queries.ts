@@ -16,12 +16,19 @@ import type {
 } from "@/app/lib/prOptions";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 
+/** Deploy defaults returned by `/api/settings/defaults`. */
+export type DeployDefaults = {
+  provider: ProviderId | null;
+  model: string | null;
+  visualConfirmation: VisualConfirmationId;
+};
+
 const TASKS = ["tasks"];
 const MODELS = ["models"]; // prefix — per-provider keys are ["models", provider]
 const REPOS = ["repos"];
 const PROVIDER_KEYS = ["provider-keys"];
 const REPO_NOTES = ["repo-notes"]; // prefix — per-repo keys are ["repo-notes", url]
-const VISUAL_CONFIRMATION = ["visual-confirmation"];
+const DEPLOY_DEFAULTS = ["deploy-defaults"];
 
 /** Fetch + unwrap; non-2xx throws the API's `error` so mutations can show it. */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -275,42 +282,55 @@ export function useClearProviderKey() {
   });
 }
 
-/** User's default visual confirmation for agent PRs. */
-export function useVisualConfirmation(enabled = true) {
+/** User's deploy defaults (provider, model, visual confirmation). */
+export function useDeployDefaults(enabled = true) {
   return useQuery({
-    queryKey: VISUAL_CONFIRMATION,
-    queryFn: () =>
-      api<{ visualConfirmation: VisualConfirmationId }>(
-        "/api/settings/visual-confirmation",
-      ),
+    queryKey: DEPLOY_DEFAULTS,
+    queryFn: () => api<DeployDefaults>("/api/settings/defaults"),
     enabled,
     staleTime: 5 * 60_000,
   });
 }
 
 /**
- * Persists the default visual confirmation mode.
+ * Persists deploy defaults (partial patch).
  * Optimistic so Settings and open sheets stay in sync immediately.
  */
-export function useSaveVisualConfirmation() {
+export function useSaveDeployDefaults() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (visualConfirmation: VisualConfirmationId) =>
-      api<{ visualConfirmation: VisualConfirmationId }>(
-        "/api/settings/visual-confirmation",
-        send("PUT", { visualConfirmation }),
-      ),
-    onMutate: async (visualConfirmation) => {
-      await qc.cancelQueries({ queryKey: VISUAL_CONFIRMATION });
-      const prev = qc.getQueryData<{ visualConfirmation: VisualConfirmationId }>(
-        VISUAL_CONFIRMATION,
-      );
-      qc.setQueryData(VISUAL_CONFIRMATION, { visualConfirmation });
+    mutationFn: (patch: {
+      provider?: ProviderId | null;
+      model?: string | null;
+      visualConfirmation?: VisualConfirmationId;
+    }) => api<DeployDefaults>("/api/settings/defaults", send("PUT", patch)),
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: DEPLOY_DEFAULTS });
+      const prev = qc.getQueryData<DeployDefaults>(DEPLOY_DEFAULTS);
+      if (prev) {
+        const next: DeployDefaults = {
+          provider:
+            patch.provider !== undefined ? patch.provider : prev.provider,
+          model: patch.model !== undefined ? patch.model : prev.model,
+          visualConfirmation:
+            patch.visualConfirmation !== undefined
+              ? patch.visualConfirmation
+              : prev.visualConfirmation,
+        };
+        if (
+          patch.provider !== undefined &&
+          patch.provider !== prev.provider &&
+          patch.model === undefined
+        ) {
+          next.model = null;
+        }
+        qc.setQueryData(DEPLOY_DEFAULTS, next);
+      }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(VISUAL_CONFIRMATION, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(DEPLOY_DEFAULTS, ctx.prev);
     },
-    onSuccess: (data) => qc.setQueryData(VISUAL_CONFIRMATION, data),
+    onSuccess: (data) => qc.setQueryData(DEPLOY_DEFAULTS, data),
   });
 }

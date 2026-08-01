@@ -9,16 +9,26 @@ import {
   SETUP_TASK_DETAILS,
   SETUP_TASK_TITLE,
 } from "@/app/lib/agentAccessSetup";
-import { PROVIDER_IDS, PROVIDER_META } from "@/app/lib/providerMeta";
 import {
   useAddTask,
+  useModels,
   useProviderKeys,
   useRepoNotes,
+  useSaveDeployDefaults,
   useSaveRepoNotes,
-  useSaveVisualConfirmation,
-  useVisualConfirmation,
+  useDeployDefaults,
 } from "@/app/lib/queries";
 import { DEFAULT_VISUAL_CONFIRMATION } from "@/app/lib/prOptions";
+import {
+  LAST_PROVIDER_KEY,
+  PROVIDER_IDS,
+  PROVIDER_META,
+  pickDefaultProvider,
+  type ProviderId,
+} from "@/app/lib/providerMeta";
+import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
+import { ModelSelect } from "@/app/components/ModelSelect";
+import { ProviderRadio } from "@/app/components/ProviderRadio";
 import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
 
 export interface Repo {
@@ -418,11 +428,25 @@ export function GithubRepos({
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated";
   const { data: keys } = useProviderKeys(signedIn);
-  const { data: visualDefault } = useVisualConfirmation(signedIn);
-  const saveVisual = useSaveVisualConfirmation();
+  const { data: defaults } = useDeployDefaults(signedIn);
+  const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
+  const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  const defaultProvider =
+    pickDefaultProvider(
+      configured,
+      defaults?.provider ??
+        (typeof window === "undefined"
+          ? null
+          : localStorage.getItem(LAST_PROVIDER_KEY)),
+    ) ?? configured[0];
+  const { data: models, isLoading: modelsLoading } = useModels(
+    defaultProvider,
+    signedIn && !!defaultProvider,
+  );
   const visualConfirmation =
-    visualDefault?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
+    defaults?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
+  const defaultModel = defaults?.model ?? "";
 
   if (status === "loading") return null;
 
@@ -440,6 +464,32 @@ export function GithubRepos({
       ))}
     </p>
   );
+
+  const defaultsChips = deployDefaultsChips({
+    provider: defaultProvider,
+    modelId: defaultModel || null,
+    modelName: models?.find((m) => m.id === defaultModel)?.displayName,
+    visualConfirmation,
+    showProvider: configured.length > 1,
+  });
+
+  const defaultsSummary = (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      {defaultsChips.map((chip) => (
+        <span key={chip.label} className="flex items-center gap-1.5">
+          <Icon name={chip.icon} className="size-3 shrink-0" />
+          {chip.label}
+        </span>
+      ))}
+    </p>
+  );
+
+  function setDefaultProvider(next: ProviderId) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LAST_PROVIDER_KEY, next);
+    }
+    saveDefaults.mutate({ provider: next });
+  }
 
   return (
     <div className="mb-6">
@@ -528,24 +578,57 @@ export function GithubRepos({
         )}
       </Section>
 
-      {signedIn && (
-        <section className="mb-6">
-          <h2 className="mb-1 text-sm font-medium">
-            Visual confirmation default
-          </h2>
+      {signedIn && hasAnyKey && (
+        <Section
+          n={4}
+          title="Default options"
+          done
+          summary={defaultsSummary}
+        >
           <p className="mb-3 text-sm text-muted">
-            Proof required in agent PRs. Override per deploy in the action sheet.
+            Used when you deploy. Override per run in the action sheet.
+          </p>
+          {configured.length > 1 && (
+            <>
+              <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+                Provider
+              </p>
+              <ProviderRadio
+                providers={configured}
+                value={defaultProvider}
+                onChange={setDefaultProvider}
+                className="mb-3"
+              />
+            </>
+          )}
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Model
+          </p>
+          <ModelSelect
+            value={defaultModel}
+            onChange={(next) =>
+              saveDefaults.mutate({ model: next.trim() ? next : null })
+            }
+            models={models}
+            loading={modelsLoading}
+            disabled={!defaultProvider}
+            className="mb-3"
+          />
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Visual confirmation
           </p>
           <VisualConfirmationRadio
             value={visualConfirmation}
-            onChange={(next) => saveVisual.mutate(next)}
+            onChange={(next) =>
+              saveDefaults.mutate({ visualConfirmation: next })
+            }
           />
-          {saveVisual.error && (
+          {saveDefaults.error && (
             <p className="mt-2 font-mono text-xs text-blood">
-              {saveVisual.error.message || "save failed"}
+              {saveDefaults.error.message || "save failed"}
             </p>
           )}
-        </section>
+        </Section>
       )}
     </div>
   );

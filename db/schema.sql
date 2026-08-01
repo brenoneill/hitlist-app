@@ -34,7 +34,11 @@ create table user_settings (
   github_installation_id text,
   -- Default visual confirmation for agent PRs: image-video | image | none.
   visual_confirmation text not null default 'image'
-    check (visual_confirmation in ('image-video', 'image', 'none'))
+    check (visual_confirmation in ('image-video', 'image', 'none')),
+  -- Preferred agent provider / model for deploys (null = auto / first configured).
+  default_provider text
+    check (default_provider is null or default_provider in ('cursor', 'copilot')),
+  default_model text
 );
 
 create table repo_settings (
