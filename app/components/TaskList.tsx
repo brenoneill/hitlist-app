@@ -353,6 +353,11 @@ export function TaskList({
 /**
  * Collapsible section chrome shared by marked and executed lists.
  * Collapsed by default (no `open` attribute).
+ *
+ * @param label - Summary text shown next to the chevron (e.g. "3 marked").
+ * @param children - Content revealed when the section is expanded.
+ * @param className - Optional wrapper classes; defaults to top margin.
+ * @returns A native `<details>` fold with chevron summary styling.
  */
 export function FoldSection({
   label,
