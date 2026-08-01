@@ -370,8 +370,14 @@ export function FoldSection({
   className?: string;
   defaultOpen?: boolean;
 }) {
+  // Controlled: React's DetailsHTMLAttributes has no defaultOpen.
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <details className={`group ${className}`} defaultOpen={defaultOpen}>
+    <details
+      className={`group ${className}`}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
         <Icon
           name="chevron"
