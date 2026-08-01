@@ -350,6 +350,46 @@ export function TaskList({
   );
 }
 
+/**
+ * Collapsible section chrome shared by deployed, marked, and executed lists.
+ *
+ * @param label - Summary text shown next to the chevron (e.g. "3 marked").
+ * @param children - Content revealed when the section is expanded.
+ * @param className - Optional wrapper classes; defaults to top margin.
+ * @param defaultOpen - When true, section starts expanded so items show immediately.
+ * @returns A native `<details>` fold with chevron summary styling.
+ */
+export function FoldSection({
+  label,
+  children,
+  className = "mt-4",
+  defaultOpen = false,
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  defaultOpen?: boolean;
+}) {
+  // Controlled: React's DetailsHTMLAttributes has no defaultOpen.
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      className={`group ${className}`}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
+        <Icon
+          name="chevron"
+          className="size-4 -rotate-90 transition-transform group-open:rotate-0"
+        />
+        {label}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 /** Completed marks, newest first, folded away. No drag — order is by doneAt. */
 export function DoneList({
   tasks,
@@ -363,14 +403,7 @@ export function DoneList({
   onDelete: (id: string) => void;
 }) {
   return (
-    <details className="group mt-4">
-      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
-        <Icon
-          name="chevron"
-          className="size-4 -rotate-90 transition-transform group-open:rotate-0"
-        />
-        {tasks.length} executed
-      </summary>
+    <FoldSection label={`${tasks.length} executed`}>
       <ul className="flex flex-col gap-2 pt-2">
         {tasks.map((t) => (
           <li key={t.id}>
@@ -383,7 +416,7 @@ export function DoneList({
           </li>
         ))}
       </ul>
-    </details>
+    </FoldSection>
   );
 }
 

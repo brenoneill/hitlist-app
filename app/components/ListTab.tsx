@@ -1,10 +1,7 @@
 import type { Task } from "@/app/lib/tasks";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
-import { DoneList, TaskList } from "@/app/components/TaskList";
-
-const SECTION_LABEL =
-  "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
+import { DoneList, FoldSection, TaskList } from "@/app/components/TaskList";
 
 interface ListTabProps {
   activeProjectFilter: Set<string>;
@@ -111,36 +108,44 @@ export function ListTab({
       ) : (
         <>
           {flying.length > 0 && (
-            <>
-              <h2 className={SECTION_LABEL}>{flying.length} deployed</h2>
-              <TaskList
-                tasks={flying}
-                onReorder={(next) => onReorderVisible(next, pending, done)}
-                onSelect={(t) => onSelectId(t.id)}
-                onSelectGroup={onSelectGroup}
-                onToggle={onToggleTask}
-                onDelete={onRemoveTask}
-                onDeploy={onDeployTask}
-                onDraggingChange={onDraggingChange}
-              />
-            </>
+            <FoldSection
+              label={`${flying.length} deployed`}
+              className="mt-0"
+              defaultOpen
+            >
+              <div className="pt-2">
+                <TaskList
+                  tasks={flying}
+                  onReorder={(next) => onReorderVisible(next, pending, done)}
+                  onSelect={(t) => onSelectId(t.id)}
+                  onSelectGroup={onSelectGroup}
+                  onToggle={onToggleTask}
+                  onDelete={onRemoveTask}
+                  onDeploy={onDeployTask}
+                  onDraggingChange={onDraggingChange}
+                />
+              </div>
+            </FoldSection>
           )}
           {pending.length > 0 && (
-            <>
-              {flying.length > 0 && (
-                <h2 className={SECTION_LABEL}>{pending.length} marked</h2>
-              )}
-              <TaskList
-                tasks={pending}
-                onReorder={(next) => onReorderVisible(flying, next, done)}
-                onSelect={(t) => onSelectId(t.id)}
-                onSelectGroup={onSelectGroup}
-                onToggle={onToggleTask}
-                onDelete={onRemoveTask}
-                onDeploy={onDeployTask}
-                onDraggingChange={onDraggingChange}
-              />
-            </>
+            <FoldSection
+              label={`${pending.length} marked`}
+              className={flying.length > 0 ? "mt-4" : "mt-0"}
+              defaultOpen
+            >
+              <div className="pt-2">
+                <TaskList
+                  tasks={pending}
+                  onReorder={(next) => onReorderVisible(flying, next, done)}
+                  onSelect={(t) => onSelectId(t.id)}
+                  onSelectGroup={onSelectGroup}
+                  onToggle={onToggleTask}
+                  onDelete={onRemoveTask}
+                  onDeploy={onDeployTask}
+                  onDraggingChange={onDraggingChange}
+                />
+              </div>
+            </FoldSection>
           )}
           {done.length > 0 && (
             <DoneList
