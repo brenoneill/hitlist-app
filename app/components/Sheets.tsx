@@ -9,6 +9,7 @@ import {
   usePatchTask,
   useProviderKeys,
   useToggleDone,
+  useVisualConfirmation,
   type TaskPatch,
 } from "@/app/lib/queries";
 import {
@@ -19,9 +20,9 @@ import {
   type ProviderId,
 } from "@/app/lib/providerMeta";
 import {
-  DEFAULT_PR_OPTIONS,
-  PR_OPTIONS,
-  type PrOptionId,
+  DEFAULT_VISUAL_CONFIRMATION,
+  optionsForMode,
+  type VisualConfirmationId,
 } from "@/app/lib/prOptions";
 import {
   StatusBadge,
@@ -31,6 +32,7 @@ import {
 } from "@/app/components/TaskItem";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
+import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
 
 /** Sheet-menu redeploy: last-used provider, default PR options. */
 function useQuickRedeploy() {
@@ -172,7 +174,14 @@ function AgentActions({
   children?: React.ReactNode;
 }) {
   const [model, setModel] = useState("");
-  const [options, setOptions] = useState<PrOptionId[]>(DEFAULT_PR_OPTIONS);
+  const { data: visualDefault } = useVisualConfirmation();
+  // null until the user overrides — tracks the Settings default as it loads
+  const [visualOverride, setVisualOverride] =
+    useState<VisualConfirmationId | null>(null);
+  const visualConfirmation =
+    visualOverride ??
+    visualDefault?.visualConfirmation ??
+    DEFAULT_VISUAL_CONFIRMATION;
   const { data: keys } = useProviderKeys();
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
   // derived, not seeded state — `keys` arrives async after the sheet opens
@@ -201,7 +210,7 @@ function AgentActions({
       id: lead.id,
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
-      options,
+      options: optionsForMode(visualConfirmation),
     });
   }
 
@@ -332,26 +341,14 @@ function AgentActions({
               </option>
             ))}
           </select>
-          {PR_OPTIONS.map((o) => (
-            <label
-              key={o.id}
-              className="mb-3 flex items-center gap-2 font-mono text-xs text-muted"
-            >
-              <input
-                type="checkbox"
-                checked={options.includes(o.id)}
-                onChange={(e) =>
-                  setOptions((prev) =>
-                    e.target.checked
-                      ? [...prev, o.id]
-                      : prev.filter((id) => id !== o.id),
-                  )
-                }
-                className="size-4 accent-blood"
-              />
-              {o.label}
-            </label>
-          ))}
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Visual confirmation
+          </p>
+          <VisualConfirmationRadio
+            value={visualConfirmation}
+            onChange={setVisualOverride}
+            className="mb-3"
+          />
           <Button
             onClick={send}
             disabled={dispatch.isPending || !canDeploy}

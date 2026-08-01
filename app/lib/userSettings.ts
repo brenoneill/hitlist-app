@@ -1,6 +1,11 @@
 import { sql } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import type { ProviderId } from "./providerMeta";
+import {
+  DEFAULT_VISUAL_CONFIRMATION,
+  isVisualConfirmationId,
+  type VisualConfirmationId,
+} from "./prOptions";
 
 /** Provider → key column. Column names come only from this map — no injection. */
 const KEY_COLS: Record<ProviderId, string> = {
@@ -117,5 +122,39 @@ export async function setGithubInstallationId(
     values (${userId}, ${githubInstallationId})
     on conflict (user_id) do update
       set github_installation_id = excluded.github_installation_id
+  `;
+}
+
+/**
+ * User's default visual confirmation for agent PRs.
+ * @param userId - Signed-in user id.
+ * @returns Stored mode, or the built-in default when unset.
+ */
+export async function getVisualConfirmation(
+  userId: string,
+): Promise<VisualConfirmationId> {
+  const rows = await sql`
+    select visual_confirmation from user_settings where user_id = ${userId}
+  `;
+  const value = rows[0]?.visual_confirmation;
+  return typeof value === "string" && isVisualConfirmationId(value)
+    ? value
+    : DEFAULT_VISUAL_CONFIRMATION;
+}
+
+/**
+ * Persists the default visual confirmation mode.
+ * @param userId - Signed-in user id.
+ * @param mode - image-video | image | none.
+ */
+export async function setVisualConfirmation(
+  userId: string,
+  mode: VisualConfirmationId,
+): Promise<void> {
+  await sql`
+    insert into user_settings (user_id, visual_confirmation)
+    values (${userId}, ${mode})
+    on conflict (user_id) do update
+      set visual_confirmation = excluded.visual_confirmation
   `;
 }

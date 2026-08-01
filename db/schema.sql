@@ -31,7 +31,10 @@ create table user_settings (
   -- AES-256-GCM ciphertext (app/lib/crypto.ts), keyed by SETTINGS_ENCRYPTION_KEY.
   cursor_api_key text,
   copilot_api_key text,
-  github_installation_id text
+  github_installation_id text,
+  -- Default visual confirmation for agent PRs: image-video | image | none.
+  visual_confirmation text not null default 'image'
+    check (visual_confirmation in ('image-video', 'image', 'none'))
 );
 
 create table repo_settings (

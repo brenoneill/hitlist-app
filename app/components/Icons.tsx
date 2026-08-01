@@ -17,6 +17,8 @@ export type IconName =
   | "merge"
   | "ellipsis"
   | "image"
+  | "film"
+  | "ban"
   | "cursor"
   | "copilot"
   | "lock"
@@ -53,6 +55,18 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <circle cx="9" cy="10" r="1.5" />
       <path d="M3 17l5-5 4 4 3-3 6 6" />
+    </>
+  ),
+  film: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" />
+    </>
+  ),
+  ban: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.5 5.5l13 13" />
     </>
   ),
   lock: (
