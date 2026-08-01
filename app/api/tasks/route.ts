@@ -8,7 +8,11 @@ import {
   type Task,
 } from "@/app/lib/tasks";
 import type { LatestRun, RunStatus } from "@/app/lib/cursor";
-import { getPreviewUrl, getPrState } from "@/app/lib/githubApp";
+import {
+  getPreviewUrl,
+  getPrState,
+  getPrUrlForBranch,
+} from "@/app/lib/githubApp";
 import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { PROVIDERS } from "@/app/lib/providers";
 import {
@@ -32,9 +36,34 @@ const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
   "EXPIRED",
 ]);
 
-/** Poll the agent run until it's been seen terminal once; then it can't change. */
-const needsRunPoll = (t: Task) =>
-  !!t.agentId && !(t.runStatus && TERMINAL_RUN.has(t.runStatus as RunStatus));
+/**
+ * Poll the agent run until it's terminal — and keep going after a successful
+ * finish if we still have no prUrl (Copilot artifacts / GraphQL often lag or
+ * 403 on Agent-tasks-only PATs; a later poll may resolve via branch REST).
+ */
+const needsRunPoll = (t: Task) => {
+  if (!t.agentId) return false;
+  const run = t.runStatus as RunStatus | undefined;
+  if (!run || !TERMINAL_RUN.has(run)) return true;
+  return (
+    run === "FINISHED" &&
+    !t.prUrl &&
+    t.status !== "done" &&
+    t.status !== "failed"
+  );
+};
+
+/**
+ * Provider reported a branch but not a PR url (common for Copilot). Keep asking
+ * GitHub by head ref until a PR shows up — skip archived/failed hits.
+ */
+const needsPrDiscovery = (t: Task) =>
+  !!t.agentId &&
+  !!t.branch &&
+  !!t.repoUrl &&
+  !t.prUrl &&
+  t.status !== "done" &&
+  t.status !== "failed";
 
 /** Poll a PR until it's merged or closed; unpolled (no prState) counts as open. */
 const needsPrPoll = (t: Task) => !!t.prUrl && (t.prState ?? "open") === "open";
@@ -48,10 +77,11 @@ const needsPreviewPoll = (t: Task) =>
 
 /**
  * Brings dispatched tasks up to date with their agent run: status, branch,
- * PR url, final summary — then with their PR's state on GitHub. Only `running`
- * tasks get their status remapped — a manually toggled done/inbox task keeps
- * its toggle, but still captures the PR. Each half no-ops without its
- * credential, so a caller without keys just gets the stored tasks back.
+ * PR url, final summary — then discovers a missing PR via the GitHub App from
+ * the branch, then polls that PR's state. Only `running` tasks get their status
+ * remapped — a manually toggled done/inbox task keeps its toggle, but still
+ * captures the PR. Each half no-ops without its credential, so a caller
+ * without keys just gets the stored tasks back.
  */
 async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
   const keys = Object.fromEntries(
@@ -69,8 +99,9 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
   // can be overwritten by this stale snapshot (ms window, next poll self-heals);
   // if it ever annoys, CAS the status remap on `and status = 'running'`.
   const out: Task[] = [];
-  // grouped tasks share an agentId / prUrl — poll each once, not per member
+  // grouped tasks share an agentId / prUrl / branch — poll each once, not per member
   const runCache = new Map<string, LatestRun | undefined>();
+  const prDiscoverCache = new Map<string, string | undefined>();
   const prCache = new Map<string, PrState>();
   const previewCache = new Map<string, string | undefined>();
   for (const task of tasks) {
@@ -100,9 +131,25 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
           }
         }
       }
+      // Copilot (and flaky provider polls) often leave branch without prUrl —
+      // resolve via the GitHub App, which already has Pull requests: Read.
+      const afterRun = { ...task, ...patch };
+      if (installationId && needsPrDiscovery(afterRun)) {
+        const key = `${afterRun.repoUrl}#${afterRun.branch}`;
+        const found = prDiscoverCache.has(key)
+          ? prDiscoverCache.get(key)
+          : await getPrUrlForBranch(
+              afterRun.repoUrl!,
+              afterRun.branch!,
+              installationId,
+            );
+        prDiscoverCache.set(key, found);
+        if (found) patch.prUrl = found;
+      }
       // a real GitHub merge — not the manual toggle — is what archives to DONE
-      if (installationId && needsPrPoll(task)) {
-        const prUrl = task.prUrl!;
+      const afterPr = { ...task, ...patch };
+      if (installationId && needsPrPoll(afterPr)) {
+        const prUrl = afterPr.prUrl!;
         const state = prCache.has(prUrl)
           ? prCache.get(prUrl)!
           : await getPrState(prUrl, installationId);
@@ -117,10 +164,14 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
       // Deployments scope is granted then loses only the preview url, not the
       // run/PR fields already collected — and a PR merged this pass stops here.
       if (installationId && needsPreviewPoll({ ...task, ...patch })) {
-        const key = `${task.repoUrl}#${task.branch}`;
+        const key = `${task.repoUrl}#${(patch.branch ?? task.branch)}`;
         const url = previewCache.has(key)
           ? previewCache.get(key)
-          : await getPreviewUrl(task.repoUrl!, task.branch!, installationId);
+          : await getPreviewUrl(
+              task.repoUrl!,
+              (patch.branch ?? task.branch)!,
+              installationId,
+            );
         previewCache.set(key, url);
         if (url !== task.previewUrl) patch.previewUrl = url;
       }

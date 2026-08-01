@@ -78,10 +78,10 @@ function optimistic<V>(qc: QueryClient, next: (prev: Task[], vars: V) => Task[])
 }
 
 /**
- * The task list. Polls only while an agent is out (10s) or a PR is still open
- * (60s — merges aren't urgent and every check costs a GitHub call); stops dead
- * once every PR is merged/closed. `paused` holds it off during a drag so a
- * refetch can't clobber the reorder in flight.
+ * The task list. Polls while an agent is out (10s), while a finished run still
+ * lacks its PR url (10s — Copilot often reports the branch first), or while a
+ * PR is still open (60s). Stops once every PR is linked and merged/closed.
+ * `paused` holds it off during a drag so a refetch can't clobber the reorder.
  */
 export function useTasks(paused = false) {
   return useQuery({
@@ -91,6 +91,16 @@ export function useTasks(paused = false) {
       if (paused) return false;
       const tasks = q.state.data ?? [];
       if (tasks.some((t) => t.status === "running")) return 10_000;
+      // branch landed, PR url hasn't — keep refresh so discovery can fill it in
+      const awaitingPr = tasks.some(
+        (t) =>
+          !!t.agentId &&
+          !!t.branch &&
+          !t.prUrl &&
+          t.status !== "done" &&
+          t.status !== "failed",
+      );
+      if (awaitingPr) return 10_000;
       const openPr = tasks.some(
         (t) => t.prUrl && (t.prState ?? "open") === "open",
       );
