@@ -90,7 +90,7 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
               Get a key ↗
             </a>
           </div>
-          <form onSubmit={submit} className="flex gap-2">
+          <form onSubmit={submit} className="flex items-stretch gap-2">
             <div className="relative min-w-0 flex-1">
               <Icon
                 name="key"
@@ -102,18 +102,27 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
                 onChange={(e) => setKey(e.target.value)}
                 disabled={busy}
                 placeholder={meta.placeholder}
-                className="w-full rounded-xl border border-edge bg-background py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
+                className="h-full w-full rounded-xl border border-edge bg-background py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
               />
             </div>
+            {canSave && (
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-xl border border-edge px-4 text-base font-medium active:bg-background disabled:opacity-50"
+              >
+                {save.isPending ? "Saving…" : "Save"}
+              </button>
+            )}
             {hasKey && (
-              <div className="relative">
+              <div className="relative flex">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => setMenuOpen((o) => !o)}
                   aria-label={`${meta.label} key actions`}
                   aria-expanded={menuOpen}
-                  className="rounded-xl border border-edge px-3 py-3 text-muted active:bg-background disabled:opacity-50"
+                  className="rounded-xl border border-edge px-3 text-muted active:bg-background disabled:opacity-50"
                 >
                   <Icon name="ellipsis" className="size-4" />
                 </button>
@@ -144,15 +153,6 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
                   </>
                 )}
               </div>
-            )}
-            {canSave && (
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-xl border border-edge px-4 py-3 text-base font-medium active:bg-background disabled:opacity-50"
-              >
-                {save.isPending ? "Saving…" : "Save"}
-              </button>
             )}
           </form>
         </div>
