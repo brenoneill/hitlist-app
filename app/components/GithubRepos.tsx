@@ -447,8 +447,9 @@ export function GithubRepos({
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
   // Defaults only unlock after both setup steps; until then the section stays hidden.
   const defaultsReady = signedIn && hasAnyKey && connected;
-  // While unsigned, Sign in is step 1 (pinned at the bottom); later steps are 2/3 and disabled.
-  // After sign-in, provider/repos become 1/2 and defaults (when ready) is 3 at the top.
+  // While unsigned, Sign in is step 1 at the top; later steps are 2/3 and disabled.
+  // After sign-in, provider/repos become 1/2, defaults (when ready) is 3 at the top,
+  // and name + Sign out sit at the bottom.
   const providerStep = signedIn ? 1 : 2;
   const reposStep = signedIn ? 2 : 3;
   const defaultProvider =
@@ -519,8 +520,23 @@ export function GithubRepos({
     saveDefaults.mutate({ provider: next });
   }
 
+  const signInStep = (
+    <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
+      <button
+        onClick={() => signIn("github")}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
+      >
+        <Icon name="github" className="size-5" />
+        Sign in with GitHub
+      </button>
+    </Section>
+  );
+
   return (
     <div className="mb-6">
+      {/* Step 1 as a button stays at the top; after sign-in this block is gone */}
+      {!signedIn && signInStep}
+
       {/* 3 — deploy defaults (top only once provider + repos are connected) */}
       {defaultsReady && (
         <Section n={3} title="Default options" done summary={defaultsSummary}>
@@ -639,8 +655,8 @@ export function GithubRepos({
         )}
       </Section>
 
-      {/* Account — step 1 while unsigned; name + Sign out footer once signed in */}
-      {signedIn ? (
+      {/* Name + Sign out footer once signed in */}
+      {signedIn && (
         <div className="mb-6 flex items-center justify-between border-t border-edge pt-4">
           <span className="text-sm text-muted">
             {session?.user?.name ?? session?.user?.email}
@@ -653,16 +669,6 @@ export function GithubRepos({
             Sign out
           </Button>
         </div>
-      ) : (
-        <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
-          <button
-            onClick={() => signIn("github")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
-          >
-            <Icon name="github" className="size-5" />
-            Sign in with GitHub
-          </button>
-        </Section>
       )}
     </div>
   );
