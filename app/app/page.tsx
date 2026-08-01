@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import {
   useAddTask,
+  useDeployDefaults,
   useDispatchTask,
   useProviderKeys,
   useRemoveTask,
@@ -18,6 +19,7 @@ import {
   PROVIDER_IDS,
   pickDefaultProvider,
 } from "@/app/lib/providerMeta";
+import { optionsForMode } from "@/app/lib/prOptions";
 import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
@@ -91,6 +93,7 @@ export default function Home() {
   const { data: github, isFetched: reposFetched } = useRepos(signedIn);
   const { data: providerKeys, isFetched: keysFetched } =
     useProviderKeys(signedIn);
+  const { data: deployDefaults } = useDeployDefaults(signedIn);
   const repos: Repo[] | null = github?.repos ?? null;
   const setupComplete = isSetupComplete(
     signedIn,
@@ -288,15 +291,19 @@ export default function Home() {
 
   /** Dispatches from the row menu; on failure opens the sheet so the user can retry. */
   function deploy(task: Task) {
-    // last-used provider if still configured; undefined lets the server default
+    // Settings default provider if still configured; else last-used / first key
     const provider = pickDefaultProvider(
       PROVIDER_IDS.filter((p) => providerKeys?.[p]),
-      localStorage.getItem(LAST_PROVIDER_KEY),
+      deployDefaults?.provider ?? localStorage.getItem(LAST_PROVIDER_KEY),
     );
     dispatch.mutate(
       {
         id: task.id,
         ...(provider ? { provider } : {}),
+        ...(deployDefaults?.model ? { model: deployDefaults.model } : {}),
+        ...(deployDefaults?.visualConfirmation
+          ? { options: optionsForMode(deployDefaults.visualConfirmation) }
+          : {}),
         ...(wasDeployed(task) ? { redeploy: true } : {}),
       },
       {

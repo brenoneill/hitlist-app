@@ -1,11 +1,18 @@
 import { sql } from "./db";
 import { decrypt, encrypt } from "./crypto";
-import type { ProviderId } from "./providerMeta";
+import { PROVIDER_IDS, type ProviderId } from "./providerMeta";
 import {
   DEFAULT_VISUAL_CONFIRMATION,
   isVisualConfirmationId,
   type VisualConfirmationId,
 } from "./prOptions";
+
+/** Persisted deploy defaults from Settings (provider / model / visual confirmation). */
+export type DeployDefaults = {
+  provider: ProviderId | null;
+  model: string | null;
+  visualConfirmation: VisualConfirmationId;
+};
 
 /** Provider → key column. Column names come only from this map — no injection. */
 const KEY_COLS: Record<ProviderId, string> = {
@@ -133,13 +140,7 @@ export async function setGithubInstallationId(
 export async function getVisualConfirmation(
   userId: string,
 ): Promise<VisualConfirmationId> {
-  const rows = await sql`
-    select visual_confirmation from user_settings where user_id = ${userId}
-  `;
-  const value = rows[0]?.visual_confirmation;
-  return typeof value === "string" && isVisualConfirmationId(value)
-    ? value
-    : DEFAULT_VISUAL_CONFIRMATION;
+  return (await getDeployDefaults(userId)).visualConfirmation;
 }
 
 /**
@@ -151,10 +152,82 @@ export async function setVisualConfirmation(
   userId: string,
   mode: VisualConfirmationId,
 ): Promise<void> {
-  await sql`
-    insert into user_settings (user_id, visual_confirmation)
-    values (${userId}, ${mode})
-    on conflict (user_id) do update
-      set visual_confirmation = excluded.visual_confirmation
+  await setDeployDefaults(userId, { visualConfirmation: mode });
+}
+
+/**
+ * User's deploy defaults (provider, model, visual confirmation).
+ * @param userId - Signed-in user id.
+ * @returns Stored defaults with built-in fallbacks for unset fields.
+ */
+export async function getDeployDefaults(
+  userId: string,
+): Promise<DeployDefaults> {
+  const rows = await sql`
+    select default_provider, default_model, visual_confirmation
+    from user_settings where user_id = ${userId}
   `;
+  const row = rows[0];
+  const provider =
+    typeof row?.default_provider === "string" &&
+    PROVIDER_IDS.includes(row.default_provider as ProviderId)
+      ? (row.default_provider as ProviderId)
+      : null;
+  const model =
+    typeof row?.default_model === "string" && row.default_model.trim()
+      ? row.default_model.trim()
+      : null;
+  const visual =
+    typeof row?.visual_confirmation === "string" &&
+    isVisualConfirmationId(row.visual_confirmation)
+      ? row.visual_confirmation
+      : DEFAULT_VISUAL_CONFIRMATION;
+  return { provider, model, visualConfirmation: visual };
+}
+
+/**
+ * Persists deploy defaults. Omitted fields are left unchanged; `null` clears
+ * provider/model back to auto.
+ * @param userId - Signed-in user id.
+ * @param patch - Fields to update.
+ * @returns The full defaults after the write.
+ */
+export async function setDeployDefaults(
+  userId: string,
+  patch: {
+    provider?: ProviderId | null;
+    model?: string | null;
+    visualConfirmation?: VisualConfirmationId;
+  },
+): Promise<DeployDefaults> {
+  const current = await getDeployDefaults(userId);
+  const next: DeployDefaults = {
+    provider: patch.provider !== undefined ? patch.provider : current.provider,
+    model: patch.model !== undefined ? patch.model : current.model,
+    visualConfirmation:
+      patch.visualConfirmation !== undefined
+        ? patch.visualConfirmation
+        : current.visualConfirmation,
+  };
+  // Provider switch invalidates a model id from another catalog.
+  if (
+    patch.provider !== undefined &&
+    patch.provider !== current.provider &&
+    patch.model === undefined
+  ) {
+    next.model = null;
+  }
+  await sql`
+    insert into user_settings (
+      user_id, default_provider, default_model, visual_confirmation
+    )
+    values (
+      ${userId}, ${next.provider}, ${next.model}, ${next.visualConfirmation}
+    )
+    on conflict (user_id) do update set
+      default_provider = excluded.default_provider,
+      default_model = excluded.default_model,
+      visual_confirmation = excluded.visual_confirmation
+  `;
+  return next;
 }
