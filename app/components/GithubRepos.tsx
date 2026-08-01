@@ -349,12 +349,14 @@ function RepoList({
  * Collapsible steps fold themselves once, the first time `done` turns true —
  * after that the user's own toggling always wins. `summary` renders in place
  * of `children` while folded (e.g. a one-line status readout).
+ * `disabled` mutes the step and blocks expand/collapse (used before sign-in).
  */
 function Section({
   n,
   title,
   done,
   collapsible = true,
+  disabled = false,
   summary,
   children,
 }: {
@@ -362,6 +364,7 @@ function Section({
   title: string;
   done: boolean;
   collapsible?: boolean;
+  disabled?: boolean;
   summary?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -374,7 +377,8 @@ function Section({
     setOpen(false);
   }, [collapsible, done]);
 
-  const expanded = !collapsible || open;
+  // Disabled steps stay open on the lock message; otherwise fold like before.
+  const expanded = disabled || !collapsible || open;
   const chip = (
     <span
       className={`flex size-5 shrink-0 items-center justify-center rounded-full border text-xs ${
@@ -386,22 +390,31 @@ function Section({
   );
 
   return (
-    <section className="mb-6">
+    <section
+      className={`mb-6 ${disabled ? "opacity-50" : ""}`}
+      aria-disabled={disabled || undefined}
+    >
       {collapsible ? (
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            if (disabled) return;
+            setOpen((o) => !o);
+          }}
           aria-expanded={expanded}
-          className="mb-3 flex w-full items-center gap-2 text-left"
+          disabled={disabled}
+          className="mb-3 flex w-full items-center gap-2 text-left disabled:cursor-not-allowed"
         >
           {chip}
           <h2 className="flex-1 text-sm font-medium">{title}</h2>
-          <Icon
-            name="chevron"
-            className={`size-4 shrink-0 text-muted transition-transform ${
-              expanded ? "rotate-180" : ""
-            }`}
-          />
+          {!disabled && (
+            <Icon
+              name="chevron"
+              className={`size-4 shrink-0 text-muted transition-transform ${
+                expanded ? "rotate-180" : ""
+              }`}
+            />
+          )}
         </button>
       ) : (
         <div className="mb-3 flex items-center gap-2">
@@ -432,7 +445,12 @@ export function GithubRepos({
   const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
-  const defaultsReady = hasAnyKey && connected;
+  // Defaults only unlock after both setup steps; until then the section stays hidden.
+  const defaultsReady = signedIn && hasAnyKey && connected;
+  // While unsigned, Sign in is step 1 (pinned at the bottom); later steps are 2/3 and disabled.
+  // After sign-in, provider/repos become 1/2 and defaults (when ready) is 3 at the top.
+  const providerStep = signedIn ? 1 : 2;
+  const reposStep = signedIn ? 2 : 3;
   const defaultProvider =
     pickDefaultProvider(
       configured,
@@ -503,13 +521,9 @@ export function GithubRepos({
 
   return (
     <div className="mb-6">
-      {defaultsReady ? (
-        <Section
-          n={1}
-          title="Default options"
-          done
-          summary={defaultsSummary}
-        >
+      {/* 3 — deploy defaults (top only once provider + repos are connected) */}
+      {defaultsReady && (
+        <Section n={3} title="Default options" done summary={defaultsSummary}>
           <p className="mb-3 text-sm text-muted">
             Used when you deploy. Override per run in the action sheet.
           </p>
@@ -554,27 +568,14 @@ export function GithubRepos({
             </p>
           )}
         </Section>
-      ) : (
-        <section className="mb-6 opacity-50" aria-disabled="true">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-edge text-xs text-muted">
-              1
-            </span>
-            <h2 className="text-sm font-medium">Default options</h2>
-          </div>
-          <div className="pointer-events-none">
-            {defaultsSummary}
-            <p className="mt-2 text-xs text-muted">
-              Connect a provider and repos to set defaults.
-            </p>
-          </div>
-        </section>
       )}
 
+      {/* 1/2 — provider (disabled until signed in) */}
       <Section
-        n={2}
+        n={providerStep}
         title="Add an agent provider"
         done={signedIn && hasAnyKey}
+        disabled={!signedIn}
         summary={providerSummary}
       >
         {!signedIn ? (
@@ -592,10 +593,12 @@ export function GithubRepos({
         )}
       </Section>
 
+      {/* 2/3 — repos (disabled until signed in) */}
       <Section
-        n={3}
+        n={reposStep}
         title="Connect your repos"
         done={signedIn && connected}
+        disabled={!signedIn}
         summary={reposSummary}
       >
         {!signedIn ? (
@@ -636,21 +639,22 @@ export function GithubRepos({
         )}
       </Section>
 
-      <Section n={4} title="Sign in with GitHub" done={signedIn} collapsible={false}>
-        {signedIn ? (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">
-              {session?.user?.name ?? session?.user?.email}
-            </span>
-            <Button
-              variant="ghost"
-              onClick={() => signOut()}
-              className="text-sm"
-            >
-              Sign out
-            </Button>
-          </div>
-        ) : (
+      {/* Account — step 1 while unsigned; name + Sign out footer once signed in */}
+      {signedIn ? (
+        <div className="mb-6 flex items-center justify-between border-t border-edge pt-4">
+          <span className="text-sm text-muted">
+            {session?.user?.name ?? session?.user?.email}
+          </span>
+          <Button
+            variant="ghost"
+            onClick={() => signOut()}
+            className="text-sm"
+          >
+            Sign out
+          </Button>
+        </div>
+      ) : (
+        <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
           <button
             onClick={() => signIn("github")}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
@@ -658,8 +662,8 @@ export function GithubRepos({
             <Icon name="github" className="size-5" />
             Sign in with GitHub
           </button>
-        )}
-      </Section>
+        </Section>
+      )}
     </div>
   );
 }
