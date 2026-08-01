@@ -20,7 +20,7 @@ import {
   pickDefaultProvider,
 } from "@/app/lib/providerMeta";
 import { optionsForMode } from "@/app/lib/prOptions";
-import { GithubRepos, type Repo } from "@/app/components/GithubRepos";
+import { type Repo } from "@/app/components/GithubRepos";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
@@ -31,17 +31,11 @@ import {
 } from "@/app/components/ProjectFilter";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { TabPanel, Tabs } from "@/app/components/Tabs";
-import {
-  DoneList,
-  TaskList,
-  inFlight,
-  wasDeployed,
-} from "@/app/components/TaskList";
+import { inFlight, wasDeployed } from "@/app/components/TaskList";
+import { SettingsTab } from "@/app/components/SettingsTab";
+import { ListTab } from "@/app/components/ListTab";
 
 type Tab = "list" | "settings";
-
-const SECTION_LABEL =
-  "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
 
 const TOAST_SHELL =
   "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4";
@@ -331,9 +325,6 @@ export default function Home() {
     ? tasks.filter((t) => t.groupId === selectedGroup)
     : [];
 
-  const filterActive = activeProjectFilter.size > 0;
-  const listEmpty = visible.length === 0;
-
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -460,7 +451,7 @@ export default function Home() {
           }
         >
           <TabPanel id="settings">
-            <GithubRepos
+            <SettingsTab
               repos={repos}
               connected={github?.connected ?? false}
               blockedRepos={blockedRepos}
@@ -469,112 +460,25 @@ export default function Home() {
           </TabPanel>
 
           <TabPanel id="list">
-            {filterActive && (
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                {[...activeProjectFilter].map((url) => {
-                  const name = url.split("/").pop() ?? url;
-                  return (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => {
-                        const next = new Set(activeProjectFilter);
-                        next.delete(url);
-                        setSelectedProjects(next);
-                      }}
-                      className="flex items-center gap-1.5 rounded-full border border-info/40 bg-info/10 px-3 py-1 font-mono text-xs text-info transition-colors active:bg-info/20"
-                    >
-                      <Icon name="filter" className="size-3" />
-                      {name}
-                      <Icon name="x" className="size-3" />
-                      <span className="sr-only">Remove {name} filter</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {loading ? (
-              <p className="font-mono text-sm uppercase tracking-widest text-muted">
-                Scanning…
-              </p>
-            ) : tasks.length === 0 ? (
-              <div className="flex flex-col items-center pt-12">
-                <Icon name="crosshair" className="mb-3 size-10 text-edge" />
-                <p className="font-mono text-sm uppercase tracking-widest text-muted">
-                  No active marks
-                </p>
-                {!setupComplete && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setTab("settings")}
-                    className="mt-4 font-mono text-xs"
-                  >
-                    Finish setup in Settings →
-                  </Button>
-                )}
-              </div>
-            ) : listEmpty ? (
-              <div className="flex flex-col items-center pt-12">
-                <Icon name="filter" className="mb-3 size-10 text-edge" />
-                <p className="font-mono text-sm uppercase tracking-widest text-muted">
-                  No hits match filter
-                </p>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedProjects(new Set())}
-                  className="mt-4 font-mono text-xs"
-                >
-                  Clear project filter
-                </Button>
-              </div>
-            ) : (
-              <>
-                {flying.length > 0 && (
-                  <>
-                    <h2 className={SECTION_LABEL}>{flying.length} deployed</h2>
-                    <TaskList
-                      tasks={flying}
-                      onReorder={(next) =>
-                        persistVisibleOrder(next, pending, done)
-                      }
-                      onSelect={(t) => setSelectedId(t.id)}
-                      onSelectGroup={setSelectedGroup}
-                      onToggle={toggle.mutate}
-                      onDelete={remove}
-                      onDeploy={deploy}
-                      onDraggingChange={setDragging}
-                    />
-                  </>
-                )}
-                {pending.length > 0 && (
-                  <>
-                    {flying.length > 0 && (
-                      <h2 className={SECTION_LABEL}>{pending.length} marked</h2>
-                    )}
-                    <TaskList
-                      tasks={pending}
-                      onReorder={(next) =>
-                        persistVisibleOrder(flying, next, done)
-                      }
-                      onSelect={(t) => setSelectedId(t.id)}
-                      onSelectGroup={setSelectedGroup}
-                      onToggle={toggle.mutate}
-                      onDelete={remove}
-                      onDeploy={deploy}
-                      onDraggingChange={setDragging}
-                    />
-                  </>
-                )}
-                {done.length > 0 && (
-                  <DoneList
-                    tasks={done}
-                    onSelect={(t) => setSelectedId(t.id)}
-                    onToggle={toggle.mutate}
-                    onDelete={remove}
-                  />
-                )}
-              </>
-            )}
+            <ListTab
+              activeProjectFilter={activeProjectFilter}
+              onSelectProjectsChange={setSelectedProjects}
+              onSelectId={setSelectedId}
+              onSelectGroup={setSelectedGroup}
+              visible={visible}
+              flying={flying}
+              pending={pending}
+              done={done}
+              tasks={tasks}
+              loading={loading}
+              onReorderVisible={persistVisibleOrder}
+              onToggleTask={toggle.mutate}
+              onRemoveTask={remove}
+              onDeployTask={deploy}
+              onDraggingChange={setDragging}
+              setupComplete={setupComplete}
+              onGoToSettings={() => setTab("settings")}
+            />
           </TabPanel>
         </Tabs>
       )}
