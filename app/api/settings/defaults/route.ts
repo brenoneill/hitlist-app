@@ -87,5 +87,12 @@ export async function PUT(req: Request) {
     );
   }
 
-  return Response.json(await setDeployDefaults(userId, patch));
+  try {
+    return Response.json(await setDeployDefaults(userId, patch));
+  } catch (e) {
+    return Response.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 502 },
+    );
+  }
 }

@@ -133,6 +133,31 @@ export async function setGithubInstallationId(
 }
 
 /**
+ * Ensures deploy-default columns exist. Preview/prod Neon branches often predate
+ * schema.sql; without this, GET/PUT /api/settings/defaults 500s and Settings
+ * shows a bare "save failed".
+ */
+let deployDefaultsReady: Promise<boolean> | undefined;
+function ensureDeployDefaultColumns(): Promise<boolean> {
+  return (deployDefaultsReady ??= (async () => {
+    try {
+      await sql`
+        alter table user_settings
+          add column if not exists default_provider text
+      `;
+      await sql`
+        alter table user_settings
+          add column if not exists default_model text
+      `;
+      return true;
+    } catch {
+      deployDefaultsReady = undefined;
+      return false;
+    }
+  })());
+}
+
+/**
  * User's default visual confirmation for agent PRs.
  * @param userId - Signed-in user id.
  * @returns Stored mode, or the built-in default when unset.
@@ -163,6 +188,21 @@ export async function setVisualConfirmation(
 export async function getDeployDefaults(
   userId: string,
 ): Promise<DeployDefaults> {
+  const hasCols = await ensureDeployDefaultColumns();
+  if (!hasCols) {
+    const rows = await sql`
+      select visual_confirmation from user_settings where user_id = ${userId}
+    `;
+    const value = rows[0]?.visual_confirmation;
+    return {
+      provider: null,
+      model: null,
+      visualConfirmation:
+        typeof value === "string" && isVisualConfirmationId(value)
+          ? value
+          : DEFAULT_VISUAL_CONFIRMATION,
+    };
+  }
   const rows = await sql`
     select default_provider, default_model, visual_confirmation
     from user_settings where user_id = ${userId}
@@ -200,6 +240,7 @@ export async function setDeployDefaults(
     visualConfirmation?: VisualConfirmationId;
   },
 ): Promise<DeployDefaults> {
+  const hasCols = await ensureDeployDefaultColumns();
   const current = await getDeployDefaults(userId);
   const next: DeployDefaults = {
     provider: patch.provider !== undefined ? patch.provider : current.provider,
@@ -217,6 +258,18 @@ export async function setDeployDefaults(
   ) {
     next.model = null;
   }
+
+  if (!hasCols) {
+    // Old schema: only visual_confirmation is writable until migration runs.
+    await sql`
+      insert into user_settings (user_id, visual_confirmation)
+      values (${userId}, ${next.visualConfirmation})
+      on conflict (user_id) do update
+        set visual_confirmation = excluded.visual_confirmation
+    `;
+    return { ...next, provider: null, model: null };
+  }
+
   await sql`
     insert into user_settings (
       user_id, default_provider, default_model, visual_confirmation
