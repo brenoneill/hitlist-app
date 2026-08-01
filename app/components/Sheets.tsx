@@ -298,7 +298,7 @@ function AgentActions({
               className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-surface"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">Defaults</span>
+                <span className="block text-sm font-medium">Settings</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                   {defaultsChips.map((chip) => (
                     <span key={chip.label} className="flex items-center gap-1.5">
