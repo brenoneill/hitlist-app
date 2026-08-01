@@ -109,7 +109,7 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-xl border border-edge px-4 text-base font-medium active:bg-background disabled:opacity-50"
+                className="inline-flex items-center rounded-xl border border-edge px-4 text-base font-medium active:bg-background disabled:opacity-50"
               >
                 {save.isPending ? "Saving…" : "Save"}
               </button>
@@ -122,7 +122,7 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
                   onClick={() => setMenuOpen((o) => !o)}
                   aria-label={`${meta.label} key actions`}
                   aria-expanded={menuOpen}
-                  className="rounded-xl border border-edge px-3 text-muted active:bg-background disabled:opacity-50"
+                  className="inline-flex items-center rounded-xl border border-edge px-3 text-muted active:bg-background disabled:opacity-50"
                 >
                   <Icon name="ellipsis" className="size-4" />
                 </button>
