@@ -133,7 +133,7 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
                         }
                         className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background disabled:opacity-50"
                       >
-                        <Icon name="trash" className="size-4" aria-hidden />
+                        <Icon name="trash" className="size-4" />
                         Delete key
                       </button>
                     </div>
