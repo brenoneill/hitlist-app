@@ -350,6 +350,33 @@ export function TaskList({
   );
 }
 
+/**
+ * Collapsible section chrome shared by marked and executed lists.
+ * Collapsed by default (no `open` attribute).
+ */
+export function FoldSection({
+  label,
+  children,
+  className = "mt-4",
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <details className={`group ${className}`}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
+        <Icon
+          name="chevron"
+          className="size-4 -rotate-90 transition-transform group-open:rotate-0"
+        />
+        {label}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 /** Completed marks, newest first, folded away. No drag — order is by doneAt. */
 export function DoneList({
   tasks,
@@ -363,14 +390,7 @@ export function DoneList({
   onDelete: (id: string) => void;
 }) {
   return (
-    <details className="group mt-4">
-      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted [&::-webkit-details-marker]:hidden">
-        <Icon
-          name="chevron"
-          className="size-4 -rotate-90 transition-transform group-open:rotate-0"
-        />
-        {tasks.length} executed
-      </summary>
+    <FoldSection label={`${tasks.length} executed`}>
       <ul className="flex flex-col gap-2 pt-2">
         {tasks.map((t) => (
           <li key={t.id}>
@@ -383,7 +403,7 @@ export function DoneList({
           </li>
         ))}
       </ul>
-    </details>
+    </FoldSection>
   );
 }
 
