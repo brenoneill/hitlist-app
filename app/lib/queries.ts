@@ -10,7 +10,10 @@ import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
 import { normalizeGroups } from "@/app/lib/groups";
 import type { ProviderId } from "@/app/lib/providerMeta";
-import type { PrOptionId } from "@/app/lib/prOptions";
+import type {
+  PrOptionId,
+  VisualConfirmationId,
+} from "@/app/lib/prOptions";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 
 const TASKS = ["tasks"];
@@ -18,6 +21,7 @@ const MODELS = ["models"]; // prefix — per-provider keys are ["models", provid
 const REPOS = ["repos"];
 const PROVIDER_KEYS = ["provider-keys"];
 const REPO_NOTES = ["repo-notes"]; // prefix — per-repo keys are ["repo-notes", url]
+const VISUAL_CONFIRMATION = ["visual-confirmation"];
 
 /** Fetch + unwrap; non-2xx throws the API's `error` so mutations can show it. */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -268,5 +272,45 @@ export function useClearProviderKey() {
     mutationFn: (provider: ProviderId) =>
       api<{ hasKey: boolean }>(`/api/settings/keys/${provider}`, send("DELETE")),
     onSuccess: () => invalidateKeyDependents(qc),
+  });
+}
+
+/** User's default visual confirmation for agent PRs. */
+export function useVisualConfirmation(enabled = true) {
+  return useQuery({
+    queryKey: VISUAL_CONFIRMATION,
+    queryFn: () =>
+      api<{ visualConfirmation: VisualConfirmationId }>(
+        "/api/settings/visual-confirmation",
+      ),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Persists the default visual confirmation mode.
+ * Optimistic so Settings and open sheets stay in sync immediately.
+ */
+export function useSaveVisualConfirmation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (visualConfirmation: VisualConfirmationId) =>
+      api<{ visualConfirmation: VisualConfirmationId }>(
+        "/api/settings/visual-confirmation",
+        send("PUT", { visualConfirmation }),
+      ),
+    onMutate: async (visualConfirmation) => {
+      await qc.cancelQueries({ queryKey: VISUAL_CONFIRMATION });
+      const prev = qc.getQueryData<{ visualConfirmation: VisualConfirmationId }>(
+        VISUAL_CONFIRMATION,
+      );
+      qc.setQueryData(VISUAL_CONFIRMATION, { visualConfirmation });
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(VISUAL_CONFIRMATION, ctx.prev);
+    },
+    onSuccess: (data) => qc.setQueryData(VISUAL_CONFIRMATION, data),
   });
 }

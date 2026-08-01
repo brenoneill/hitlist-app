@@ -5,8 +5,12 @@ import { PROVIDERS } from "@/app/lib/providers";
 import {
   getAgentAccessNotes,
   getProviderKey,
+  getVisualConfirmation,
 } from "@/app/lib/userSettings";
-import { DEFAULT_PR_OPTIONS, optionSections } from "@/app/lib/prOptions";
+import {
+  optionSections,
+  optionsForMode,
+} from "@/app/lib/prOptions";
 
 const WORKING_AGREEMENT = `## Working agreement
 - Keep changes focused on this task; don't refactor unrelated code.
@@ -57,7 +61,7 @@ function buildPrompt(
  * list + optional per-task context + working agreement); a group's repo is the
  * first member's with one. Pass `redeploy: true` to replace an existing agent
  * with a fresh run (clears prior run/PR fields).
- * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, `options` (PR_OPTIONS ids) for the PR requirement sections, and `redeploy` to start a new agent on an already-dispatched task.
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: first configured), `ref` to override the starting branch, `model` to pick the agent's model, `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -141,10 +145,13 @@ export async function POST(
   }
 
   try {
+    // absent body ⇒ user's Settings default; explicit [] means none required
+    const resolvedOptions =
+      options ?? optionsForMode(await getVisualConfirmation(userId));
     const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(
         members,
-        options ?? DEFAULT_PR_OPTIONS, // absent body ⇒ defaults
+        resolvedOptions,
         repoUrl,
         await getAgentAccessNotes(userId, repoUrl),
       ),

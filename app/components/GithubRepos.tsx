@@ -15,7 +15,11 @@ import {
   useProviderKeys,
   useRepoNotes,
   useSaveRepoNotes,
+  useSaveVisualConfirmation,
+  useVisualConfirmation,
 } from "@/app/lib/queries";
+import { DEFAULT_VISUAL_CONFIRMATION } from "@/app/lib/prOptions";
+import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
 
 export interface Repo {
   id: number;
@@ -414,7 +418,11 @@ export function GithubRepos({
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated";
   const { data: keys } = useProviderKeys(signedIn);
+  const { data: visualDefault } = useVisualConfirmation(signedIn);
+  const saveVisual = useSaveVisualConfirmation();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
+  const visualConfirmation =
+    visualDefault?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
 
   if (status === "loading") return null;
 
@@ -519,6 +527,26 @@ export function GithubRepos({
           />
         )}
       </Section>
+
+      {signedIn && (
+        <section className="mb-6">
+          <h2 className="mb-1 text-sm font-medium">
+            Visual confirmation default
+          </h2>
+          <p className="mb-3 text-sm text-muted">
+            Proof required in agent PRs. Override per deploy in the action sheet.
+          </p>
+          <VisualConfirmationRadio
+            value={visualConfirmation}
+            onChange={(next) => saveVisual.mutate(next)}
+          />
+          {saveVisual.error && (
+            <p className="mt-2 font-mono text-xs text-blood">
+              {saveVisual.error.message || "save failed"}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
