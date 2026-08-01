@@ -445,13 +445,15 @@ export function GithubRepos({
   const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
   const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
-  // Defaults only unlock after both setup steps; until then the section stays hidden.
+  // Defaults stay visible the whole time — last + disabled until ready, then move to top.
   const defaultsReady = signedIn && hasAnyKey && connected;
-  // While unsigned, Sign in is step 1 at the top; later steps are 2/3 and disabled.
-  // After sign-in, provider/repos become 1/2, defaults (when ready) is 3 at the top,
-  // and name + Sign out sit at the bottom.
-  const providerStep = signedIn ? 1 : 2;
-  const reposStep = signedIn ? 2 : 3;
+  // Numbers follow visual order for the current phase:
+  // unsigned → 1 Sign in, 2 Provider, 3 Repos, 4 Defaults (last, disabled)
+  // signed in, not ready → 1 Provider, 2 Repos, 3 Defaults (last, disabled)
+  // ready → 1 Defaults (top), 2 Provider, 3 Repos
+  const providerStep = defaultsReady ? 2 : signedIn ? 1 : 2;
+  const reposStep = defaultsReady ? 3 : signedIn ? 2 : 3;
+  const defaultsStep = defaultsReady ? 1 : signedIn ? 3 : 4;
   const defaultProvider =
     pickDefaultProvider(
       configured,
@@ -520,73 +522,98 @@ export function GithubRepos({
     saveDefaults.mutate({ provider: next });
   }
 
-  const signInStep = (
-    <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
-      <button
-        onClick={() => signIn("github")}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
-      >
-        <Icon name="github" className="size-5" />
-        Sign in with GitHub
-      </button>
+  const defaultsLockHint = !signedIn
+    ? "Sign in first."
+    : !hasAnyKey
+      ? "Connect a provider and repos to set defaults."
+      : !connected
+        ? "Connect repos to set defaults."
+        : null;
+
+  const defaultsSection = defaultsReady ? (
+    <Section
+      n={defaultsStep}
+      title="Default options"
+      done
+      summary={defaultsSummary}
+    >
+      <p className="mb-3 text-sm text-muted">
+        Used when you deploy. Override per run in the action sheet.
+      </p>
+      {configured.length > 1 && (
+        <>
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+            Provider
+          </p>
+          <ProviderRadio
+            providers={configured}
+            value={defaultProvider}
+            onChange={setDefaultProvider}
+            className="mb-3"
+          />
+        </>
+      )}
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        Model
+      </p>
+      <ModelSelect
+        value={defaultModel}
+        onChange={(next) =>
+          saveDefaults.mutate({ model: next.trim() ? next : null })
+        }
+        models={models}
+        loading={modelsLoading}
+        disabled={!defaultProvider}
+        className="mb-3"
+      />
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        Visual confirmation
+      </p>
+      <VisualConfirmationRadio
+        value={visualConfirmation}
+        onChange={(next) =>
+          saveDefaults.mutate({ visualConfirmation: next })
+        }
+      />
+      {saveDefaults.error && (
+        <p className="mt-2 font-mono text-xs text-blood">
+          {saveDefaults.error.message || "save failed"}
+        </p>
+      )}
+    </Section>
+  ) : (
+    <Section
+      n={defaultsStep}
+      title="Default options"
+      done={false}
+      disabled
+      summary={defaultsSummary}
+    >
+      <div>
+        {defaultsSummary}
+        <p className="mt-2 text-sm text-muted">{defaultsLockHint}</p>
+      </div>
     </Section>
   );
 
   return (
     <div className="mb-6">
-      {/* Step 1 as a button stays at the top; after sign-in this block is gone */}
-      {!signedIn && signInStep}
-
-      {/* 3 — deploy defaults (top only once provider + repos are connected) */}
-      {defaultsReady && (
-        <Section n={3} title="Default options" done summary={defaultsSummary}>
-          <p className="mb-3 text-sm text-muted">
-            Used when you deploy. Override per run in the action sheet.
-          </p>
-          {configured.length > 1 && (
-            <>
-              <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-                Provider
-              </p>
-              <ProviderRadio
-                providers={configured}
-                value={defaultProvider}
-                onChange={setDefaultProvider}
-                className="mb-3"
-              />
-            </>
-          )}
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Model
-          </p>
-          <ModelSelect
-            value={defaultModel}
-            onChange={(next) =>
-              saveDefaults.mutate({ model: next.trim() ? next : null })
-            }
-            models={models}
-            loading={modelsLoading}
-            disabled={!defaultProvider}
-            className="mb-3"
-          />
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Visual confirmation
-          </p>
-          <VisualConfirmationRadio
-            value={visualConfirmation}
-            onChange={(next) =>
-              saveDefaults.mutate({ visualConfirmation: next })
-            }
-          />
-          {saveDefaults.error && (
-            <p className="mt-2 font-mono text-xs text-blood">
-              {saveDefaults.error.message || "save failed"}
-            </p>
-          )}
+      {/* Sign in button = step 1 at top while unsigned */}
+      {!signedIn && (
+        <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
+          <button
+            onClick={() => signIn("github")}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
+          >
+            <Icon name="github" className="size-5" />
+            Sign in with GitHub
+          </button>
         </Section>
       )}
 
-      {/* 1/2 — provider (disabled until signed in) */}
+      {/* Defaults move to the top once they become usable */}
+      {defaultsReady && defaultsSection}
+
       <Section
         n={providerStep}
         title="Add an agent provider"
@@ -609,7 +636,6 @@ export function GithubRepos({
         )}
       </Section>
 
-      {/* 2/3 — repos (disabled until signed in) */}
       <Section
         n={reposStep}
         title="Connect your repos"
@@ -655,7 +681,9 @@ export function GithubRepos({
         )}
       </Section>
 
-      {/* Name + Sign out footer once signed in */}
+      {/* Defaults stay last (and disabled) until provider + repos are ready */}
+      {!defaultsReady && defaultsSection}
+
       {signedIn && (
         <div className="mb-6 flex items-center justify-between border-t border-edge pt-4">
           <span className="text-sm text-muted">
