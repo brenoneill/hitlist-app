@@ -36,9 +36,22 @@ const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
   "EXPIRED",
 ]);
 
-/** Poll the agent run until it's been seen terminal once; then it can't change. */
-const needsRunPoll = (t: Task) =>
-  !!t.agentId && !(t.runStatus && TERMINAL_RUN.has(t.runStatus as RunStatus));
+/**
+ * Poll the agent run until it's terminal — and keep going after a successful
+ * finish if we still have no prUrl (Copilot artifacts / GraphQL often lag or
+ * 403 on Agent-tasks-only PATs; a later poll may resolve via branch REST).
+ */
+const needsRunPoll = (t: Task) => {
+  if (!t.agentId) return false;
+  const run = t.runStatus as RunStatus | undefined;
+  if (!run || !TERMINAL_RUN.has(run)) return true;
+  return (
+    run === "FINISHED" &&
+    !t.prUrl &&
+    t.status !== "done" &&
+    t.status !== "failed"
+  );
+};
 
 /**
  * Provider reported a branch but not a PR url (common for Copilot). Keep asking
