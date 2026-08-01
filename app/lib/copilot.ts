@@ -100,6 +100,46 @@ async function prUrlFromNodeId(
 }
 
 /**
+ * Lists PRs by head branch — works when the PAT can read pulls but GraphQL
+ * node lookup (or a missing global_id) fails. Agent-tasks-only PATs still 403.
+ * @returns The newest matching PR's html url, or undefined.
+ */
+async function prUrlFromBranch(
+  owner: string,
+  repo: string,
+  branch: string,
+  apiKey: string,
+): Promise<string | undefined> {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls?head=${encodeURIComponent(`${owner}:${branch}`)}&state=all&per_page=1`,
+    { headers: headers(apiKey) },
+  );
+  if (!res.ok) return undefined;
+  const pulls = (await res.json()) as { html_url?: string }[];
+  return pulls[0]?.html_url;
+}
+
+/**
+ * Resolves a PR url from Copilot artifacts: GraphQL via global_id first, then
+ * REST by head branch. Never invents a url — undefined means "not readable yet".
+ */
+async function resolvePrUrl(
+  artifacts: Artifact[],
+  owner: string,
+  repo: string,
+  apiKey: string,
+): Promise<string | undefined> {
+  const pullNodeId = artifacts.find((a) => a.type === "pull")?.data?.global_id;
+  if (pullNodeId) {
+    const fromNode = await prUrlFromNodeId(pullNodeId, apiKey);
+    if (fromNode) return fromNode;
+  }
+  const branch = artifacts.find((a) => a.type === "branch")?.data?.head_ref;
+  if (!branch) return undefined;
+  return prUrlFromBranch(owner, repo, branch, apiKey);
+}
+
+/**
  * Reads a task's current state, normalized to the stored RunStatus union.
  * repoUrl is required — the Copilot GET is repo-scoped.
  */
@@ -112,14 +152,12 @@ export async function getLatestRun(
   const [owner, repo] = ownerRepo(repoUrl);
   const task = await call(`${API}/${owner}/${repo}/tasks/${agentId}`, apiKey);
   const artifacts = (task.artifacts ?? []) as Artifact[];
-  const pullNodeId = artifacts.find((a) => a.type === "pull")?.data?.global_id;
+  const branch = artifacts.find((a) => a.type === "branch")?.data?.head_ref;
   return {
     status: STATE_MAP[task.state] ?? "RUNNING",
     // no summary field in the API — the PR body carries the write-up
-    branch: artifacts.find((a) => a.type === "branch")?.data?.head_ref,
-    prUrl: pullNodeId
-      ? await prUrlFromNodeId(pullNodeId, apiKey)
-      : undefined,
+    branch,
+    prUrl: await resolvePrUrl(artifacts, owner, repo, apiKey),
   };
 }
 

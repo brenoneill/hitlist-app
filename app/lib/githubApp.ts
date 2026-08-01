@@ -82,6 +82,42 @@ export async function listInstallationRepos(
   return body.repositories;
 }
 
+/** "https://github.com/o/r(.git)" → [o, r]; tolerates dots in repo names. */
+function ownerRepo(repoUrl: string): [string, string] | undefined {
+  const m = repoUrl.match(/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:[/?#]|$)/);
+  return m ? [m[1], m[2]] : undefined;
+}
+
+/**
+ * Finds the html url of the PR whose head is `branch` (needs Pull requests: Read).
+ * Used when a provider reports a branch but not a PR url (Copilot's pull artifact
+ * only carries ids, and Agent-tasks PATs often can't resolve them).
+ * @returns The PR's html url, or undefined when none exists yet / repo is unreadable.
+ */
+export async function getPrUrlForBranch(
+  repoUrl: string,
+  branch: string,
+  installationId: string,
+): Promise<string | undefined> {
+  const parsed = ownerRepo(repoUrl);
+  if (!parsed) return undefined;
+  const [owner, repo] = parsed;
+  const token = await getInstallationToken(installationId);
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls?head=${encodeURIComponent(`${owner}:${branch}`)}&state=all&per_page=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    },
+  );
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  const pulls = (await res.json()) as { html_url?: string }[];
+  return pulls[0]?.html_url;
+}
+
 /**
  * Reads a PR's state from its html url (needs Pull requests: Read).
  * @returns "open", or the terminal "merged" / "closed" — polling stops on those.
