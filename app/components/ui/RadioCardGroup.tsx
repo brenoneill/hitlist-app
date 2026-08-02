@@ -11,7 +11,8 @@ export type RadioCardOption<T extends string> = {
 };
 
 /**
- * Equal-width card radiogroup with icon tile and selection dot.
+ * Equal-width card radiogroup with icon tile and selection dot
+ * (selected dots show a subtle drifting specular light).
  * @param ariaLabel - Accessible name for the radiogroup.
  * @param value - Selected option id.
  * @param onChange - Called when the user picks an option.
