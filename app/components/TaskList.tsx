@@ -535,6 +535,12 @@ function TaskRow({
       label: "Redeploy",
       onClick: () => onDeploy(task),
     });
+  if (task.agentUrl)
+    actions.push({
+      icon: "external",
+      label: "View agent",
+      onClick: () => window.open(task.agentUrl, "_blank", "noopener,noreferrer"),
+    });
   if (onToggle)
     actions.push({
       icon: task.status === "done" ? "x" : "check",
@@ -718,6 +724,12 @@ function SortableMember({
       icon: "crosshair",
       label: "Redeploy group",
       onClick: () => onDeploy(task),
+    });
+  if (task.agentUrl)
+    actions.push({
+      icon: "external",
+      label: "View agent",
+      onClick: () => window.open(task.agentUrl, "_blank", "noopener,noreferrer"),
     });
   actions.push({
     icon: task.status === "done" ? "x" : "check",

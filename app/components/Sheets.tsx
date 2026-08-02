@@ -515,6 +515,18 @@ export function TaskSheet({
                   {task.groupId ? "Redeploy group" : "Redeploy"}
                 </button>
               )}
+              {task.agentUrl && (
+                <a
+                  href={task.agentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background"
+                >
+                  <Icon name="external" className="size-4" />
+                  View agent
+                </a>
+              )}
               <button
                 type="button"
                 disabled={toggleDone.isPending}
@@ -784,6 +796,18 @@ export function GroupSheet({
                   <Icon name="crosshair" className="size-4" />
                   Redeploy group
                 </button>
+              )}
+              {lead.agentUrl && (
+                <a
+                  href={lead.agentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background"
+                >
+                  <Icon name="external" className="size-4" />
+                  View agent
+                </a>
               )}
               <button
                 type="button"
