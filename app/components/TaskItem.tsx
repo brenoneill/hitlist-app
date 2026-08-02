@@ -2,6 +2,7 @@
 
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { Icon, type IconName } from "@/app/components/Icons";
+import { PROVIDER_META } from "@/app/lib/providerMeta";
 
 const STATUS_DISPLAY: Record<
   TaskStatus,
@@ -131,6 +132,9 @@ export function TaskItemLinks({
           onClick={(e) => e.stopPropagation()}
           className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
         >
+          {task.provider && (
+            <Icon name={PROVIDER_META[task.provider].icon} className="size-3.5" />
+          )}
           <span className="sr-only">View agent</span>
           <Icon name="external" className="size-3.5" />
         </a>
@@ -180,7 +184,17 @@ export function TaskItem({
       {(showStatus || showLinks || task.agentSummary) && (
         <div className="flex w-full items-end justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-            {showStatus && <StatusBadge task={task} />}
+            {showStatus && (
+              <div className="flex items-center gap-1.5">
+                {task.provider && (
+                  <Icon
+                    name={PROVIDER_META[task.provider].icon}
+                    className="size-3 shrink-0 text-muted"
+                  />
+                )}
+                <StatusBadge task={task} />
+              </div>
+            )}
             {task.agentSummary && (
               <span className="w-full truncate text-xs text-muted">
                 {task.agentSummary}
