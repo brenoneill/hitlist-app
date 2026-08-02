@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { track } from "@vercel/analytics";
 import type { Task } from "@/app/lib/tasks";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
@@ -10,6 +11,7 @@ import {
   taskItemShellClass,
 } from "@/app/components/TaskItem";
 import { FieldLabel } from "@/app/components/ui/FieldLabel";
+import { ProviderWishlist } from "@/app/components/ProviderWishlist";
 
 const DEMO_SEED: Task[] = [
   {
@@ -105,6 +107,15 @@ const BENEFITS = [
   },
 ];
 
+/** One `cta` event per landing button, tagged with where it sits. */
+const cta = (where: string) => () => track("cta", { where });
+
+/** Same, for the buttons that also start GitHub sign-in. */
+const ctaSignIn = (where: string) => () => {
+  track("cta", { where });
+  signIn("github");
+};
+
 /**
  * Marketing landing for signed-out visitors, with a static hit-list preview
  * that reuses TaskItem from the app.
@@ -132,7 +143,7 @@ export function Landing() {
         </span>
         <button
           type="button"
-          onClick={() => signIn("github")}
+          onClick={ctaSignIn("header-signin")}
           className="font-mono text-[11px] uppercase tracking-widest text-muted transition-colors hover:text-foreground"
         >
           Sign in
@@ -159,7 +170,7 @@ export function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button
-                onClick={() => signIn("github")}
+                onClick={ctaSignIn("hero-signin")}
                 className="inline-flex items-center gap-2 px-6"
               >
                 <Icon name="github" className="size-4" />
@@ -167,6 +178,7 @@ export function Landing() {
               </Button>
               <Button
                 href="#preview"
+                onClick={cta("hero-see-list")}
                 variant="outline"
                 className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
               >
@@ -196,7 +208,7 @@ export function Landing() {
             <PreviewHitList />
             <div className="mt-5 text-center">
               <Button
-                onClick={() => signIn("github")}
+                onClick={ctaSignIn("preview-make-it-yours")}
                 className="inline-flex items-center gap-2 px-6"
               >
                 <Icon name="github" className="size-4" />
@@ -246,6 +258,8 @@ export function Landing() {
           </ul>
         </section>
 
+        <ProviderWishlist />
+
         <section className="mt-16 rounded-2xl border border-edge bg-surface/60 px-5 py-10 text-center sm:px-10">
           <Icon name="crosshair" className="mx-auto size-8 text-blood" />
           <h2 className="mt-4 text-2xl font-bold tracking-tight">
@@ -257,7 +271,7 @@ export function Landing() {
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button
-              onClick={() => signIn("github")}
+              onClick={ctaSignIn("footer-get-started")}
               className="inline-flex items-center gap-2 px-6"
             >
               <Icon name="github" className="size-4" />
@@ -265,6 +279,7 @@ export function Landing() {
             </Button>
             <Button
               href="/app"
+              onClick={cta("footer-open-app")}
               variant="outline"
               className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
             >

@@ -1,6 +1,8 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
+import { headers } from "next/headers";
+import { track } from "@vercel/analytics/server";
 
 declare module "next-auth" {
   interface Session {
@@ -40,6 +42,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
   ],
+  events: {
+    // Closes the landing funnel: cta clicks vs. sign-ins that actually
+    // completed. Fires once per sign-in, so no dedupe guard needed.
+    // ponytail: no isNewUser — that needs a DB adapter, and this is
+    // JWT-only. Add one if new-vs-returning ever matters.
+    async signIn({ account }) {
+      try {
+        await track(
+          "signed_in",
+          { provider: account?.provider ?? "unknown" },
+          { headers: await headers() },
+        );
+      } catch {
+        // A dropped metric is not worth a failed sign-in.
+      }
+    },
+  },
   callbacks: {
     // Auth.js mints a fresh random uuid per sign-in (no adapter), so every
     // browser/device would otherwise be a different user. Pin sub to the
