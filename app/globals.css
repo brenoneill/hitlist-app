@@ -25,6 +25,7 @@
   --animate-glow: glow-pulse 3.6s ease-in-out infinite;
   --animate-scope: scope-aim 18s ease-in-out infinite;
   --animate-radio-light: radio-light 2.8s ease-in-out infinite;
+  --animate-radio-shimmer: radio-shimmer 4.8s ease-in-out infinite;
 }
 
 @keyframes slide-up {
@@ -138,6 +139,26 @@
   }
 }
 
+/* Soft band that sweeps behind selected radio card labels. */
+@keyframes radio-shimmer {
+  0%,
+  15% {
+    transform: translate3d(-130%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    transform: translate3d(230%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --animate-tab-in-right: fade-in 0.2s ease-out;
@@ -150,6 +171,7 @@
     --animate-glow: none;
     --animate-scope: none;
     --animate-radio-light: none;
+    --animate-radio-shimmer: none;
   }
 }
 
