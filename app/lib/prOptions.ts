@@ -3,27 +3,42 @@
  * (and defaulted from user settings); joined into the agent prompt. Pure data:
  * imported by client components, so nothing server-only may creep in.
  */
+import type { ProviderId } from "./providerMeta";
 
-/** repoUrl is a `https://github.com/{owner}/{repo}` URL. */
-function screenshotCriteria(repoUrl: string): string {
+const LOGIN =
+  "- Login screens: use Repo access notes / Context / AGENTS.md; else say what you couldn't capture. Don't forge sessions.";
+
+function screenshotCriteria(provider: ProviderId): string {
+  if (provider === "copilot") {
+    return `## Acceptance criteria (required)
+- Capture screenshots proving each change works.
+- If \`hitlist-apps/\` already exists, delete it first (leftover from a prior PR) so only this run's files are committed.
+- Commit screenshots under \`hitlist-apps/\` (no capture scripts). Embed in the PR description:
+  \`![desc](hitlist-apps/<name>.png)\`
+${LOGIN}`;
+  }
   return `## Acceptance criteria (required)
-- Run the app and capture screenshots proving each change works as described.
-- Save them to a temp directory outside the repo — do **not** commit screenshots or screenshot-capture scripts to the branch.
-- Embed them inline in the PR description using **publicly fetchable** image URLs (HTTP 200 with \`Content-Type: image/*\` and **no auth**). Private-repo GitHub raw links do **not** work in PR markdown — GitHub's image proxy fetches them unauthenticated and they 404 (this includes \`raw.githubusercontent.com\`, \`${repoUrl}/raw/...\`, and agent-tool artifact/attachment URLs).
-- After uploading, verify each embed URL with an unauthenticated \`curl -sI\` (expect 200 + image content-type) before opening/updating the PR. Do not ship broken image placeholders.
-- Preferred flow: upload each to expiring public hosting with \`curl -sF reqtype=fileupload -F time=72h -F 'fileToUpload=@/tmp/<name>.png' https://litterbox.catbox.moe/resources/internals/api.php\` (the response body is the public URL, e.g. \`https://litter.catbox.moe/xxxxx.png\`), and embed with \`![desc](https://litter.catbox.moe/…)\`. Mention in the PR that the images expire after 72h.
-- If a screen is behind a login: check the "Repo access notes" section of this prompt, the Context section, and the repo's agent docs (AGENTS.md / CLAUDE.md) for test credentials or a documented dev auth-bypass; otherwise capture what you can (login page, unauthenticated states) and state plainly in the PR what could not be captured and why. Never fake or skip silently — do not forge sessions or stub out auth.`;
+- Capture screenshots proving each change works.
+- Save under \`/opt/cursor/artifacts/\` (do not commit). Embed in the PR description via ManagePullRequest:
+  \`<img src="/opt/cursor/artifacts/<name>.png" alt="desc">\`
+${LOGIN}`;
 }
 
-/** Image proof plus a short screen recording of the flow. */
-function imageAndVideoCriteria(repoUrl: string): string {
-  return `${screenshotCriteria(repoUrl)}
+function imageAndVideoCriteria(provider: ProviderId): string {
+  const video =
+    provider === "copilot"
+      ? `## Visual confirmation — video (required)
+- Also record a short MP4/WebM walkthrough. Commit under \`hitlist-apps/\` and link it in the PR description. If recording is blocked, say so and still ship screenshots.`
+      : `## Visual confirmation — video (required)
+- Also record a short MP4/WebM walkthrough. Save under \`/opt/cursor/artifacts/\` and embed via ManagePullRequest:
+  \`<recording_ref src="/opt/cursor/artifacts/<name>.mp4">desc</recording_ref>\`
+- If recording is blocked, say so and still ship screenshots.`;
+  return `${screenshotCriteria(provider)}\n\n${video}`;
+}
 
-## Visual confirmation — video (required)
-- Also capture a short screen recording (MP4/WebM) that walks through the change working end-to-end.
-- Save the video outside the repo — do **not** commit recordings or capture scripts to the branch.
-- Upload to the same expiring public host (\`curl -sF reqtype=fileupload -F time=72h -F 'fileToUpload=@/tmp/<name>.mp4' https://litterbox.catbox.moe/resources/internals/api.php\`) and embed a **publicly fetchable** link in the PR (HTTP 200, video or binary content-type, no auth). Mention that media expires after 72h.
-- If recording is blocked in the environment, say so plainly in the PR and still ship the required screenshots.`;
+function noneCriteria(_provider: ProviderId): string {
+  return `## Visual confirmation
+- None required. Do **not** capture screenshots or recordings, run demo/e2e just for PR proof, or create \`hitlist-apps/\` / Cursor artifacts.`;
 }
 
 export const VISUAL_CONFIRMATION_OPTIONS = [
@@ -40,7 +55,7 @@ export const VISUAL_CONFIRMATION_OPTIONS = [
   {
     id: "none",
     label: "None",
-    prompt: null,
+    prompt: noneCriteria,
   },
 ] as const;
 
@@ -53,11 +68,9 @@ export const DEFAULT_VISUAL_CONFIRMATION: VisualConfirmationId = "image";
 /** Dispatch body still uses an options id array; ids match VisualConfirmationId. */
 export type PrOptionId = VisualConfirmationId;
 
-/** Ids that add a prompt section (excludes `none`). */
+/** Ids that add a positive visual-proof section (excludes `none`). */
 export const PR_OPTIONS = VISUAL_CONFIRMATION_OPTIONS.filter(
-  (o): o is (typeof VISUAL_CONFIRMATION_OPTIONS)[number] & {
-    prompt: (repoUrl: string) => string;
-  } => o.prompt !== null,
+  (o) => o.id !== "none",
 );
 
 /** Server fallback when the dispatch body omits `options` and no user default. */
@@ -80,19 +93,18 @@ export function resolveVisualConfirmation(
 }
 
 /**
- * Prompt sections for the selected mode.
+ * Prompt sections for the selected mode and agent provider.
  * @param ids - Option ids from the dispatch body (empty = none required).
- * @param repoUrl - Repo URL interpolated into the criteria text.
- * @returns Zero or one acceptance-criteria section strings.
+ * @param provider - Agent provider; selects Cursor artifacts vs Copilot `hitlist-apps/` embeds.
+ * @returns One acceptance-criteria / visual-confirmation section.
  */
 export function optionSections(
   ids: readonly string[],
-  repoUrl: string,
+  provider: ProviderId,
 ): string[] {
   const mode = resolveVisualConfirmation(ids);
   const opt = VISUAL_CONFIRMATION_OPTIONS.find((o) => o.id === mode);
-  if (!opt?.prompt) return [];
-  return [opt.prompt(repoUrl)];
+  return opt ? [opt.prompt(provider)] : [];
 }
 
 /**

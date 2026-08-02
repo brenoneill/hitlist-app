@@ -43,5 +43,5 @@ next-env.d.ts
 # local task store
 .data/
 
-# agent screenshot output (never committed; images ship to litterbox)
+# leftover local screenshot dumps (agents use /opt/cursor/artifacts instead)
 .pr-assets/

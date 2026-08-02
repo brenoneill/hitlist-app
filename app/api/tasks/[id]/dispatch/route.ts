@@ -22,7 +22,7 @@ const WORKING_AGREEMENT = `## Working agreement
 function buildPrompt(
   members: Task[],
   options: readonly string[],
-  repoUrl: string,
+  provider: ProviderId,
   accessNotes?: string,
 ): string {
   const body =
@@ -51,7 +51,7 @@ function buildPrompt(
   const notesSection = accessNotes
     ? `## Repo access notes (from the user)\nHow to run this app and get past login for testing/screenshots:\n${accessNotes}\n\n`
     : "";
-  const sections = optionSections(options, repoUrl).map((s) => `${s}\n\n`);
+  const sections = optionSections(options, provider).map((s) => `${s}\n\n`);
   return `${body}\n\n${imageSection}${notesSection}${sections.join("")}${WORKING_AGREEMENT}`;
 }
 
@@ -159,7 +159,7 @@ export async function POST(
       buildPrompt(
         members,
         resolvedOptions,
-        repoUrl,
+        provider,
         await getAgentAccessNotes(userId, repoUrl),
       ),
       repoUrl,

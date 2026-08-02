@@ -24,13 +24,15 @@ import { DEFAULT_PR_OPTIONS, optionSections } from "../app/lib/prOptions";
 import { STATE_MAP } from "../app/lib/copilot";
 import type { RunStatus } from "../app/lib/cursor";
 
-// PR option selection: defaults are screenshots-only, unknown ids can't add a section
+// PR option selection: defaults are image-only; provider picks embed path
 const REPO = "https://github.com/o/r";
-assert.deepEqual(DEFAULT_PR_OPTIONS, ["screenshots"]);
-assert.equal(optionSections(DEFAULT_PR_OPTIONS, REPO).length, 1);
-assert.equal(optionSections(["bogus"], REPO).length, 0);
-assert.equal(optionSections([], REPO).length, 0);
-assert.ok(optionSections(["screenshots"], REPO)[0].includes(REPO));
+assert.deepEqual(DEFAULT_PR_OPTIONS, ["image"]);
+assert.equal(optionSections(DEFAULT_PR_OPTIONS, "cursor").length, 1);
+assert.equal(optionSections(["bogus"], "cursor").length, 1); // unknown → default image
+assert.equal(optionSections([], "cursor").length, 1);
+assert.ok(optionSections([], "cursor")[0].includes("None required"));
+assert.ok(optionSections(["image"], "cursor")[0].includes("/opt/cursor/artifacts"));
+assert.ok(optionSections(["image"], "copilot")[0].includes("hitlist-apps"));
 
 const U = "smoke-test";
 await sql`delete from tasks where user_id = ${U}`;
