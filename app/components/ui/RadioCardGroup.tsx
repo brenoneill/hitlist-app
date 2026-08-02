@@ -84,12 +84,16 @@ export function RadioCardGroup<T extends string>({
             )}
             <span
               aria-hidden
-              className={`size-3.5 shrink-0 rounded-full border-2 ${
+              className={`relative size-3.5 shrink-0 overflow-hidden rounded-full border-2 ${
                 selected
                   ? "border-info bg-info shadow-[0_0_8px_rgba(59,130,246,0.45)]"
                   : "border-edge bg-transparent"
               }`}
-            />
+            >
+              {selected ? (
+                <span className="pointer-events-none absolute inset-[-40%] animate-radio-light rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0.2)_35%,transparent_65%)] will-change-transform motion-reduce:hidden" />
+              ) : null}
+            </span>
           </button>
         );
       })}
