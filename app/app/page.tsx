@@ -34,6 +34,9 @@ import { TabPanel, Tabs } from "@/app/components/Tabs";
 import { inFlight, wasDeployed } from "@/app/components/TaskList";
 import { SettingsTab } from "@/app/components/SettingsTab";
 import { ListTab } from "@/app/components/ListTab";
+import { Chip } from "@/app/components/ui/Chip";
+import { Menu } from "@/app/components/ui/Menu";
+import { TextInput } from "@/app/components/ui/TextInput";
 
 type Tab = "list" | "settings";
 
@@ -367,8 +370,9 @@ export default function Home() {
               <form onSubmit={add} className="flex flex-col gap-2">
                 <div className="flex gap-2">
                   <div className="relative min-w-0 flex-1">
-                    <input
+                    <TextInput
                       ref={titleRef}
+                      tone="surface"
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value);
@@ -392,30 +396,25 @@ export default function Home() {
                           ? "mark-signin-hint"
                           : undefined
                       }
-                      className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
                     />
-                    {mentionOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setDismissed(true)}
-                        />
-                        <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-                          {matches.map((r, i) => (
-                            <button
-                              type="button"
-                              key={r.id}
-                              onClick={() => pickMention(r)}
-                              className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
-                                i === mIdx ? "bg-background" : ""
-                              }`}
-                            >
-                              {r.name}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                    <Menu
+                      open={mentionOpen}
+                      onClose={() => setDismissed(true)}
+                      className="inset-x-0 top-full mt-1"
+                    >
+                      {matches.map((r, i) => (
+                        <button
+                          type="button"
+                          key={r.id}
+                          onClick={() => pickMention(r)}
+                          className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
+                            i === mIdx ? "bg-background" : ""
+                          }`}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </Menu>
                   </div>
                   <Button
                     type="submit"
@@ -426,17 +425,14 @@ export default function Home() {
                   </Button>
                 </div>
                 {repo && (
-                  <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs">
-                    <Icon name="crosshair" className="size-3 text-blood" />
+                  <Chip
+                    variant="surface"
+                    icon="crosshair"
+                    onDismiss={() => setRepo(null)}
+                    dismissLabel="Remove repo"
+                  >
                     {repo.name}
-                    <button
-                      type="button"
-                      onClick={() => setRepo(null)}
-                      aria-label="Remove repo"
-                    >
-                      <Icon name="x" className="size-3 text-muted" />
-                    </button>
-                  </span>
+                  </Chip>
                 )}
                 {status === "unauthenticated" && (
                   <p

@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
 import type { Task } from "@/app/lib/tasks";
 import { Icon } from "@/app/components/Icons";
+import { Button } from "@/app/components/Button";
+import { FieldLabel } from "@/app/components/ui/FieldLabel";
+import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
 
 export type ProjectOption = {
   url: string;
@@ -125,50 +127,6 @@ export function ProjectFilterSlideout({
   onChange: (next: Set<string>) => void;
   onClose: () => void;
 }) {
-  const [closing, setClosing] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const startX = useRef<number | null>(null);
-
-  function requestClose() {
-    if (closing) return;
-    const el = panelRef.current;
-    if (el) {
-      el.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.68, 0.28)";
-      el.style.transform = "translateX(100%)";
-    }
-    setClosing(true);
-  }
-
-  function onHandlePointerDown(e: React.PointerEvent) {
-    if (closing) return;
-    startX.current = e.clientX;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const el = panelRef.current;
-    if (el) el.style.transition = "none";
-  }
-
-  function onHandlePointerMove(e: React.PointerEvent) {
-    if (startX.current == null || closing) return;
-    const el = panelRef.current;
-    if (el)
-      el.style.transform = `translateX(${Math.max(0, e.clientX - startX.current)}px)`;
-  }
-
-  function onHandlePointerUp(e: React.PointerEvent) {
-    if (startX.current == null || closing) return;
-    const dx = e.clientX - startX.current;
-    startX.current = null;
-    if (dx > 80) {
-      requestClose();
-      return;
-    }
-    const el = panelRef.current;
-    if (el) {
-      el.style.transition = "transform 0.2s ease-out";
-      el.style.transform = "";
-    }
-  }
-
   function toggle(url: string) {
     const next = new Set(selected);
     if (next.has(url)) next.delete(url);
@@ -177,122 +135,106 @@ export function ProjectFilterSlideout({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-40 flex justify-end bg-black/60 ${
-        closing ? "animate-fade-out" : "animate-fade-in"
-      }`}
-      onClick={requestClose}
+    <OverlayDialog
+      placement="end"
+      onClose={onClose}
+      ariaLabelledBy="project-filter-title"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="project-filter-title"
-        className="flex h-full w-[min(20rem,88vw)] animate-slide-in-right flex-col border-l border-edge bg-surface shadow-[-12px_0_40px_rgba(0,0,0,0.45)]"
-        onClick={(e) => e.stopPropagation()}
-        onTransitionEnd={(e) => {
-          if (!closing) return;
-          if (e.target !== e.currentTarget) return;
-          if (e.propertyName !== "transform") return;
-          onClose();
-        }}
-      >
-        <div className="flex items-start gap-3 border-b border-edge px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <div
-            className="mt-1 flex shrink-0 touch-none items-center self-stretch pr-1"
-            aria-hidden
-            onPointerDown={onHandlePointerDown}
-            onPointerMove={onHandlePointerMove}
-            onPointerUp={onHandlePointerUp}
-            onPointerCancel={onHandlePointerUp}
-          >
-            <div className="h-10 w-1 rounded-full bg-edge" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="project-filter-title"
-              className="font-mono text-sm font-bold uppercase tracking-widest"
+      {({ requestClose, bindHandle }) => (
+        <>
+          <div className="flex items-start gap-3 border-b border-edge px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+            <div
+              className="mt-1 flex shrink-0 touch-none items-center self-stretch pr-1"
+              aria-hidden
+              {...bindHandle}
             >
-              Projects
-            </h2>
-            <p className="mt-1 text-xs text-muted">
-              Only repos with hits. Tap to filter the list.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close project filter"
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted active:bg-background"
-          >
-            <Icon name="x" className="size-4" />
-          </button>
-        </div>
-
-        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
-          {projects.map((p, i) => {
-            const on = selected.has(p.url);
-            return (
-              <li
-                key={p.url}
-                className="animate-fade-in"
-                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+              <div className="h-10 w-1 rounded-full bg-edge" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="project-filter-title"
+                className="font-mono text-sm font-bold uppercase tracking-widest"
               >
-                <button
-                  type="button"
-                  onClick={() => toggle(p.url)}
-                  aria-pressed={on}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                    on ? "bg-info/15" : "active:bg-background"
-                  }`}
+                Projects
+              </h2>
+              <p className="mt-1 text-xs text-muted">
+                Only repos with hits. Tap to filter the list.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={requestClose}
+              aria-label="Close project filter"
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted active:bg-background"
+            >
+              <Icon name="x" className="size-4" />
+            </button>
+          </div>
+
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+            {projects.map((p, i) => {
+              const on = selected.has(p.url);
+              return (
+                <li
+                  key={p.url}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
                 >
-                  <span
-                    className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                      on
-                        ? "border-info bg-info text-white"
-                        : "border-edge bg-background text-transparent"
+                  <button
+                    type="button"
+                    onClick={() => toggle(p.url)}
+                    aria-pressed={on}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                      on ? "bg-info/15" : "active:bg-background"
                     }`}
                   >
-                    <Icon name="check" className="size-3" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-sm">
-                      {p.name}
+                    <span
+                      className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                        on
+                          ? "border-info bg-info text-white"
+                          : "border-edge bg-background text-transparent"
+                      }`}
+                    >
+                      <Icon name="check" className="size-3" />
                     </span>
-                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                      {p.open} active {p.open === 1 ? "hit" : "hits"}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-mono text-sm">
+                        {p.name}
+                      </span>
+                      <FieldLabel as="span">
+                        {p.open} active {p.open === 1 ? "hit" : "hits"}
+                      </FieldLabel>
                     </span>
-                  </span>
-                  <Icon
-                    name="crosshair"
-                    className={`size-3.5 shrink-0 ${
-                      on ? "text-info" : "text-edge"
-                    }`}
-                  />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    <Icon
+                      name="crosshair"
+                      className={`size-3.5 shrink-0 ${
+                        on ? "text-info" : "text-edge"
+                      }`}
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-        <div className="flex gap-2 border-t border-edge px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          <button
-            type="button"
-            onClick={() => onChange(new Set())}
-            disabled={selected.size === 0}
-            className="flex-1 rounded-xl border border-edge py-3 font-mono text-xs font-bold uppercase tracking-widest text-muted active:bg-background disabled:opacity-40"
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="flex-1 rounded-xl bg-blood py-3 font-mono text-xs font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(220,38,38,0.35)] active:opacity-80"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
+          <div className="flex gap-2 border-t border-edge px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+            <Button
+              variant="outline"
+              onClick={() => onChange(new Set())}
+              disabled={selected.size === 0}
+              className="flex-1 text-xs text-muted active:bg-background"
+            >
+              Clear
+            </Button>
+            <Button
+              onClick={requestClose}
+              className="flex-1 text-xs shadow-[0_0_16px_rgba(220,38,38,0.35)]"
+            >
+              Done
+            </Button>
+          </div>
+        </>
+      )}
+    </OverlayDialog>
   );
 }

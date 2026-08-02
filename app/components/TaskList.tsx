@@ -28,6 +28,7 @@ import type { Task } from "@/app/lib/tasks";
 import { normalizeGroups } from "@/app/lib/groups";
 import { newId } from "@/app/lib/id";
 import { Icon, type IconName } from "@/app/components/Icons";
+import { Menu, MenuItem } from "@/app/components/ui/Menu";
 import {
   StatusBadge,
   TaskItem,
@@ -477,28 +478,25 @@ function ActionRow({
         ))}
       </div>
       {/* popover lives outside the overflow-x scroller so it isn't clipped */}
-      {open && actions.length > 0 && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-2 top-9 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-            {actions.map((a) => (
-              <button
-                key={a.label}
-                onClick={() => {
-                  setOpen(false);
-                  a.onClick();
-                }}
-                className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background ${
-                  a.destructive ? "text-blood" : ""
-                }`}
-              >
-                <Icon name={a.icon} className="size-4" />
-                {a.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <Menu
+        open={open && actions.length > 0}
+        onClose={() => setOpen(false)}
+        className="right-2 top-9 min-w-40"
+      >
+        {actions.map((a) => (
+          <MenuItem
+            key={a.label}
+            icon={a.icon}
+            destructive={a.destructive}
+            onClick={() => {
+              setOpen(false);
+              a.onClick();
+            }}
+          >
+            {a.label}
+          </MenuItem>
+        ))}
+      </Menu>
     </div>
   );
 }

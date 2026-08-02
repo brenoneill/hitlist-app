@@ -35,6 +35,12 @@ import { Button } from "@/app/components/Button";
 import { ModelSelect } from "@/app/components/ModelSelect";
 import { ProviderRadio } from "@/app/components/ProviderRadio";
 import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
+import { Chip } from "@/app/components/ui/Chip";
+import { FieldLabel } from "@/app/components/ui/FieldLabel";
+import { Menu, MenuItem } from "@/app/components/ui/Menu";
+import { ErrorText } from "@/app/components/ui/ErrorText";
+import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
+import { Textarea } from "@/app/components/ui/Textarea";
 
 /** Sheet-menu redeploy: Settings defaults (provider / model / visual). */
 function useQuickRedeploy() {
@@ -71,87 +77,23 @@ function Sheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  const [closing, setClosing] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const startY = useRef<number | null>(null);
-
-  // Closing slides from wherever the sheet currently sits (dragged or resting),
-  // so it's an inline transition rather than a keyframe replay from the top.
-  function requestClose() {
-    if (closing) return;
-    const el = sheetRef.current;
-    if (el) {
-      el.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.68, 0.28)";
-      el.style.transform = "translateY(100%)";
-    }
-    setClosing(true);
-  }
-
-  function onHandlePointerDown(e: React.PointerEvent) {
-    if (closing) return;
-    startY.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const el = sheetRef.current;
-    if (el) el.style.transition = "none";
-  }
-
-  function onHandlePointerMove(e: React.PointerEvent) {
-    if (startY.current == null || closing) return;
-    const el = sheetRef.current;
-    if (el)
-      el.style.transform = `translateY(${Math.max(0, e.clientY - startY.current)}px)`;
-  }
-
-  function onHandlePointerUp(e: React.PointerEvent) {
-    if (startY.current == null || closing) return;
-    const dy = e.clientY - startY.current;
-    startY.current = null;
-    if (dy > 80) {
-      requestClose();
-      return;
-    }
-    const el = sheetRef.current;
-    if (el) {
-      el.style.transition = "transform 0.2s ease-out";
-      el.style.transform = "";
-    }
-  }
-
   return (
-    <div
-      className={`fixed inset-0 z-40 flex flex-col justify-end bg-black/60 ${
-        closing ? "animate-fade-out" : "animate-fade-in"
-      }`}
-      onClick={requestClose}
-    >
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        className="flex max-h-[92dvh] animate-slide-up flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface"
-        onClick={(e) => e.stopPropagation()}
-        onTransitionEnd={(e) => {
-          if (!closing) return;
-          if (e.target !== e.currentTarget) return;
-          if (e.propertyName !== "transform") return;
-          onClose();
-        }}
-      >
-        <div
-          className="flex shrink-0 touch-none justify-center pt-3 pb-1"
-          aria-hidden
-          onPointerDown={onHandlePointerDown}
-          onPointerMove={onHandlePointerMove}
-          onPointerUp={onHandlePointerUp}
-          onPointerCancel={onHandlePointerUp}
-        >
-          <div className="h-1 w-10 rounded-full bg-edge" />
-        </div>
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
-          {children}
-        </div>
-      </div>
-    </div>
+    <OverlayDialog placement="bottom" onClose={onClose}>
+      {({ bindHandle }) => (
+        <>
+          <div
+            className="flex shrink-0 touch-none justify-center pt-3 pb-1"
+            aria-hidden
+            {...bindHandle}
+          >
+            <div className="h-1 w-10 rounded-full bg-edge" />
+          </div>
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+            {children}
+          </div>
+        </>
+      )}
+    </OverlayDialog>
   );
 }
 
@@ -261,31 +203,29 @@ function AgentActions({
       )}
 
       {lead.prUrl && (
-        <a
+        <Button
           href={lead.prUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={
-            lead.status === "done"
-              ? "mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-ok py-3 font-mono text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_16px_rgba(34,197,94,0.4)] active:opacity-80"
-              : "mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-info py-3 font-mono text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] active:opacity-80"
-          }
+          variant={lead.status === "done" ? "ok" : "info"}
+          className="mb-3 flex w-full items-center justify-center gap-2"
         >
           <Icon name={prIcon(lead)} className="size-4" />
           {lead.prState === "merged" ? "View merged PR" : "Review PR"}
-        </a>
+        </Button>
       )}
 
       {lead.previewUrl && (
-        <a
+        <Button
           href={lead.previewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest text-foreground active:opacity-80"
+          variant="outline"
+          className="mb-3 flex w-full items-center justify-center gap-2"
         >
           <Icon name="external" className="size-4" />
           Open preview
-        </a>
+        </Button>
       )}
 
       {deployable(lead) && (
@@ -333,9 +273,7 @@ function AgentActions({
                   loading={modelsLoading}
                   className="mb-3"
                 />
-                <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-                  Visual confirmation
-                </p>
+                <FieldLabel className="mb-2">Visual confirmation</FieldLabel>
                 <VisualConfirmationRadio
                   value={visualConfirmation}
                   onChange={setVisualOverride}
@@ -358,21 +296,22 @@ function AgentActions({
       )}
 
       {lead.agentUrl && (
-        <a
+        <Button
           href={lead.agentUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 font-mono text-sm font-bold uppercase tracking-widest active:bg-background"
+          variant="outline"
+          className="mb-3 flex w-full items-center justify-center gap-2 active:bg-background"
         >
           View agent
           <Icon name="external" className="size-4" />
-        </a>
+        </Button>
       )}
 
       {dispatch.error && (
-        <p className="mb-3 font-mono text-xs text-blood">
+        <ErrorText className="mb-3">
           {dispatch.error.message || "dispatch failed"}
-        </p>
+        </ErrorText>
       )}
     </>
   );
@@ -467,18 +406,18 @@ export function TaskSheet({
       <div className="relative mb-2 flex items-start gap-2">
         <div className="min-w-0 flex-1">
           {task.groupId && (
-            <p className="mb-1 font-mono text-[11px] uppercase tracking-widest text-muted">
+            <FieldLabel className="mb-1">
               In a group · deploys together
-            </p>
+            </FieldLabel>
           )}
           {editable ? (
-            <textarea
+            <Textarea
+              variant="ghost"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onBlur={saveTitle}
               rows={1}
               aria-label="Item name"
-              className="field-sizing-content w-full resize-none overflow-hidden break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2"
             />
           ) : (
             <p className="whitespace-pre-wrap break-words text-lg font-medium">
@@ -494,126 +433,104 @@ export function TaskSheet({
         >
           <Icon name="ellipsis" className="size-4" />
         </button>
-        {menuOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-10"
+        <Menu
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          className="right-0 top-8 min-w-40"
+        >
+          {canRedeploy && (
+            <MenuItem
+              icon="crosshair"
+              disabled={redeploying}
+              onClick={() => {
+                setMenuOpen(false);
+                redeploy(task.id);
+              }}
+            >
+              {task.groupId ? "Redeploy group" : "Redeploy"}
+            </MenuItem>
+          )}
+          {task.agentUrl && (
+            <MenuItem
+              icon="external"
+              href={task.agentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setMenuOpen(false)}
-            />
-            <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-              {canRedeploy && (
-                <button
-                  type="button"
-                  disabled={redeploying}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    redeploy(task.id);
-                  }}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
-                >
-                  <Icon name="crosshair" className="size-4" />
-                  {task.groupId ? "Redeploy group" : "Redeploy"}
-                </button>
-              )}
-              {task.agentUrl && (
-                <a
-                  href={task.agentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background"
-                >
-                  <Icon name="external" className="size-4" />
-                  View agent
-                </a>
-              )}
-              <button
-                type="button"
-                disabled={toggleDone.isPending}
-                onClick={() => {
-                  setMenuOpen(false);
-                  markExecuted();
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
-              >
-                <Icon
-                  name={task.status === "done" ? "x" : "check"}
-                  className="size-4"
-                />
-                {task.status === "done" ? "Unmark" : "Mark executed"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete();
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background"
-              >
-                <Icon name="trash" className="size-4" />
-                Delete
-              </button>
-            </div>
-          </>
-        )}
+            >
+              View agent
+            </MenuItem>
+          )}
+          <MenuItem
+            icon={task.status === "done" ? "x" : "check"}
+            disabled={toggleDone.isPending}
+            onClick={() => {
+              setMenuOpen(false);
+              markExecuted();
+            }}
+          >
+            {task.status === "done" ? "Unmark" : "Mark executed"}
+          </MenuItem>
+          <MenuItem
+            icon="trash"
+            destructive
+            onClick={() => {
+              setMenuOpen(false);
+              onDelete();
+            }}
+          >
+            Delete
+          </MenuItem>
+        </Menu>
       </div>
       {editable && (
         <div className="mb-3">
           {task.repoUrl ? (
-            <span className="flex items-center gap-1.5 self-start rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs">
-              <Icon name="crosshair" className="size-3 text-blood" />
+            <Chip
+              icon="crosshair"
+              onDismiss={() => tagRepo(null)}
+              dismissLabel="Remove repo"
+            >
               <span className="truncate">{tagged?.name ?? task.repoUrl}</span>
-              <button
-                type="button"
-                onClick={() => tagRepo(null)}
-                aria-label="Remove repo"
-              >
-                <Icon name="x" className="size-3 text-muted" />
-              </button>
-            </span>
+            </Chip>
           ) : (
             <div className="relative">
-              <button
-                type="button"
+              <Chip
+                variant="muted"
+                icon="crosshair"
                 onClick={() => setPickingRepo((o) => !o)}
-                className="flex items-center gap-1.5 rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs text-muted active:opacity-80"
               >
-                <Icon name="crosshair" className="size-3" />
                 Tag a repo
-              </button>
-              {pickingRepo && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setPickingRepo(false)}
-                  />
-                  <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-                    <input
-                      value={repoFilter}
-                      onChange={(e) => setRepoFilter(e.target.value)}
-                      placeholder="Filter repos…"
-                      autoFocus
-                      className="w-full border-b border-edge bg-transparent px-4 py-2.5 font-mono text-base outline-none placeholder:text-muted"
-                    />
-                    {repoMatches.length === 0 ? (
-                      <p className="px-4 py-2.5 font-mono text-xs text-muted">
-                        No repos
-                      </p>
-                    ) : (
-                      repoMatches.map((r) => (
-                        <button
-                          type="button"
-                          key={r.id}
-                          onClick={() => tagRepo(r.url)}
-                          className="block w-full truncate px-4 py-2.5 text-left font-mono text-sm active:bg-background"
-                        >
-                          {r.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
+              </Chip>
+              <Menu
+                open={pickingRepo}
+                onClose={() => setPickingRepo(false)}
+                className="inset-x-0 top-full mt-1"
+              >
+                <input
+                  value={repoFilter}
+                  onChange={(e) => setRepoFilter(e.target.value)}
+                  placeholder="Filter repos…"
+                  autoFocus
+                  className="w-full border-b border-edge bg-transparent px-4 py-2.5 font-mono text-base outline-none placeholder:text-muted"
+                />
+                {repoMatches.length === 0 ? (
+                  <p className="px-4 py-2.5 font-mono text-xs text-muted">
+                    No repos
+                  </p>
+                ) : (
+                  repoMatches.map((r) => (
+                    <button
+                      type="button"
+                      key={r.id}
+                      onClick={() => tagRepo(r.url)}
+                      className="block w-full truncate px-4 py-2.5 text-left font-mono text-sm active:bg-background"
+                    >
+                      {r.name}
+                    </button>
+                  ))
+                )}
+              </Menu>
             </div>
           )}
         </div>
@@ -626,13 +543,13 @@ export function TaskSheet({
       >
         {editable ? (
           <>
-            <textarea
+            <Textarea
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               onBlur={saveDetails}
               placeholder="Context for the agent — optional"
               rows={3}
-              className="mb-3 field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden rounded-xl border border-edge bg-background px-4 py-3 text-base leading-normal outline-none placeholder:text-muted focus:border-blood"
+              className="mb-3"
             />
             <input
               ref={fileInputRef}
@@ -684,15 +601,15 @@ export function TaskSheet({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
+              <Chip
+                variant="muted"
+                icon="image"
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="mb-3 flex items-center gap-1.5 rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs text-muted active:opacity-80 disabled:opacity-40"
+                className="mb-3"
               >
-                <Icon name="image" className="size-3" />
                 {uploading ? "Uploading…" : "Add screenshot"}
-              </button>
+              </Chip>
             )}
             {(task.imageUrls?.length ?? 0) > 0 && (
               <p className="mb-3 mt-2 font-mono text-xs text-warn">
@@ -702,7 +619,7 @@ export function TaskSheet({
               </p>
             )}
             {uploadError && (
-              <p className="mb-3 font-mono text-xs text-blood">{uploadError}</p>
+              <ErrorText className="mb-3">{uploadError}</ErrorText>
             )}
           </>
         ) : (
@@ -735,9 +652,9 @@ export function TaskSheet({
         )}
       </AgentActions>
       {redeployError && (
-        <p className="mt-1 font-mono text-xs text-blood">
+        <ErrorText className="mt-1">
           {redeployError.message || "redeploy failed"}
-        </p>
+        </ErrorText>
       )}
     </Sheet>
   );
@@ -765,9 +682,9 @@ export function GroupSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="relative mb-2 flex items-start gap-2">
-        <p className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-widest text-muted">
+        <FieldLabel className="min-w-0 flex-1">
           Grouped hit · {members.length} marks
-        </p>
+        </FieldLabel>
         <button
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
@@ -776,53 +693,45 @@ export function GroupSheet({
         >
           <Icon name="ellipsis" className="size-4" />
         </button>
-        {menuOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-10"
+        <Menu
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          className="right-0 top-8 min-w-40"
+        >
+          {canRedeploy && (
+            <MenuItem
+              icon="crosshair"
+              disabled={redeploying}
+              onClick={() => {
+                setMenuOpen(false);
+                redeploy(lead.id);
+              }}
+            >
+              Redeploy group
+            </MenuItem>
+          )}
+          {lead.agentUrl && (
+            <MenuItem
+              icon="external"
+              href={lead.agentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setMenuOpen(false)}
-            />
-            <div className="absolute right-0 top-8 z-20 min-w-40 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-              {canRedeploy && (
-                <button
-                  type="button"
-                  disabled={redeploying}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    redeploy(lead.id);
-                  }}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background disabled:opacity-40"
-                >
-                  <Icon name="crosshair" className="size-4" />
-                  Redeploy group
-                </button>
-              )}
-              {lead.agentUrl && (
-                <a
-                  href={lead.agentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-background"
-                >
-                  <Icon name="external" className="size-4" />
-                  View agent
-                </a>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDisband();
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background"
-              >
-                <Icon name="x" className="size-4" />
-                Disband group
-              </button>
-            </div>
-          </>
-        )}
+            >
+              View agent
+            </MenuItem>
+          )}
+          <MenuItem
+            icon="x"
+            destructive
+            onClick={() => {
+              setMenuOpen(false);
+              onDisband();
+            }}
+          >
+            Disband group
+          </MenuItem>
+        </Menu>
       </div>
       <ul className="mb-2 flex flex-col gap-1">
         {members.map((m) => (
@@ -845,9 +754,9 @@ export function GroupSheet({
       </ul>
       <AgentActions lead={lead} canDeploy={members.some((m) => m.repoUrl)} />
       {redeployError && (
-        <p className="mt-1 font-mono text-xs text-blood">
+        <ErrorText className="mt-1">
           {redeployError.message || "redeploy failed"}
-        </p>
+        </ErrorText>
       )}
     </Sheet>
   );

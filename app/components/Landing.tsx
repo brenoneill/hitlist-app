@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { signIn } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
@@ -10,9 +9,7 @@ import {
   inFlight,
   taskItemShellClass,
 } from "@/app/components/TaskItem";
-
-const SECTION_LABEL =
-  "mb-2 mt-6 font-mono text-[11px] uppercase tracking-widest text-muted first:mt-0";
+import { FieldLabel } from "@/app/components/ui/FieldLabel";
 
 const DEMO_SEED: Task[] = [
   {
@@ -168,12 +165,13 @@ export function Landing() {
                 <Icon name="github" className="size-4" />
                 Sign in with GitHub
               </Button>
-              <a
+              <Button
                 href="#preview"
-                className="rounded-xl border border-edge px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+                variant="outline"
+                className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
               >
                 See a hit list
-              </a>
+              </Button>
             </div>
           </div>
         </section>
@@ -182,7 +180,7 @@ export function Landing() {
           id="preview"
           className="scroll-mt-8 animate-rise-delay-1 border-t border-edge/80 pt-12"
         >
-          <p className={SECTION_LABEL}>Preview</p>
+          <FieldLabel className="mb-2 mt-6 first:mt-0">Preview</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">
             Small enough to review. Ready to dispatch.
           </h2>
@@ -209,7 +207,7 @@ export function Landing() {
         </section>
 
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
-          <p className={SECTION_LABEL}>Why HitList</p>
+          <FieldLabel className="mb-2 mt-6 first:mt-0">Why HitList</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">
             Built for reviewable PRs, not sprawling refactors
           </h2>
@@ -229,7 +227,7 @@ export function Landing() {
         </section>
 
         <section className="border-t border-edge/80 pt-12 mt-16">
-          <p className={SECTION_LABEL}>Features</p>
+          <FieldLabel className="mb-2 mt-6 first:mt-0">Features</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">
             Everything you need on one screen
           </h2>
@@ -265,12 +263,13 @@ export function Landing() {
               <Icon name="github" className="size-4" />
               Get started
             </Button>
-            <Link
+            <Button
               href="/app"
-              className="rounded-xl border border-edge px-5 py-3 font-mono text-sm font-bold uppercase tracking-widest text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+              variant="outline"
+              className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               Open app
-            </Link>
+            </Button>
           </div>
         </section>
       </main>
@@ -316,7 +315,9 @@ function PreviewHitList() {
 
         {flying.length > 0 && (
           <>
-            <h3 className={SECTION_LABEL}>{flying.length} deployed</h3>
+            <FieldLabel as="h3" className="mb-2 mt-6 first:mt-0">
+              {flying.length} deployed
+            </FieldLabel>
             <ul className="flex flex-col gap-2">
               {flying.map((t) => (
                 <li key={t.id}>
@@ -334,7 +335,9 @@ function PreviewHitList() {
         {pending.length > 0 && (
           <>
             {flying.length > 0 && (
-              <h3 className={SECTION_LABEL}>{pending.length} marked</h3>
+              <FieldLabel as="h3" className="mb-2 mt-6 first:mt-0">
+                {pending.length} marked
+              </FieldLabel>
             )}
             <ul className="flex flex-col gap-2">
               {pending.map((t) => (
@@ -352,10 +355,10 @@ function PreviewHitList() {
 
         {done.length > 0 && (
           <div className="mt-4">
-            <p className="flex items-center gap-2 py-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-              <Icon name="chevron" className="size-4" />
+            <FieldLabel className="flex items-center gap-2 py-2">
+              <Icon name="chevron" className="size-4" aria-hidden />
               {done.length} executed
-            </p>
+            </FieldLabel>
             <ul className="flex flex-col gap-2 pt-2">
               {done.map((t) => (
                 <li key={t.id}>

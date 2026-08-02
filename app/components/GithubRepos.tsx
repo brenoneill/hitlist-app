@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { ProviderKeySettings } from "@/app/components/ProviderKeySettings";
-import { BLOOD_BUTTON, Icon } from "@/app/components/Icons";
+import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
   SETUP_TASK_DETAILS,
@@ -28,6 +28,10 @@ import {
 } from "@/app/lib/providerMeta";
 import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
 import { ModelSelect } from "@/app/components/ModelSelect";
+import { ErrorText } from "@/app/components/ui/ErrorText";
+import { FieldLabel } from "@/app/components/ui/FieldLabel";
+import { TextInput } from "@/app/components/ui/TextInput";
+import { Textarea } from "@/app/components/ui/Textarea";
 import { ProviderRadio } from "@/app/components/ProviderRadio";
 import { VisualConfirmationRadio } from "@/app/components/VisualConfirmationRadio";
 
@@ -81,8 +85,9 @@ function RepoAccessPanel({
         a staging URL, test credentials. Added to every agent prompt for this
         repo.
       </p>
-      <textarea
+      <Textarea
         id={`notes-${repo.id}`}
+        variant="mono"
         value={notes}
         onChange={(e) => setDraft(e.target.value)}
         disabled={!data}
@@ -92,7 +97,7 @@ function RepoAccessPanel({
             ? "Loading…"
             : "npm run dev:demo\nlog in as demo@example.com / demo123"
         }
-        className="mt-2 w-full resize-none rounded-xl border border-edge bg-background p-3 font-mono text-xs outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
+        className="mt-2"
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
@@ -110,9 +115,9 @@ function RepoAccessPanel({
           </span>
         )}
         {save.error && (
-          <span className="text-xs text-blood">
+          <ErrorText as="span">
             {save.error.message || "save failed"}
-          </span>
+          </ErrorText>
         )}
       </div>
 
@@ -303,12 +308,12 @@ function RepoList({
       </p>
 
       {repos.length > VISIBLE_CAP && (
-        <input
+        <TextInput
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter repos…"
           aria-label="Filter repos"
-          className="mb-2 w-full rounded-xl border border-edge bg-background px-4 py-2.5 text-base outline-none placeholder:text-muted focus:border-blood"
+          className="mb-2 py-2.5"
         />
       )}
 
@@ -544,9 +549,7 @@ export function GithubRepos({
       </p>
       {configured.length > 1 && (
         <>
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-            Provider
-          </p>
+          <FieldLabel className="mb-2">Provider</FieldLabel>
           <ProviderRadio
             providers={configured}
             value={defaultProvider}
@@ -555,9 +558,7 @@ export function GithubRepos({
           />
         </>
       )}
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-        Model
-      </p>
+      <FieldLabel className="mb-2">Model</FieldLabel>
       <ModelSelect
         value={defaultModel}
         onChange={(next) =>
@@ -568,9 +569,7 @@ export function GithubRepos({
         disabled={!defaultProvider}
         className="mb-3"
       />
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted">
-        Visual confirmation
-      </p>
+      <FieldLabel className="mb-2">Visual confirmation</FieldLabel>
       <VisualConfirmationRadio
         value={visualConfirmation}
         onChange={(next) =>
@@ -578,9 +577,9 @@ export function GithubRepos({
         }
       />
       {saveDefaults.error && (
-        <p className="mt-2 font-mono text-xs text-blood">
+        <ErrorText className="mt-2">
           {saveDefaults.error.message || "save failed"}
-        </p>
+        </ErrorText>
       )}
     </Section>
   ) : (
@@ -603,13 +602,14 @@ export function GithubRepos({
       {/* Sign in button = step 1 at top while unsigned */}
       {!signedIn && (
         <Section n={1} title="Sign in with GitHub" done={false} collapsible={false}>
-          <button
+          <Button
+            variant="outline"
             onClick={() => signIn("github")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-base font-medium active:bg-surface"
+            className="flex w-full items-center justify-center gap-2 text-base font-medium normal-case tracking-normal active:bg-surface"
           >
             <Icon name="github" className="size-5" />
             Sign in with GitHub
-          </button>
+          </Button>
         </Section>
       )}
 
@@ -655,7 +655,7 @@ export function GithubRepos({
               code.
             </p>
             {INSTALL_URL ? (
-              <a
+              <Button
                 href={INSTALL_URL}
                 // GitHub redirects installs to the App's one registered Setup
                 // URL (production). Send our origin as `state` so the callback
@@ -664,10 +664,10 @@ export function GithubRepos({
                   e.preventDefault();
                   window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
                 }}
-                className={`${BLOOD_BUTTON} block w-full text-center`}
+                className="block w-full text-center"
               >
                 Connect repos on GitHub
-              </a>
+              </Button>
             ) : (
               <p className="font-mono text-xs text-muted">
                 Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.

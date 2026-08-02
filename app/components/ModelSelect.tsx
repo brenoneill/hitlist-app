@@ -1,6 +1,7 @@
 "use client";
 
 import type { CursorModel } from "@/app/lib/cursor";
+import { fieldClass } from "@/app/components/ui/fieldClasses";
 
 /**
  * Agent model `<select>` with an Auto option and reserved height while loading.
@@ -33,7 +34,10 @@ export function ModelSelect({
       disabled={disabled || loading}
       aria-busy={loading}
       aria-label="Agent model"
-      className={`h-[2.875rem] w-full rounded-xl border border-edge bg-background px-4 text-base outline-none focus:border-blood disabled:opacity-70 ${className}`.trim()}
+      className={fieldClass(
+        "background",
+        `h-[2.875rem] w-full px-4 text-base disabled:opacity-70 ${className}`.trim(),
+      )}
     >
       <option value="">
         {!loading ? "Auto (default model)" : "Loading models…"}

@@ -19,3 +19,25 @@ database. Features needing outside credentials (GitHub repo list, dispatching
 real agents) will show empty/error states — say so in the PR instead of
 screenshotting around them.
 <!-- END:nextjs-agent-rules -->
+
+# Reusable UI components
+
+Design-system chrome lives in `app/components/ui/` (plus `Button` in
+`app/components/Button.tsx`). Feature composition stays in `app/components/`
+(Sheets, TaskList, GithubRepos, etc.).
+
+- Before adding a new `<input>`, `<textarea>`, `<button>`, menu, chip, label,
+  or overlay, reuse or extend the matching primitive (`TextInput`, `Textarea`,
+  `FieldLabel`, `Menu`/`MenuItem`, `Chip`, `OverlayDialog`, `ErrorText`,
+  `RadioCardGroup`, or `Button`).
+- Do not paste long Tailwind class recipes that already exist on a primitive;
+  add a variant or a `className` escape hatch instead.
+- Extract a new primitive when the same chrome appears in 3+ places (or is
+  about to). One-off layouts stay inline in the feature component.
+- Prefer extending `Button` variants (`blood`, `ghost`, `outline`, `ok`,
+  `info`) over raw `<button className="…rounded-xl border…">` for CTAs.
+  Pass `href` when the control should render as a link.
+- New form controls must keep shared field chrome (`focus:border-blood`,
+  disabled opacity) and existing a11y patterns (`aria-*`, `sr-only` labels,
+  decorative icons via `Icon` which is already `aria-hidden`).
+- Do not add a third-party component library unless explicitly requested.

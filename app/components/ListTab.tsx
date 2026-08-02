@@ -2,6 +2,7 @@ import type { Task } from "@/app/lib/tasks";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { DoneList, FoldSection, TaskList } from "@/app/components/TaskList";
+import { Chip } from "@/app/components/ui/Chip";
 
 interface ListTabProps {
   activeProjectFilter: Set<string>;
@@ -52,21 +53,20 @@ export function ListTab({
           {[...activeProjectFilter].map((url) => {
             const name = url.split("/").pop() ?? url;
             return (
-              <button
+              <Chip
                 key={url}
-                type="button"
+                variant="info"
+                icon="filter"
                 onClick={() => {
                   const next = new Set(activeProjectFilter);
                   next.delete(url);
                   onSelectProjectsChange(next);
                 }}
-                className="flex items-center gap-1.5 rounded-full border border-info/40 bg-info/10 px-3 py-1 font-mono text-xs text-info transition-colors active:bg-info/20"
               >
-                <Icon name="filter" className="size-3" />
                 {name}
                 <Icon name="x" className="size-3" />
                 <span className="sr-only">Remove {name} filter</span>
-              </button>
+              </Chip>
             );
           })}
         </div>

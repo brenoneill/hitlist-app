@@ -13,6 +13,8 @@ import {
   useProviderKeys,
   useSaveProviderKey,
 } from "@/app/lib/queries";
+import { Menu, MenuItem } from "@/app/components/ui/Menu";
+import { TextInput } from "@/app/components/ui/TextInput";
 
 /**
  * Provider row card: icon + name + connection state, expanding to the key
@@ -114,20 +116,17 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
             </a>
           </div>
           <form onSubmit={submit} className="flex items-stretch gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Icon
-                name="key"
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-              />
-              <input
-                type="password"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                disabled={busy}
-                placeholder={meta.placeholder}
-                className="h-full w-full rounded-xl border border-edge bg-background py-3 pl-9 pr-4 text-base outline-none placeholder:text-muted focus:border-blood disabled:opacity-50"
-              />
-            </div>
+            <TextInput
+              type="password"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              disabled={busy}
+              placeholder={meta.placeholder}
+              className="h-full"
+              startAdornment={
+                <Icon name="key" className="size-4 text-muted" aria-hidden />
+              }
+            />
             {canSave && (
               <button
                 type="submit"
@@ -149,32 +148,27 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
                 >
                   <Icon name="ellipsis" className="size-4" />
                 </button>
-                {menuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full z-20 mt-1 min-w-36 overflow-hidden rounded-xl border border-edge bg-surface shadow-lg shadow-black/50">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          clear.mutate(provider, {
-                            onSuccess: () => {
-                              setKey("");
-                              setMenuOpen(false);
-                            },
-                          })
-                        }
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-blood hover:bg-background disabled:opacity-50"
-                      >
-                        <Icon name="trash" className="size-4" />
-                        Delete key
-                      </button>
-                    </div>
-                  </>
-                )}
+                <Menu
+                  open={menuOpen}
+                  onClose={() => setMenuOpen(false)}
+                  className="right-0 top-full mt-1 min-w-36"
+                >
+                  <MenuItem
+                    icon="trash"
+                    destructive
+                    disabled={busy}
+                    onClick={() =>
+                      clear.mutate(provider, {
+                        onSuccess: () => {
+                          setKey("");
+                          setMenuOpen(false);
+                        },
+                      })
+                    }
+                  >
+                    Delete key
+                  </MenuItem>
+                </Menu>
               </div>
             )}
           </form>
