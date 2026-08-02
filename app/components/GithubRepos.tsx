@@ -20,9 +20,11 @@ import {
 } from "@/app/lib/queries";
 import { DEFAULT_VISUAL_CONFIRMATION } from "@/app/lib/prOptions";
 import {
+  COPILOT_ALLOWLIST_TIP_PREFIX,
   LAST_PROVIDER_KEY,
   PROVIDER_IDS,
   PROVIDER_META,
+  copilotAllowlistUrl,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -68,15 +70,62 @@ function RepoAccessPanel({
   onToggleBlocked: () => void;
 }) {
   const { data } = useRepoNotes(repo.url);
+  const { data: keys } = useProviderKeys();
   const save = useSaveRepoNotes();
   const addTask = useAddTask();
   // null until typed in, so the server value can arrive without a seeding effect
   const [draft, setDraft] = useState<string | null>(null);
+  // null until mounted — avoids flashing the tip after a prior dismiss
+  const [allowlistTipDone, setAllowlistTipDone] = useState<boolean | null>(
+    null,
+  );
   const notes = draft ?? data?.notes ?? "";
   const dirty = !!data && notes.trim() !== data.notes.trim();
+  const tipKey = `${COPILOT_ALLOWLIST_TIP_PREFIX}${repo.url}`;
+  const showAllowlistTip = !!keys?.copilot && allowlistTipDone === false;
+
+  useEffect(() => {
+    if (!keys?.copilot) return;
+    setAllowlistTipDone(localStorage.getItem(tipKey) === "1");
+  }, [keys?.copilot, tipKey]);
+
+  function ackAllowlistTip() {
+    localStorage.setItem(tipKey, "1");
+    setAllowlistTipDone(true);
+  }
 
   return (
     <div className="border-t border-edge px-4 py-3">
+      {showAllowlistTip && (
+        <div className="mb-3 border-b border-edge pb-3">
+          <p className="text-xs text-muted">
+            Add{" "}
+            <span className="text-foreground">
+              litter.catbox.moe and catbox.moe
+            </span>{" "}
+            to this repo&apos;s Copilot allowlist so agents can fetch your
+            screenshots.{" "}
+            <a
+              href={copilotAllowlistUrl(repo.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4"
+            >
+              Open allowlist settings ↗
+            </a>
+          </p>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={ackAllowlistTip}
+              className="size-3.5 shrink-0 accent-blood"
+            />
+            I&apos;ve turned this on
+          </label>
+        </div>
+      )}
+
       <label htmlFor={`notes-${repo.id}`} className="text-xs font-medium">
         Agent access notes
       </label>

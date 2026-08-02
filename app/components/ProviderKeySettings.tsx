@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/app/components/Icons";
 import {
-  CURSOR_ARTIFACTS_GITHUB_URL,
-  CURSOR_ARTIFACTS_TIP_KEY,
   PROVIDER_META,
+  PROVIDER_TIPS,
   type ProviderId,
 } from "@/app/lib/providerMeta";
 import {
@@ -22,32 +21,30 @@ import { TextInput } from "@/app/components/ui/TextInput";
  */
 export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
   const meta = PROVIDER_META[provider];
+  const tip = PROVIDER_TIPS[provider];
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // null until mounted — avoids flashing the tip after a prior dismiss
-  const [artifactsTipDone, setArtifactsTipDone] = useState<boolean | null>(
-    null,
-  );
+  const [tipDone, setTipDone] = useState<boolean | null>(null);
   const { data, isPending: loading } = useProviderKeys();
   const save = useSaveProviderKey();
   const clear = useClearProviderKey();
   const hasKey = data?.[provider] ?? false;
   const busy = loading || save.isPending || clear.isPending;
   const canSave = key.trim().length > 0;
-  const showArtifactsTip =
-    provider === "cursor" && hasKey && artifactsTipDone === false;
+  const showTip = !!tip && hasKey && tipDone === false;
+  const showCopilotHint = provider === "copilot" && hasKey;
 
   useEffect(() => {
-    if (provider !== "cursor") return;
-    setArtifactsTipDone(
-      localStorage.getItem(CURSOR_ARTIFACTS_TIP_KEY) === "1",
-    );
-  }, [provider]);
+    if (!tip) return;
+    setTipDone(localStorage.getItem(tip.storageKey) === "1");
+  }, [tip]);
 
-  function ackArtifactsTip() {
-    localStorage.setItem(CURSOR_ARTIFACTS_TIP_KEY, "1");
-    setArtifactsTipDone(true);
+  function ackTip() {
+    if (!tip) return;
+    localStorage.setItem(tip.storageKey, "1");
+    setTipDone(true);
   }
 
   function submit(e: React.FormEvent) {
@@ -175,32 +172,41 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
         </div>
       )}
 
-      {showArtifactsTip && (
+      {showTip && tip && (
         <div className="border-t border-edge px-4 py-3">
           <p className="text-xs text-muted">
-            Turn on{" "}
-            <span className="text-foreground">
-              Allow posting artifacts to GitHub
-            </span>{" "}
-            so screenshots show up inline in PRs.{" "}
+            {tip.before}{" "}
+            <span className="text-foreground">{tip.highlight}</span> {tip.after}{" "}
             <a
-              href={CURSOR_ARTIFACTS_GITHUB_URL}
+              href={tip.href}
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-4"
             >
-              Open Cursor settings ↗
+              {tip.linkLabel}
             </a>
           </p>
           <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
             <input
               type="checkbox"
               checked={false}
-              onChange={ackArtifactsTip}
+              onChange={ackTip}
               className="size-3.5 shrink-0 accent-blood"
             />
             I&apos;ve turned this on
           </label>
+        </div>
+      )}
+
+      {showCopilotHint && (
+        <div className="border-t border-edge px-4 py-3">
+          <p className="text-xs text-muted">
+            For screenshots, open a connected repo below and add{" "}
+            <span className="text-foreground">
+              litter.catbox.moe and catbox.moe
+            </span>{" "}
+            to that repo&apos;s Copilot allowlist.
+          </p>
         </div>
       )}
     </div>
