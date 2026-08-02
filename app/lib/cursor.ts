@@ -11,6 +11,14 @@ export type RunStatus =
   | "CANCELLED"
   | "EXPIRED";
 
+/** Run states past which nothing changes, so polling can stop. */
+export const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
+  "FINISHED",
+  "ERROR",
+  "CANCELLED",
+  "EXPIRED",
+]);
+
 export interface CreatedAgent {
   id: string;
   url: string;
@@ -104,19 +112,9 @@ export async function getLatestRun(
   agentId: string,
   apiKey: string,
 ): Promise<LatestRun | undefined> {
-  const get = async (path: string) => {
-    const res = await fetch(`${CREATE_URL}/${path}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) {
-      throw new Error(`Cursor API ${res.status}: ${await res.text()}`);
-    }
-    return res.json();
-  };
-
-  const { latestRunId } = await get(agentId);
+  const { latestRunId } = await cursorGet(agentId, apiKey);
   if (!latestRunId) return undefined;
-  const run = await get(`${agentId}/runs/${latestRunId}`);
+  const run = await cursorGet(`${agentId}/runs/${latestRunId}`, apiKey);
   const branch = run.git?.branches?.[0];
   return {
     status: run.status,
@@ -124,4 +122,67 @@ export async function getLatestRun(
     branch: branch?.branch,
     prUrl: branch?.prUrl,
   };
+}
+
+async function cursorGet(path: string, apiKey: string) {
+  const res = await fetch(`${CREATE_URL}/${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Cursor API ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+/**
+ * Sends a follow-up prompt into an existing agent's conversation/workspace —
+ * a new run on the same agent, pushing to the same branch/PR.
+ * @throws If the Cursor API rejects the request.
+ */
+export async function sendFollowup(
+  agentId: string,
+  text: string,
+  apiKey: string,
+): Promise<void> {
+  const res = await fetch(`${CREATE_URL}/${agentId}/runs`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt: { text } }),
+  });
+  if (!res.ok) {
+    throw new Error(`Cursor API ${res.status}: ${await res.text()}`);
+  }
+}
+
+export interface AgentRun {
+  id: string;
+  status: RunStatus;
+  /** Run start time — orders agent replies between the user prompts that caused them. */
+  createdAt: string;
+}
+
+/** Lists an agent's runs, oldest first (one run per prompt sent to the agent). */
+export async function listRuns(
+  agentId: string,
+  apiKey: string,
+): Promise<AgentRun[]> {
+  const { items } = await cursorGet(`${agentId}/runs`, apiKey);
+  return (items as AgentRun[]).map((r) => ({
+    id: r.id,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+}
+
+/** A terminated run's final assistant reply text, if any. */
+export async function getRunResult(
+  agentId: string,
+  runId: string,
+  apiKey: string,
+): Promise<string | undefined> {
+  const run = await cursorGet(`${agentId}/runs/${runId}`, apiKey);
+  return run.result ?? undefined;
 }

@@ -99,7 +99,7 @@ function Sheet({
 }
 
 /** "4m" / "1h 12m" since the given ISO timestamp; each 10s poll re-renders it. */
-function elapsed(iso: string): string {
+export function elapsed(iso: string): string {
   const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
 }
@@ -302,6 +302,17 @@ function AgentActions({
                 : "Deploy agent"}
           </Button>
         </>
+      )}
+
+      {(lead.agentId || lead.prUrl) && (
+        <Button
+          href={`/app/task/${lead.id}`}
+          variant="outline"
+          className="mb-3 flex w-full items-center justify-center gap-2 active:bg-background"
+        >
+          <Icon name="crosshair" className="size-4" />
+          Open workspace
+        </Button>
       )}
 
       {lead.agentUrl && (

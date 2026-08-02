@@ -16,7 +16,7 @@ export function FieldLabel({
   ...props
 }: {
   children: ReactNode;
-  as?: "p" | "span" | "h3" | "label";
+  as?: "p" | "span" | "h2" | "h3" | "label";
   className?: string;
 } & Omit<HTMLAttributes<HTMLElement>, "className" | "children">) {
   return (

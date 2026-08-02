@@ -23,6 +23,12 @@ function e2eSql(): NeonQueryFunction<false, false> {
         ('e2e-4', 'e2e-user', 2, 'Ship hotfix that landed outside the agent', 'failed', now(), 'https://github.com/example/hitlist-app', 'cursor', 'agent-botched', 'https://example.com/agent-botched', 'ERROR', null, null, null, 'Agent errored mid-run — finished by hand', now(), null, null),
         ('e2e-3', 'e2e-user', 3, 'Have the repos collapsed by default instead of folded up (in settings page)', 'done', now(), 'https://github.com/example/docs-site', 'copilot', 'agent-done', 'https://example.com/agent2', 'FINISHED', 'feat/preview-links', 'https://github.com/example/docs-site/pull/1', 'merged', 'Shipped in PR #1: https://github.com/example/docs-site/pull/1', now(), now(), now()),
         ('e2e-5', 'e2e-user', 4, 'Be able to drop the saved cursor key', 'done', now(), 'https://github.com/example/hitlist-app', 'cursor', 'agent-done-2', 'https://example.com/agent3', 'FINISHED', 'chore/drop-key', 'https://github.com/example/hitlist-app/pull/2', 'merged', 'Removed unused Cursor key storage from settings', now(), now(), now());
+      insert into task_messages (id, user_id, agent_id, role, body, run_id, created_at) values
+        ('e2e-m1', 'e2e-user', 'agent-done-2', 'user', E'# Task\nBe able to drop the saved cursor key', null, now() - interval '30 minutes'),
+        ('e2e-m2', 'e2e-user', 'agent-done-2', 'agent', 'Removed unused Cursor key storage from settings — see PR #2.', 'run-demo-1', now() - interval '25 minutes'),
+        ('e2e-m3', 'e2e-user', 'agent-done-2', 'user', 'Also clear the key from localStorage on sign-out.', null, now() - interval '20 minutes'),
+        ('e2e-m4', 'e2e-user', 'agent-done-2', 'agent', 'Done — sign-out now wipes the cached key as well; pushed to the same PR.', 'run-demo-2', now() - interval '15 minutes'),
+        ('e2e-m5', 'e2e-user', 'agent-demo', 'user', E'# Task\nFix drag handle hit area on mobile', null, now() - interval '2 minutes');
     `);
     return db;
   })());

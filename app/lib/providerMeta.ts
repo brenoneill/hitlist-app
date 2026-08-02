@@ -8,6 +8,8 @@ export const PROVIDER_META = {
     blurb: "Cloud agents via your Cursor API key",
     docsUrl: "https://cursor.com/dashboard?tab=integrations",
     placeholder: "Your Cursor API key…",
+    /** Whether the workspace composer can send in-app follow-ups (providers.ts trio). */
+    supportsFollowups: true,
   },
   copilot: {
     label: "GitHub Copilot",
@@ -15,6 +17,7 @@ export const PROVIDER_META = {
     blurb: "Cloud agents via a fine-grained GitHub PAT",
     docsUrl: "https://github.com/settings/personal-access-tokens/new",
     placeholder: "Fine-grained PAT with Agent tasks…",
+    supportsFollowups: false,
   },
 } as const;
 

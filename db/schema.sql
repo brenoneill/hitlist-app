@@ -41,6 +41,21 @@ create table user_settings (
   default_model text
 );
 
+create table task_messages (
+  id text primary key,
+  user_id text not null,
+  -- Keyed by agent, not task: group members share one agent/conversation, and
+  -- a redeploy (new agent_id) naturally starts a fresh thread.
+  agent_id text not null,
+  role text not null check (role in ('user', 'agent')),
+  body text not null,
+  -- Provider run id on agent replies — the sync dedupe key. Null (user
+  -- messages) never conflicts under a plain unique.
+  run_id text unique,
+  created_at timestamptz not null default now()
+);
+create index task_messages_agent on task_messages (user_id, agent_id, created_at);
+
 create table repo_settings (
   user_id text not null,
   repo_url text not null,

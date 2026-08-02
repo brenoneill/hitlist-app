@@ -13,6 +13,7 @@ import {
   type VisualConfirmationId,
 } from "@/app/lib/prOptions";
 import { playbookBootstrap } from "@/app/lib/hitlistPlaybook";
+import { addMessage } from "@/app/lib/messages";
 
 /**
  * Thin kickoff: HITLIST_RUN + playbook URL + task body.
@@ -24,18 +25,12 @@ import { playbookBootstrap } from "@/app/lib/hitlistPlaybook";
  * @param mode - Visual confirmation mode; selects which visual skill to include.
  * @param accessNotes - Optional per-repo notes from user settings.
  */
-function buildPrompt(
-  origin: string,
-  members: Task[],
-  provider: ProviderId,
-  mode: VisualConfirmationId,
-  accessNotes?: string,
-): string {
-  const body =
-    members.length === 1
-      ? `# Task\n${members[0].title}` +
+/** Human-readable task body — also recorded as the conversation's first turn. */
+function promptBody(members: Task[]): string {
+  return members.length === 1
+    ? `# Task\n${members[0].title}` +
         (members[0].details ? `\n\n## Context\n${members[0].details}` : "")
-      : `# Tasks\n` +
+    : `# Tasks\n` +
         members
           .map(
             (m) =>
@@ -45,6 +40,16 @@ function buildPrompt(
                 : ""),
           )
           .join("\n");
+}
+
+function buildPrompt(
+  origin: string,
+  members: Task[],
+  provider: ProviderId,
+  mode: VisualConfirmationId,
+  accessNotes?: string,
+): string {
+  const body = promptBody(members);
   // ponytail: URLs in prompt text, not Cursor's base64 `prompt.images` — the host is public; switch if agents stop fetching them.
   const images = members.flatMap((m) =>
     (m.imageUrls ?? []).map(
@@ -174,6 +179,12 @@ export async function POST(
       ref,
       apiKey,
       resolvedModel,
+    );
+    // the conversation's opening turn — human-readable body only, no playbook
+    // preamble. Swallowed on failure: the agent is already out, and the 502
+    // path below would wrongly tell the user to retry the whole dispatch.
+    await addMessage(userId, agent.id, "user", promptBody(members)).catch(
+      () => {},
     );
     const updated: Task[] = [];
     for (const m of members) {

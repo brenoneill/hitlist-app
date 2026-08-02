@@ -1,6 +1,7 @@
 "use client";
 
 import { type AnchorHTMLAttributes, type ButtonHTMLAttributes } from "react";
+import Link from "next/link";
 import { BLOOD_BUTTON } from "@/app/components/Icons";
 
 export type ButtonVariant = "blood" | "ghost" | "outline" | "ok" | "info";
@@ -50,6 +51,14 @@ export function Button(props: AsButton | AsLink) {
   if ("href" in props && props.href != null) {
     const { variant: _v, className: _c, children: _ch, ...anchorProps } =
       props;
+    // in-app hrefs get client-side nav (keeps the react-query cache warm)
+    if (anchorProps.href!.startsWith("/")) {
+      return (
+        <Link {...anchorProps} href={anchorProps.href!} className={classes}>
+          {children}
+        </Link>
+      );
+    }
     return (
       <a {...anchorProps} className={classes}>
         {children}

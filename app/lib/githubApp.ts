@@ -59,9 +59,10 @@ async function getInstallationToken(installationId: string): Promise<string> {
   return body.token;
 }
 
-// The GitHub App backing this holds Metadata, Pull requests and Deployments, all
-// read-only — no Contents, so there is no code-reading capability to misuse even
-// server-side.
+// The GitHub App backing this holds Metadata and Deployments (read-only) plus
+// Pull requests and Contents (read & write) — write is required by the in-app
+// merge (PUT pulls/{n}/merge writes to the base branch). Installations that
+// predate the write bump keep working read-only; merge 403s until re-approved.
 export async function listInstallationRepos(
   installationId: string,
 ): Promise<GitHubRepo[]> {
@@ -145,45 +146,215 @@ export async function getPrState(
   return pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open";
 }
 
+export interface PrFile {
+  filename: string;
+  /** GitHub's per-file status: added | removed | modified | renamed | … */
+  status: string;
+  additions: number;
+  deletions: number;
+  /** Unified diff hunks; absent for binary or oversized files. */
+  patch?: string;
+}
+
+export interface PrDetails {
+  number: number;
+  title: string;
+  body?: string;
+  state: PrState;
+  headRef: string;
+  /** Tip commit of the head branch — what deployments are registered against. */
+  headSha: string;
+  baseRef: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  files: PrFile[];
+  /** Filled in by the route, not by `getPrDetails` — absent if Deployments 403s. */
+  deployments?: Deployment[];
+}
+
 /**
- * The preview URL for `branch`, read from GitHub Deployments (needs Deployments: Read).
- * Vercel, Netlify, Render and Cloudflare Pages all report their preview through this
- * API as `environment_url`, so nothing here is vendor-specific and no provider token
- * is needed — the deploy itself still happens entirely on the provider's side.
- * @returns The url, or undefined when nothing has deployed the branch successfully yet.
+ * A PR's metadata and per-file diffs, for the in-app review screen
+ * (needs Pull requests: Read).
+ * @returns The details, or undefined when the url is unparseable or the PR 404s.
  */
-export async function getPreviewUrl(
-  repoUrl: string,
-  branch: string,
+export async function getPrDetails(
+  prUrl: string,
   installationId: string,
-): Promise<string | undefined> {
-  const m = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+): Promise<PrDetails | undefined> {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
   if (!m) return undefined;
   const token = await getInstallationToken(installationId);
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
   };
-  // newest first, so one row is the current deployment for this branch
+  const base = `https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`;
+  const prRes = await fetch(base, { headers });
+  if (prRes.status === 404) return undefined;
+  if (!prRes.ok) throw new Error(`GitHub API ${prRes.status}`);
+  const pr = (await prRes.json()) as {
+    number: number;
+    title: string;
+    body: string | null;
+    merged: boolean;
+    state: string;
+    head: { ref: string; sha: string };
+    base: { ref: string };
+    additions: number;
+    deletions: number;
+    changed_files: number;
+  };
+  // ponytail: 100-file cap, paginate if an agent PR ever exceeds it
+  const filesRes = await fetch(`${base}/files?per_page=100`, { headers });
+  if (!filesRes.ok) throw new Error(`GitHub API ${filesRes.status}`);
+  const files = (await filesRes.json()) as PrFile[];
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body ?? undefined,
+    state: pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open",
+    headRef: pr.head.ref,
+    headSha: pr.head.sha,
+    baseRef: pr.base.ref,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFiles: pr.changed_files,
+    files: files.map((f) => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: f.patch,
+    })),
+  };
+}
+
+/**
+ * Merges a PR (needs Pull requests: Write + Contents: Write).
+ * @throws GitHub's own message ("Pull Request is not mergeable", "Resource not
+ *   accessible…" before the permission bump is approved) so the UI can show it.
+ */
+// ponytail: squash only; add a method picker if anyone asks
+export async function mergePr(
+  prUrl: string,
+  installationId: string,
+): Promise<void> {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+  if (!m) throw new Error("unrecognized PR url");
+  const token = await getInstallationToken(installationId);
+  const res = await fetch(
+    `https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}/merge`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ merge_method: "squash" }),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `GitHub API ${res.status}`);
+  }
+}
+
+export interface Deployment {
+  /** Whatever the provider named it — "Preview", "Preview – hitlist-app", … */
+  environment: string;
+  /** queued | in_progress | success | failure | error | inactive */
+  state: string;
+  /** The deployed url; only a successful status carries one. */
+  url?: string;
+}
+
+/**
+ * The deployments for a branch or commit, newest first, read from GitHub Deployments
+ * (needs Deployments: Read). Vercel, Netlify, Render and Cloudflare Pages all report
+ * their preview through this API as `environment_url`, so nothing here is
+ * vendor-specific and no provider token is needed — the deploy itself still happens
+ * entirely on the provider's side.
+ *
+ * Filtered by commit sha, never by `?ref=`: Vercel registers each deployment under the
+ * sha, so `?ref=my-branch` matches nothing even when the preview is live. A branch is
+ * resolved to its tip first, which costs an extra request — pass a sha when you have
+ * one (the PR read already does).
+ *
+ * @param ref A branch name or a 40-char commit sha.
+ * @param limit How many deployments to read; each one costs a second request for its
+ *   statuses, so the polling caller stays at 1 and the workspace asks for a few.
+ */
+export async function listDeployments(
+  repoUrl: string,
+  ref: string,
+  installationId: string,
+  limit = 1,
+): Promise<Deployment[]> {
+  const m = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+  if (!m) return [];
+  const token = await getInstallationToken(installationId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  };
+  const repo = `https://api.github.com/repos/${m[1]}/${m[2]}`;
+
+  let sha = ref;
+  if (!/^[0-9a-f]{40}$/i.test(ref)) {
+    // slashes in branch names are part of the path, so no encoding here
+    const tip = await fetch(`${repo}/git/ref/heads/${ref}`, { headers });
+    if (!tip.ok) return []; // branch deleted after a merge, or never pushed
+    sha = ((await tip.json()) as { object: { sha: string } }).object.sha;
+  }
+
+  // newest first, so the first row is the current deployment for this commit
   const deploys = await fetch(
-    `https://api.github.com/repos/${m[1]}/${m[2]}/deployments?ref=${encodeURIComponent(branch)}&per_page=1`,
+    `${repo}/deployments?sha=${sha}&per_page=${limit}`,
     { headers },
   );
-  if (deploys.status === 404) return undefined;
+  if (deploys.status === 404) return [];
   if (!deploys.ok) throw new Error(`GitHub API ${deploys.status}`);
-  const [deployment] = (await deploys.json()) as { statuses_url: string }[];
-  if (!deployment) return undefined;
-  // a deployment collects queued/in_progress/success statuses; only a success carries
-  // a usable url, and several providers may have deployed the same ref
-  const statuses = await fetch(`${deployment.statuses_url}?per_page=10`, {
-    headers,
-  });
-  if (statuses.status === 404) return undefined;
-  if (!statuses.ok) throw new Error(`GitHub API ${statuses.status}`);
-  const rows = (await statuses.json()) as {
-    state: string;
-    environment_url?: string | null;
+  const rows = (await deploys.json()) as {
+    environment: string;
+    statuses_url: string;
   }[];
-  return rows.find((s) => s.state === "success" && s.environment_url)
-    ?.environment_url as string | undefined;
+  return (
+    await Promise.all(
+      rows.map(async (d): Promise<Deployment | undefined> => {
+        // a deployment collects queued/in_progress/success statuses, newest first;
+        // only a success carries a usable url
+        const res = await fetch(`${d.statuses_url}?per_page=10`, { headers });
+        if (!res.ok) return undefined;
+        const statuses = (await res.json()) as {
+          state: string;
+          environment_url?: string | null;
+        }[];
+        if (!statuses.length) return undefined;
+        return {
+          environment: d.environment,
+          state: statuses[0].state,
+          url:
+            statuses.find((s) => s.state === "success" && s.environment_url)
+              ?.environment_url ?? undefined,
+        };
+      }),
+    )
+  ).filter((d): d is Deployment => !!d);
+}
+
+/**
+ * The preview URL for `branch` — the newest deployment's url, once it has succeeded.
+ * @returns The url, or undefined when nothing has deployed the branch successfully yet.
+ */
+// ponytail: 3 requests per poll (branch tip → deployments → statuses); pass the PR head
+// sha from the task instead if the poll budget ever gets tight
+export async function getPreviewUrl(
+  repoUrl: string,
+  branch: string,
+  installationId: string,
+): Promise<string | undefined> {
+  const [deployment] = await listDeployments(repoUrl, branch, installationId);
+  return deployment?.url;
 }

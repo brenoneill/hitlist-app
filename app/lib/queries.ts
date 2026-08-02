@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-query";
 import type { Repo } from "@/app/components/GithubRepos";
 import type { CursorModel } from "@/app/lib/cursor";
+import type { PrDetails } from "@/app/lib/githubApp";
+import type { TaskMessage } from "@/app/lib/messages";
 import { normalizeGroups } from "@/app/lib/groups";
 import type { ProviderId } from "@/app/lib/providerMeta";
 import type {
@@ -29,6 +31,8 @@ const REPOS = ["repos"];
 const PROVIDER_KEYS = ["provider-keys"];
 const REPO_NOTES = ["repo-notes"]; // prefix — per-repo keys are ["repo-notes", url]
 const DEPLOY_DEFAULTS = ["deploy-defaults"];
+const PR = ["pr"]; // prefix — per-task keys are ["pr", taskId]
+const MESSAGES = ["messages"]; // prefix — per-task keys are ["messages", taskId]
 
 /** Fetch + unwrap; non-2xx throws the API's `error` so mutations can show it. */
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -196,6 +200,57 @@ export function useDispatchTask() {
       redeploy?: boolean;
     }) => api<Task | Task[]>(`/api/tasks/${id}/dispatch`, send("POST", body)),
     onSuccess: (updated) => merge(qc, updated),
+  });
+}
+
+/** The task's PR (meta + per-file diffs), read live from GitHub. */
+export function usePrDetails(taskId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...PR, taskId],
+    queryFn: () => api<PrDetails>(`/api/tasks/${taskId}/pr`),
+    enabled,
+    staleTime: 30_000,
+    // an open PR keeps moving — new commits, and a deploy that flips to ready
+    refetchInterval: (q) => (q.state.data?.state === "open" ? 30_000 : false),
+  });
+}
+
+/** Squash-merges the task's PR; the server returns the archived task(s). */
+export function useMergePr(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<Task | Task[]>(`/api/tasks/${taskId}/pr/merge`, send("POST")),
+    onSuccess: (updated) => {
+      merge(qc, updated);
+      qc.invalidateQueries({ queryKey: [...PR, taskId] });
+    },
+  });
+}
+
+/**
+ * The task's agent conversation. Polls alongside the task poll while the agent
+ * is out, so replies land as runs finish.
+ */
+export function useTaskMessages(taskId: string, agentRunning: boolean) {
+  return useQuery({
+    queryKey: [...MESSAGES, taskId],
+    queryFn: () => api<TaskMessage[]>(`/api/tasks/${taskId}/messages`),
+    refetchInterval: agentRunning ? 10_000 : false,
+  });
+}
+
+/** Sends a follow-up to the task's agent; members go back to `running`. */
+export function useSendMessage(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) =>
+      api<{ tasks: Task[] }>(`/api/tasks/${taskId}/messages`, send("POST", { text })),
+    onSuccess: ({ tasks }) => {
+      merge(qc, tasks);
+      // the stored user turn comes back on refetch — no local cache surgery
+      qc.invalidateQueries({ queryKey: [...MESSAGES, taskId] });
+    },
   });
 }
 
