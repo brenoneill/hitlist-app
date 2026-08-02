@@ -20,19 +20,25 @@ import {
   setAgentAccessNotes,
   setProviderKey,
 } from "../app/lib/userSettings";
-import { DEFAULT_PR_OPTIONS, optionSections } from "../app/lib/prOptions";
+import {
+  DEFAULT_PR_OPTIONS,
+  DEFAULT_VISUAL_CONFIRMATION,
+  optionsForMode,
+  resolveVisualConfirmation,
+} from "../app/lib/prOptions";
 import { STATE_MAP } from "../app/lib/copilot";
 import type { RunStatus } from "../app/lib/cursor";
 
-// PR option selection: defaults are image-only; provider picks embed path
+// Visual confirmation: defaults are image-only; empty/unknown resolve predictably
 const REPO = "https://github.com/o/r";
 assert.deepEqual(DEFAULT_PR_OPTIONS, ["image"]);
-assert.equal(optionSections(DEFAULT_PR_OPTIONS, "cursor").length, 1);
-assert.equal(optionSections(["bogus"], "cursor").length, 1); // unknown → default image
-assert.equal(optionSections([], "cursor").length, 1);
-assert.ok(optionSections([], "cursor")[0].includes("None required"));
-assert.ok(optionSections(["image"], "cursor")[0].includes("/opt/cursor/artifacts"));
-assert.ok(optionSections(["image"], "copilot")[0].includes("hitlist-apps"));
+assert.equal(DEFAULT_VISUAL_CONFIRMATION, "image");
+assert.equal(resolveVisualConfirmation(undefined), "image");
+assert.equal(resolveVisualConfirmation(["bogus"]), "image"); // unknown → default
+assert.equal(resolveVisualConfirmation([]), "none");
+assert.equal(resolveVisualConfirmation(["image-video"]), "image-video");
+assert.deepEqual(optionsForMode("image"), ["image"]);
+assert.deepEqual(optionsForMode("none"), []);
 
 const U = "smoke-test";
 await sql`delete from tasks where user_id = ${U}`;
