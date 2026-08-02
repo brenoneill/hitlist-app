@@ -41,3 +41,5 @@ Design-system chrome lives in `app/components/ui/` (plus `Button` in
   disabled opacity) and existing a11y patterns (`aria-*`, `sr-only` labels,
   decorative icons via `Icon` which is already `aria-hidden`).
 - Do not add a third-party component library unless explicitly requested.
+
+When the task prompt includes HITLIST_RUN, also read and follow HITLIST.md.
