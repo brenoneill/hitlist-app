@@ -2,7 +2,7 @@
 // here by ProviderId — never branch on the provider name elsewhere.
 import * as copilot from "./copilot";
 import * as cursor from "./cursor";
-import type { CreatedAgent, CursorModel, LatestRun } from "./cursor";
+import type { AgentRun, CreatedAgent, CursorModel, LatestRun } from "./cursor";
 import type { ProviderId } from "./providerMeta";
 
 export interface ProviderClient {
@@ -20,6 +20,17 @@ export interface ProviderClient {
     apiKey: string,
   ): Promise<LatestRun | undefined>;
   listModels(apiKey: string): Promise<CursorModel[]>;
+  // Conversation trio — absent means the provider can't do in-app follow-ups
+  // (mirror any change in PROVIDER_META.supportsFollowups, which gates the UI).
+  /** Follow-up prompt into the agent's existing conversation. */
+  sendFollowup?(agentId: string, text: string, apiKey: string): Promise<void>;
+  listRuns?(agentId: string, apiKey: string): Promise<AgentRun[]>;
+  /** A terminated run's final assistant reply text. */
+  getRunResult?(
+    agentId: string,
+    runId: string,
+    apiKey: string,
+  ): Promise<string | undefined>;
 }
 
 export const PROVIDERS = {
@@ -27,6 +38,9 @@ export const PROVIDERS = {
     createAgent: cursor.createAgent,
     getLatestRun: (id, _repo, key) => cursor.getLatestRun(id, key),
     listModels: cursor.listModels,
+    sendFollowup: cursor.sendFollowup,
+    listRuns: cursor.listRuns,
+    getRunResult: cursor.getRunResult,
   },
   copilot,
 } satisfies Record<ProviderId, ProviderClient>;

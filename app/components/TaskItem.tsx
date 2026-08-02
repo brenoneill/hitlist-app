@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { Task, TaskStatus } from "@/app/lib/tasks";
 import { Icon, type IconName } from "@/app/components/Icons";
 import { PROVIDER_META } from "@/app/lib/providerMeta";
@@ -30,6 +31,14 @@ export const inFlight = (t: Task) =>
 /** Merged PRs get GitHub's merge glyph; anything still open keeps the PR one. */
 export const prIcon = (t: Task): IconName =>
   t.prState === "merged" ? "merge" : "pr";
+
+/** Provider logo for agent affordances, matching the workspace's Agent tab. */
+export const agentIcon = (t: Task): IconName =>
+  t.provider ? PROVIDER_META[t.provider].icon : "crosshair";
+
+/** In-app workspace deep link, landing on the given tab. */
+export const workspaceHref = (t: Task, tab: "agent" | "pr") =>
+  `/app/task/${t.id}?tab=${tab}`;
 
 /** A merged PR's link is green; an open one is blue. */
 export function prLinkClass(task: Task): string {
@@ -113,28 +122,24 @@ export function TaskItemLinks({
   return (
     <div className="flex shrink-0 items-center gap-2">
       {label && task.prUrl && (
-        <a
-          href={task.prUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={workspaceHref(task, "pr")}
           onClick={(e) => e.stopPropagation()}
           className={`flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest active:opacity-70 ${prClassName}`}
         >
           <Icon name={prIcon(task)} className="size-3.5" />
           {label}
-        </a>
+        </Link>
       )}
       {task.agentUrl && (
-        <a
-          href={task.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={workspaceHref(task, "agent")}
           onClick={(e) => e.stopPropagation()}
           className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
         >
-          <span className="sr-only">View agent</span>
-          <Icon name="external" className="size-3.5" />
-        </a>
+          <span className="sr-only">Open workspace</span>
+          <Icon name={agentIcon(task)} className="size-3.5" />
+        </Link>
       )}
     </div>
   );

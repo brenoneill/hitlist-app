@@ -8,7 +8,7 @@ import {
   type PrState,
   type Task,
 } from "@/app/lib/tasks";
-import type { LatestRun, RunStatus } from "@/app/lib/cursor";
+import { TERMINAL_RUN, type LatestRun, type RunStatus } from "@/app/lib/cursor";
 import {
   getPreviewUrl,
   getPrState,
@@ -28,14 +28,6 @@ const FAILED: Partial<Record<RunStatus, Task["status"]>> = {
   CANCELLED: "failed",
   EXPIRED: "failed",
 };
-
-/** Run states past which nothing changes, so polling can stop. */
-const TERMINAL_RUN: ReadonlySet<RunStatus> = new Set<RunStatus>([
-  "FINISHED",
-  "ERROR",
-  "CANCELLED",
-  "EXPIRED",
-]);
 
 /**
  * Poll the agent run until it's terminal — and keep going after a successful

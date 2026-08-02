@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import Link from "next/link";
 import { Icon, type IconName } from "@/app/components/Icons";
 
 const PANEL =
@@ -87,6 +88,14 @@ export function MenuItem(props: ItemButton | ItemLink) {
       children: _ch,
       ...anchorProps
     } = props;
+    // internal routes get client-side nav, mirroring Button's href handling
+    if (props.href.startsWith("/")) {
+      return (
+        <Link {...anchorProps} href={props.href} className={classes}>
+          {content}
+        </Link>
+      );
+    }
     return (
       <a {...anchorProps} className={classes}>
         {content}
