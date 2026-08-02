@@ -1,6 +1,6 @@
 # HitList agent playbook
 
-Follow this file when the task prompt includes `HITLIST_RUN`.
+Follow this playbook for the `HITLIST_RUN` task you were given.
 
 ## Working agreement
 

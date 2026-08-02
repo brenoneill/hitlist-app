@@ -15,9 +15,9 @@ import {
 import { playbookBootstrap } from "@/app/lib/hitlistPlaybook";
 
 /**
- * Thin kickoff: HITLIST_RUN + playbook bootstrap + task body.
- * Stable rules live in public/playbook/ (base + selected skills), composed
- * into the target repo as HITLIST.md.
+ * Thin kickoff: HITLIST_RUN + playbook URL + task body.
+ * Stable rules live in public/playbook/ (base + selected skill), served
+ * composed at /playbook/[provider]/[mode] for the agent to fetch.
  * @param origin - HitList app origin for playbook part URLs.
  * @param members - Tasks included in this dispatch (one or a group).
  * @param provider - Agent provider; selects which visual skill to include.

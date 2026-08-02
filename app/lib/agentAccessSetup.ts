@@ -5,8 +5,9 @@
  * secrets-free demo mode + how-to-run notes in AGENTS.md. Pure data —
  * imported by a client component, nothing server-only may creep in.
  *
- * HitList product rules (visual confirmation, working agreement) are installed
- * separately via HITLIST.md on normal task dispatch — do not duplicate them here.
+ * HitList product rules (visual confirmation, working agreement) are served
+ * separately via the playbook URL on normal task dispatch — do not duplicate
+ * them here.
  */
 
 export const SETUP_TASK_TITLE =
@@ -19,7 +20,7 @@ Build, following this repo's existing stack and conventions:
 2. A demo/test-user sign-in that needs no real credentials (ideally one click, no fields), active ONLY under an explicit env flag that the script sets and production never does. Do not weaken the real auth paths.
 3. An AGENTS.md at the repo root (create it, or append to it) documenting the exact steps: the command to run, the URL to open, how to sign in, and which features still need real external credentials and will show empty/error states.
 
-Do **not** invent HitList product rules, visual-confirmation playbooks, or a HITLIST.md — HitList installs HITLIST.md automatically on normal task dispatch.
+Do **not** invent HitList product rules, visual-confirmation playbooks, or a HITLIST.md — HitList supplies its playbook automatically on normal task dispatch.
 
 Guardrails: the bypass must be off by default and gated on the env flag; commit no real credentials; change no production behavior.
 
