@@ -52,7 +52,7 @@ function buildPrompt(
     ),
   );
   const imageSection = images.length
-    ? `## Screenshots (user-attached)\nFetch and view these before starting; they are on expiring temp hosting, so fetch them first. If one already 404s, say so in the PR rather than guessing its contents.\n${images.join("\n")}\n\n`
+    ? `## Screenshots (user-attached)\nFetch and view these before starting. If one already 404s, say so in the PR rather than guessing its contents.\n${images.join("\n")}\n\n`
     : "";
   const notesSection = accessNotes
     ? `## Repo access notes (from the user)\nHow to run this app and get past login for testing/screenshots:\n${accessNotes}\n\n`

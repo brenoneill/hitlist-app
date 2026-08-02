@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { requireUserId } from "@/auth";
-import { removeTask, updateTask, type TaskStatus } from "@/app/lib/tasks";
+import { deleteImages } from "@/app/lib/catbox";
+import { getTask, removeTask, updateTask, type TaskStatus } from "@/app/lib/tasks";
 
 const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
 
@@ -8,7 +9,7 @@ const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
  * Updates a task by id. Accepts a JSON body with optional `status`, `details`,
  * `title`, `repoUrl`, and `imageUrls` fields (details/title are trimmed; empty
  * details clears it; empty title is rejected; null/empty repoUrl clears the
- * tag; imageUrls must be litter.catbox.moe URLs, empty array clears them).
+ * tag; imageUrls must be catbox/legacy temp-host URLs, empty array clears them).
  * @param req - Incoming request with a JSON patch body.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated task, or 400/404 on failure.
@@ -47,15 +48,17 @@ export async function PATCH(
   ) {
     return Response.json({ error: "invalid repoUrl" }, { status: 400 });
   }
-  // host-pinned to the upload route's hosts: these URLs are pasted verbatim
-  // into the agent prompt
+  // host-pinned to the upload route's hosts (+ legacy litterbox/uguu rows):
+  // these URLs are pasted verbatim into the agent prompt
   const allowedImageUrl = (u: unknown) => {
     if (typeof u !== "string") return false;
     try {
       const { protocol, hostname } = new URL(u);
       return (
         protocol === "https:" &&
-        (hostname === "litter.catbox.moe" || hostname.endsWith(".uguu.se"))
+        (hostname === "files.catbox.moe" ||
+          hostname === "litter.catbox.moe" ||
+          hostname.endsWith(".uguu.se"))
       );
     } catch {
       return false;
@@ -66,6 +69,16 @@ export async function PATCH(
     (!Array.isArray(imageUrls) || !imageUrls.every(allowedImageUrl))
   ) {
     return Response.json({ error: "invalid imageUrls" }, { status: 400 });
+  }
+
+  if (imageUrls !== undefined) {
+    const existing = await getTask(userId, id);
+    if (!existing) {
+      return Response.json({ error: "task not found" }, { status: 404 });
+    }
+    const next = imageUrls as string[];
+    const removed = (existing.imageUrls ?? []).filter((u) => !next.includes(u));
+    await deleteImages(removed);
   }
 
   const updated = await updateTask(userId, id, {
@@ -103,6 +116,8 @@ export async function DELETE(
   const userId = await requireUserId();
   if (userId instanceof Response) return userId;
   const { id } = await ctx.params;
+  const existing = await getTask(userId, id);
+  await deleteImages(existing?.imageUrls);
   await removeTask(userId, id);
   return new Response(null, { status: 204 });
 }

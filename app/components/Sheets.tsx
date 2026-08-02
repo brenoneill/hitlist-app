@@ -622,9 +622,9 @@ export function TaskSheet({
             )}
             {(task.imageUrls?.length ?? 0) > 0 && (
               <p className="mb-3 mt-2 font-mono text-xs text-warn">
-                Screenshots upload to a public temp host so the agent can read
-                them — anyone with the link can view them. Nothing sensitive.
-                Auto-deletes within 72h, so deploy soon after attaching.
+                Screenshots upload to a public host so the agent can read them —
+                anyone with the link can view them. Nothing sensitive. Deleted
+                when the PR merges or you remove them.
               </p>
             )}
             {uploadError && (

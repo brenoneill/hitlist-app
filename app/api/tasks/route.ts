@@ -1,4 +1,5 @@
 import { requireUserId } from "@/auth";
+import { deleteImages } from "@/app/lib/catbox";
 import {
   addTask,
   listTasks,
@@ -158,6 +159,8 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
         if (state === "merged") {
           patch.status = "done";
           patch.mergedAt = new Date().toISOString();
+          await deleteImages(task.imageUrls);
+          if (task.imageUrls?.length) patch.imageUrls = undefined;
         }
       }
       // last, and gated on the state just polled above: a 403 before the

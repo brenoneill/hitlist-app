@@ -101,7 +101,7 @@ function RepoAccessPanel({
           <p className="text-xs text-muted">
             Add{" "}
             <span className="text-foreground">
-              litter.catbox.moe and catbox.moe
+              files.catbox.moe
             </span>{" "}
             to this repo&apos;s Copilot allowlist so agents can fetch your
             screenshots.{" "}

@@ -203,7 +203,7 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
           <p className="text-xs text-muted">
             For screenshots, open a connected repo below and add{" "}
             <span className="text-foreground">
-              litter.catbox.moe and catbox.moe
+              files.catbox.moe
             </span>{" "}
             to that repo&apos;s Copilot allowlist.
           </p>

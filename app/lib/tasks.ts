@@ -32,7 +32,7 @@ export interface Task {
   dispatchedAt?: string;
   /** Optional extra context included in the agent prompt on dispatch. */
   details?: string;
-  /** User-attached screenshot URLs on litter.catbox.moe (public, expire ~72h). */
+  /** User-attached screenshot URLs on files.catbox.moe (public; deleted on merge/remove). */
   imageUrls?: string[];
   /** Stamped whenever status becomes "done"; orders the completed list. */
   doneAt?: string;
