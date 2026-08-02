@@ -24,6 +24,8 @@
   --animate-crosshair: crosshair-pulse 3.2s ease-in-out infinite;
   --animate-glow: glow-pulse 3.6s ease-in-out infinite;
   --animate-scope: scope-aim 18s ease-in-out infinite;
+  --animate-radio-light: radio-light 2.8s ease-in-out infinite;
+  --animate-radio-shimmer: radio-shimmer 4.8s ease-in-out infinite;
 }
 
 @keyframes slide-up {
@@ -118,6 +120,45 @@
   }
 }
 
+/* Specular gleam that drifts across a selected radio indicator. */
+@keyframes radio-light {
+  0%,
+  100% {
+    transform: translate3d(-55%, -55%, 0);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(55%, 55%, 0);
+    opacity: 0.55;
+  }
+  72% {
+    opacity: 0;
+  }
+}
+
+/* Soft band that sweeps behind selected radio card labels. */
+@keyframes radio-shimmer {
+  0%,
+  15% {
+    transform: translate3d(-130%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    transform: translate3d(230%, 0, 0) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --animate-tab-in-right: fade-in 0.2s ease-out;
@@ -129,6 +170,8 @@
     --animate-crosshair: none;
     --animate-glow: none;
     --animate-scope: none;
+    --animate-radio-light: none;
+    --animate-radio-shimmer: none;
   }
 }
 

@@ -11,7 +11,8 @@ export type RadioCardOption<T extends string> = {
 };
 
 /**
- * Equal-width card radiogroup with icon tile and selection dot.
+ * Equal-width card radiogroup with icon tile and selection dot
+ * (selected cards shimmer behind the label; dots get a specular light).
  * @param ariaLabel - Accessible name for the radiogroup.
  * @param value - Selected option id.
  * @param onChange - Called when the user picks an option.
@@ -50,7 +51,7 @@ export function RadioCardGroup<T extends string>({
             aria-checked={selected}
             aria-label={o.ariaLabel ?? o.label}
             onClick={() => onChange(o.id)}
-            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors outline-none focus-visible:border-info ${
+            className={`relative flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden rounded-xl border px-3 py-2.5 transition-colors outline-none focus-visible:border-info ${
               compactLabel ? "justify-center lg:justify-start" : "text-left"
             } ${
               selected
@@ -58,8 +59,14 @@ export function RadioCardGroup<T extends string>({
                 : "border-edge bg-background text-muted hover:text-foreground"
             }`}
           >
+            {selected ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-radio-shimmer bg-gradient-to-r from-transparent via-white/12 to-transparent will-change-transform motion-reduce:hidden"
+              />
+            ) : null}
             <span
-              className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
+              className={`relative z-10 flex size-8 shrink-0 items-center justify-center rounded-lg border ${
                 selected
                   ? "border-info/40 bg-info/15 text-foreground"
                   : "border-edge bg-surface text-muted"
@@ -72,24 +79,28 @@ export function RadioCardGroup<T extends string>({
                 <span className="sr-only lg:hidden">{o.label}</span>
                 <span
                   aria-hidden
-                  className="hidden min-w-0 flex-1 truncate text-sm font-medium lg:inline"
+                  className="relative z-10 hidden min-w-0 flex-1 truncate text-sm font-medium lg:inline"
                 >
                   {o.label}
                 </span>
               </>
             ) : (
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              <span className="relative z-10 min-w-0 flex-1 truncate text-sm font-medium">
                 {o.label}
               </span>
             )}
             <span
               aria-hidden
-              className={`size-3.5 shrink-0 rounded-full border-2 ${
+              className={`relative z-10 size-3.5 shrink-0 overflow-hidden rounded-full border-2 ${
                 selected
                   ? "border-info bg-info shadow-[0_0_8px_rgba(59,130,246,0.45)]"
                   : "border-edge bg-transparent"
               }`}
-            />
+            >
+              {selected ? (
+                <span className="pointer-events-none absolute inset-[-40%] animate-radio-light rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.75)_0%,rgba(255,255,255,0.2)_35%,transparent_65%)] will-change-transform motion-reduce:hidden" />
+              ) : null}
+            </span>
           </button>
         );
       })}
