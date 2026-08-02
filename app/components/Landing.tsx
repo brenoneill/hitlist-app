@@ -323,7 +323,7 @@ function PreviewHitList() {
       <div className="px-4 pb-5 pt-4">
         <div className="mb-4 flex gap-2">
           <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">
-            Name your next hit…
+            -- tags a repo
           </div>
           <div className={`${BLOOD_BUTTON} px-5 opacity-40`}>Mark</div>
         </div>
