@@ -15,6 +15,7 @@ import {
 import {
   LAST_PROVIDER_KEY,
   PROVIDER_IDS,
+  PROVIDER_META,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -177,7 +178,15 @@ function AgentActions({
   return (
     <>
       <div className="mb-5 flex flex-col gap-1">
-        <StatusBadge task={lead} />
+        <div className="flex items-center gap-1.5">
+          {lead.provider && (
+            <Icon
+              name={PROVIDER_META[lead.provider].icon}
+              className="size-3.5 shrink-0 text-muted"
+            />
+          )}
+          <StatusBadge task={lead} />
+        </div>
         {lead.status === "running" && lead.dispatchedAt && (
           <p className="font-mono text-xs text-warn">
             Working for {elapsed(lead.dispatchedAt)}
