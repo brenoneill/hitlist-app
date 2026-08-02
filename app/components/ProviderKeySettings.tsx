@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/app/components/Icons";
-import { PROVIDER_META, type ProviderId } from "@/app/lib/providerMeta";
+import {
+  CURSOR_ARTIFACTS_GITHUB_URL,
+  CURSOR_ARTIFACTS_TIP_KEY,
+  PROVIDER_META,
+  type ProviderId,
+} from "@/app/lib/providerMeta";
 import {
   useClearProviderKey,
   useProviderKeys,
@@ -18,12 +23,30 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  // null until mounted — avoids flashing the tip after a prior dismiss
+  const [artifactsTipDone, setArtifactsTipDone] = useState<boolean | null>(
+    null,
+  );
   const { data, isPending: loading } = useProviderKeys();
   const save = useSaveProviderKey();
   const clear = useClearProviderKey();
   const hasKey = data?.[provider] ?? false;
   const busy = loading || save.isPending || clear.isPending;
   const canSave = key.trim().length > 0;
+  const showArtifactsTip =
+    provider === "cursor" && hasKey && artifactsTipDone === false;
+
+  useEffect(() => {
+    if (provider !== "cursor") return;
+    setArtifactsTipDone(
+      localStorage.getItem(CURSOR_ARTIFACTS_TIP_KEY) === "1",
+    );
+  }, [provider]);
+
+  function ackArtifactsTip() {
+    localStorage.setItem(CURSOR_ARTIFACTS_TIP_KEY, "1");
+    setArtifactsTipDone(true);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -155,6 +178,35 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
               </div>
             )}
           </form>
+        </div>
+      )}
+
+      {showArtifactsTip && (
+        <div className="border-t border-edge px-4 py-3">
+          <p className="text-xs text-muted">
+            Turn on{" "}
+            <span className="text-foreground">
+              Allow posting artifacts to GitHub
+            </span>{" "}
+            so screenshots show up inline in PRs.{" "}
+            <a
+              href={CURSOR_ARTIFACTS_GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4"
+            >
+              Open Cursor settings ↗
+            </a>
+          </p>
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={ackArtifactsTip}
+              className="size-3.5 shrink-0 accent-blood"
+            />
+            I&apos;ve turned this on
+          </label>
         </div>
       )}
     </div>

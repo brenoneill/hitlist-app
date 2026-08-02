@@ -50,9 +50,9 @@ const VISIBLE_CAP = 5;
 
 /**
  * Expanded repo row: notes injected into every dispatch prompt for this repo, a
- * one-click canned task that sends an agent to build a secrets-free demo mode in
- * the repo itself, and the picker visibility toggle. Mounted only while open, so
- * the notes fetch is lazy and edits reset on close.
+ * one-click canned task for secrets-free demo login + run docs in AGENTS.md, and
+ * the picker visibility toggle. Mounted only while open, so the notes fetch is
+ * lazy and edits reset on close.
  */
 function RepoAccessPanel({
   repo,
@@ -133,7 +133,9 @@ function RepoAccessPanel({
         </button>
         <p className="mt-2 text-xs text-muted">
           No demo mode yet? This sends an agent to add a secrets-free demo login
-          + AGENTS.md to the repo — review and deploy it from your list.
+          and how-to-run notes in AGENTS.md — review and deploy it from your
+          list. HitList playbook rules land automatically on normal task
+          dispatch.
         </p>
       </div>
 

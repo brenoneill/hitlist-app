@@ -8,21 +8,27 @@ import {
   getProviderKey,
 } from "@/app/lib/userSettings";
 import {
-  optionSections,
   optionsForMode,
+  resolveVisualConfirmation,
+  type VisualConfirmationId,
 } from "@/app/lib/prOptions";
+import { playbookBootstrap } from "@/app/lib/hitlistPlaybook";
 
-const WORKING_AGREEMENT = `## Working agreement
-- Keep changes focused on this task; don't refactor unrelated code.
-- Follow the repo's existing patterns and conventions.
-- If anything is ambiguous, pick the simplest reasonable interpretation and note the assumption in the PR description.
-- Open a PR with a clear summary of what changed and why.`;
-
-/** Wraps task title(s) + optional details in the standard agent prompt. */
+/**
+ * Thin kickoff: HITLIST_RUN + playbook bootstrap + task body.
+ * Stable rules live in public/playbook/ (base + selected skills), composed
+ * into the target repo as HITLIST.md.
+ * @param origin - HitList app origin for playbook part URLs.
+ * @param members - Tasks included in this dispatch (one or a group).
+ * @param provider - Agent provider; selects which visual skill to include.
+ * @param mode - Visual confirmation mode; selects which visual skill to include.
+ * @param accessNotes - Optional per-repo notes from user settings.
+ */
 function buildPrompt(
+  origin: string,
   members: Task[],
-  options: readonly string[],
   provider: ProviderId,
+  mode: VisualConfirmationId,
   accessNotes?: string,
 ): string {
   const body =
@@ -51,16 +57,15 @@ function buildPrompt(
   const notesSection = accessNotes
     ? `## Repo access notes (from the user)\nHow to run this app and get past login for testing/screenshots:\n${accessNotes}\n\n`
     : "";
-  const sections = optionSections(options, provider).map((s) => `${s}\n\n`);
-  return `${body}\n\n${imageSection}${notesSection}${sections.join("")}${WORKING_AGREEMENT}`;
+  return `${playbookBootstrap(origin, provider, mode)}\n\n${body}\n\n${imageSection}${notesSection}`.trimEnd();
 }
 
 /**
  * Dispatches an inbox task — or, if the task is grouped, its whole group — to
- * ONE cloud agent. The prompt is built by `buildPrompt` (title/bullet
- * list + optional per-task context + working agreement); a group's repo is the
- * first member's with one. Pass `redeploy: true` to replace an existing agent
- * with a fresh run (clears prior run/PR fields).
+ * ONE cloud agent. The prompt is built by `buildPrompt` (HITLIST_RUN playbook
+ * bootstrap + title/bullet list + optional per-task context); a group's repo is
+ * the first member's with one. Pass `redeploy: true` to replace an existing
+ * agent with a fresh run (clears prior run/PR fields).
  * @param req - Optional JSON body with `provider` to pick the agent provider (default: Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Settings default), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
@@ -154,12 +159,15 @@ export async function POST(
     // absent body ⇒ user's Settings default; explicit [] means none required
     const resolvedOptions =
       options ?? optionsForMode(defaults.visualConfirmation);
+    const mode = resolveVisualConfirmation(resolvedOptions);
     const resolvedModel = model ?? defaults.model ?? undefined;
+    const origin = new URL(req.url).origin;
     const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(
+        origin,
         members,
-        resolvedOptions,
         provider,
+        mode,
         await getAgentAccessNotes(userId, repoUrl),
       ),
       repoUrl,
