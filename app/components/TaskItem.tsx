@@ -132,9 +132,6 @@ export function TaskItemLinks({
           onClick={(e) => e.stopPropagation()}
           className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-muted active:text-blood"
         >
-          {task.provider && (
-            <Icon name={PROVIDER_META[task.provider].icon} className="size-3.5" />
-          )}
           <span className="sr-only">View agent</span>
           <Icon name="external" className="size-3.5" />
         </a>
