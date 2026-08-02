@@ -26,8 +26,8 @@ const WISHLIST = [
 const STORAGE_KEY = "providerWishes";
 
 /**
- * Lets visitors vote on which agent provider to support next. One wish per
- * provider per browser; wished chips stay marked on return visits.
+ * Lets visitors vote on which agent provider to support next. Wishes persist
+ * per browser; tapping a wished chip unselects it.
  *
  * @param compact - Settings-tab scale (matches the surrounding step blocks)
  *   instead of the landing page's marketing spacing.
@@ -40,14 +40,27 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
     setWished(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"));
   }, []);
 
-  function wish(provider: string) {
-    if (wished.includes(provider)) return;
+  /**
+   * Toggles a provider wish on or off, persists to localStorage, and emits
+   * a `provider_wish` / `provider_unwish` analytics event.
+   *
+   * @param provider - Wishlist provider label to select or unselect.
+   */
+  function toggleWish(provider: string) {
+    const from = compact ? "settings" : "landing";
+    if (wished.includes(provider)) {
+      const next = wished.filter((p) => p !== provider);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setWished(next);
+      track("provider_unwish", { provider, from });
+      return;
+    }
     const next = [...wished, provider];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setWished(next);
     // `from` separates idle landing curiosity from signed-in users who hit
     // the wall in settings — the second is the stronger build signal.
-    track("provider_wish", { provider, from: compact ? "settings" : "landing" });
+    track("provider_wish", { provider, from });
   }
 
   return (
@@ -84,10 +97,12 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
               <Chip
                 variant={sent ? "info" : "muted"}
                 icon={sent ? "check" : undefined}
-                onClick={() => wish(provider)}
-                disabled={sent}
+                onClick={() => toggleWish(provider)}
+                aria-pressed={sent}
                 aria-label={
-                  sent ? `${provider} — wish sent` : `Wish for ${provider}`
+                  sent
+                    ? `Unselect wish for ${provider}`
+                    : `Wish for ${provider}`
                 }
               >
                 {provider}
