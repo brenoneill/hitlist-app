@@ -358,3 +358,21 @@ export async function getPreviewUrl(
   const [deployment] = await listDeployments(repoUrl, branch, installationId);
   return deployment?.url;
 }
+
+/**
+ * Fetches a GitHub-hosted PR asset (screenshot in a PR body) with the
+ * installation token, for the image proxy. A cross-site <img> load carries no
+ * github.com cookies, so private-repo assets are unreachable from the browser.
+ * ponytail: installation tokens may not authorize every attachment host — the
+ * caller falls back to a redirect when this fails.
+ */
+export async function fetchGithubAsset(
+  url: string,
+  installationId: string,
+): Promise<Response> {
+  const token = await getInstallationToken(installationId);
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: "follow",
+  });
+}

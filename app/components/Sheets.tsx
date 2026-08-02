@@ -27,9 +27,11 @@ import {
 import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
 import {
   StatusBadge,
+  agentIcon,
   deployable,
   prIcon,
   redeployable,
+  workspaceHref,
 } from "@/app/components/TaskItem";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
@@ -71,7 +73,7 @@ function useQuickRedeploy() {
 }
 
 /** Bottom sheet: sizes to content up to 92dvh, slides up on open / down on close. */
-function Sheet({
+export function Sheet({
   onClose,
   children,
 }: {
@@ -213,9 +215,7 @@ function AgentActions({
 
       {lead.prUrl && (
         <Button
-          href={lead.prUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={workspaceHref(lead, "pr")}
           variant={lead.status === "done" ? "ok" : "info"}
           className="mb-3 flex w-full items-center justify-center gap-2"
         >
@@ -306,25 +306,12 @@ function AgentActions({
 
       {(lead.agentId || lead.prUrl) && (
         <Button
-          href={`/app/task/${lead.id}`}
+          href={workspaceHref(lead, "agent")}
           variant="outline"
           className="mb-3 flex w-full items-center justify-center gap-2 active:bg-background"
         >
           <Icon name="crosshair" className="size-4" />
           Open workspace
-        </Button>
-      )}
-
-      {lead.agentUrl && (
-        <Button
-          href={lead.agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outline"
-          className="mb-3 flex w-full items-center justify-center gap-2 active:bg-background"
-        >
-          View agent
-          <Icon name="external" className="size-4" />
         </Button>
       )}
 
@@ -472,13 +459,11 @@ export function TaskSheet({
           )}
           {task.agentUrl && (
             <MenuItem
-              icon="external"
-              href={task.agentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              icon={agentIcon(task)}
+              href={workspaceHref(task, "agent")}
               onClick={() => setMenuOpen(false)}
             >
-              View agent
+              Open workspace
             </MenuItem>
           )}
           <MenuItem
@@ -732,13 +717,11 @@ export function GroupSheet({
           )}
           {lead.agentUrl && (
             <MenuItem
-              icon="external"
-              href={lead.agentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              icon={agentIcon(lead)}
+              href={workspaceHref(lead, "agent")}
               onClick={() => setMenuOpen(false)}
             >
-              View agent
+              Open workspace
             </MenuItem>
           )}
           <MenuItem
