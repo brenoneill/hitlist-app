@@ -7,7 +7,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
 
 /**
  * Providers HitList can't dispatch to yet. Wishes land in Vercel Analytics as
- * `provider_wish` events — the dashboard breakdown is the tally.
+ * `provider_wish` / `provider_unwish` events — the dashboard breakdown is the tally.
  *
  * Shipping one: add it to PROVIDER_META + providers.ts, then drop it here.
  */
