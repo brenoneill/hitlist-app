@@ -382,7 +382,7 @@ export default function Home() {
                       onKeyDown={onTitleKeyDown}
                       placeholder={
                         signedIn
-                          ? "Name your next hit… (-- tags a repo)"
+                          ? "-- tags a repo"
                           : "Sign in to mark hits…"
                       }
                       enterKeyHint="done"
