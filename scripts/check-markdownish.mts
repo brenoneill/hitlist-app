@@ -1,7 +1,12 @@
 // Runnable check for the Markdownish tokenizer — the one bit of parsing in the UI.
 // Usage: npx tsx scripts/check-markdownish.mts
 import assert from "node:assert/strict";
-import { extractImages, stripImages, tokenize } from "../app/lib/markdownish";
+import {
+  cleanPrBody,
+  extractImages,
+  stripImages,
+  tokenize,
+} from "../app/lib/markdownish";
 
 // plain prose is one text token; empty input is no tokens
 assert.deepEqual(tokenize("just words"), [{ kind: "text", text: "just words" }]);
@@ -107,5 +112,23 @@ assert.deepEqual(
     { kind: "link", url: "https://g.h/1", text: "pr" },
   ],
 );
+
+// cleanPrBody: Cursor begin/end markers and appendix after END are dropped
+assert.equal(
+  cleanPrBody(
+    "<!-- CURSOR_AGENT_PR_BODY_BEGIN -->\n### TL;DR\nShip it.\n<!-- CURSOR_AGENT_PR_BODY_END -->\n" +
+      '<div><a href="https://cursor.com/agents/bc-x"><img src="https://cursor.com/assets/images/open-in-web-dark.png"></a></div>',
+  ),
+  "### TL;DR\nShip it.",
+);
+assert.equal(
+  cleanPrBody("preface\n<!-- CURSOR_AGENT_PR_BODY_END -->\n<footer junk>"),
+  "preface",
+);
+assert.equal(
+  cleanPrBody("<!-- CURSOR_AGENT_PR_BODY_BEGIN -->\nonly begin"),
+  "only begin",
+);
+assert.equal(cleanPrBody("plain body <!-- note --> kept"), "plain body  kept");
 
 console.log("markdownish: ok");

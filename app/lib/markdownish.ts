@@ -21,6 +21,35 @@ function imgAttr(tag: string, name: string): string {
 // ponytail: tag-stripping only, real HTML rendering never
 const NOISE_TAGS = /<\/?(?:details|summary|p)[^>]*>|<br\s*\/?>/gi;
 
+const PR_BODY_BEGIN = /<!--\s*CURSOR_AGENT_PR_BODY_BEGIN\s*-->/i;
+const PR_BODY_END = /<!--\s*CURSOR_AGENT_PR_BODY_END\s*-->/i;
+const HTML_COMMENT = /<!--[\s\S]*?-->/g;
+
+/**
+ * Keeps the agent-written PR write-up and drops Cursor wrapper tags plus
+ * anything after the body end marker (footer badges / appendix HTML).
+ *
+ * @param body - Raw GitHub PR body, possibly wrapped in Cursor markers.
+ * @returns Trimmed prose between the markers (or the body with comments stripped).
+ */
+export function cleanPrBody(body: string): string {
+  let text = body;
+  const beginAt = text.search(PR_BODY_BEGIN);
+  const endAt = text.search(PR_BODY_END);
+
+  if (beginAt !== -1 && endAt !== -1 && endAt > beginAt) {
+    const afterBegin = text.slice(beginAt).replace(PR_BODY_BEGIN, "");
+    const endInSlice = afterBegin.search(PR_BODY_END);
+    text = endInSlice === -1 ? afterBegin : afterBegin.slice(0, endInSlice);
+  } else if (endAt !== -1) {
+    text = text.slice(0, endAt);
+  } else if (beginAt !== -1) {
+    text = text.replace(PR_BODY_BEGIN, "");
+  }
+
+  return text.replace(HTML_COMMENT, "").trim();
+}
+
 /**
  * Splits agent/PR prose into text, inline images and links. Cursor posts its
  * artifacts as markdown images or HTML <img> tags in the PR body, so this is
