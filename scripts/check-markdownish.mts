@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   cleanPrBody,
   extractImages,
+  parseBlocks,
+  parseInline,
   stripImages,
   tokenize,
 } from "../app/lib/markdownish";
@@ -130,5 +132,95 @@ assert.equal(
   "only begin",
 );
 assert.equal(cleanPrBody("plain body <!-- note --> kept"), "plain body  kept");
+
+// parseInline: bold, code, links — GitHub/Cursor description chrome
+assert.deepEqual(parseInline("use `Sheet` and **review** it"), [
+  { kind: "text", text: "use " },
+  { kind: "code", text: "Sheet" },
+  { kind: "text", text: " and " },
+  { kind: "strong", children: [{ kind: "text", text: "review" }] },
+  { kind: "text", text: " it" },
+]);
+assert.deepEqual(parseInline("see [pr](https://g.h/1)."), [
+  { kind: "text", text: "see " },
+  { kind: "link", url: "https://g.h/1", text: "pr" },
+  { kind: "text", text: "." },
+]);
+// snake_case must not become italic
+assert.deepEqual(parseInline("snap_mandatory ok"), [
+  { kind: "text", text: "snap_mandatory ok" },
+]);
+
+// parseBlocks: headings, lists, fenced code, paragraphs
+assert.deepEqual(
+  parseBlocks("### TL;DR\n\nShip **it**.\n\n- one `a`\n- two\n\n1. first\n2. second"),
+  [
+    {
+      kind: "heading",
+      level: 3,
+      children: [{ kind: "text", text: "TL;DR" }],
+    },
+    {
+      kind: "paragraph",
+      children: [
+        { kind: "text", text: "Ship " },
+        { kind: "strong", children: [{ kind: "text", text: "it" }] },
+        { kind: "text", text: "." },
+      ],
+    },
+    {
+      kind: "list",
+      ordered: false,
+      items: [
+        [
+          { kind: "text", text: "one " },
+          { kind: "code", text: "a" },
+        ],
+        [{ kind: "text", text: "two" }],
+      ],
+    },
+    {
+      kind: "list",
+      ordered: true,
+      items: [
+        [{ kind: "text", text: "first" }],
+        [{ kind: "text", text: "second" }],
+      ],
+    },
+  ],
+);
+
+assert.deepEqual(parseBlocks("```ts\nconst x = 1;\n```"), [
+  { kind: "code", lang: "ts", text: "const x = 1;" },
+]);
+
+// hideImages drops gallery shots so Description prose stays tight
+assert.deepEqual(
+  parseBlocks("### Shots\n\n![a](https://x.dev/a.png)\n\nDone.", { hideImages: true }),
+  [
+    {
+      kind: "heading",
+      level: 3,
+      children: [{ kind: "text", text: "Shots" }],
+    },
+    {
+      kind: "paragraph",
+      children: [{ kind: "text", text: "Done." }],
+    },
+  ],
+);
+
+// recording_ref chrome is stripped; inner label kept as prose
+assert.deepEqual(
+  parseBlocks(
+    '<recording_ref src="/opt/cursor/artifacts/x.mp4">Swipe left</recording_ref>',
+  ),
+  [
+    {
+      kind: "paragraph",
+      children: [{ kind: "text", text: "Swipe left" }],
+    },
+  ],
+);
 
 console.log("markdownish: ok");

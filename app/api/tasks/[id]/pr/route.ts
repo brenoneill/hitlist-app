@@ -15,11 +15,14 @@ const E2E_PR_FIXTURE = {
     "### Data shape\n" +
     "No data shape changes.\n\n" +
     "### Components\n" +
-    "- Reused existing fold chrome in settings.\n\n" +
+    "- Reused fold chrome in `RepoSections` (`details` / `summary`).\n" +
+    "- Persistence helpers live in `app/settings/persist.ts`.\n\n" +
     "### Rationale\n" +
-    "- Collapsed by default keeps the phone review short.\n\n" +
+    "- Collapsed by default keeps the phone review short.\n" +
+    "- Open state is per-repo in `localStorage`, not a new settings field.\n\n" +
     "### Review guide\n" +
-    "1. `app/settings/RepoSections.tsx` — **review**: open state persistence.\n\n" +
+    "1. **`app/settings/RepoSections.tsx`** — **review**: open state persistence.\n" +
+    "2. **`app/settings/persist.ts`** — **mechanical**: localStorage helpers.\n\n" +
     '<img src="https://placehold.co/640x360/png?text=Collapsed" alt="Repos collapsed by default">\n' +
     '<img src="https://placehold.co/640x400/png?text=Expanded" alt="Expanded on tap">\n\n' +
     "<details><summary>Notes</summary>State persists per repo in localStorage.</details>\n" +

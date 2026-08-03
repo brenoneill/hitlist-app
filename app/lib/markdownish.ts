@@ -3,8 +3,22 @@ export type Token =
   | { kind: "image"; url: string; alt: string }
   | { kind: "link"; url: string; text: string };
 
+export type Inline =
+  | { kind: "text"; text: string }
+  | { kind: "code"; text: string }
+  | { kind: "strong"; children: Inline[] }
+  | { kind: "em"; children: Inline[] }
+  | { kind: "link"; url: string; text: string }
+  | { kind: "image"; url: string; alt: string };
+
+export type Block =
+  | { kind: "heading"; level: number; children: Inline[] }
+  | { kind: "paragraph"; children: Inline[] }
+  | { kind: "list"; ordered: boolean; items: Inline[][] }
+  | { kind: "code"; lang: string; text: string };
+
 // ![alt](url) | [text](url) | <img …> | bare url — in that order, so an image
-// never matches as a link. Nothing else is markdown here.
+// never matches as a link. Used by extractImages / legacy tokenize.
 const PATTERN =
   /!\[([^\]]*)\]\(([^\s)]+)\)|\[([^\]]*)\]\(([^\s)]+)\)|(<img\b[^>]*>)|(https?:\/\/[^\s<>()[\]]+)/g;
 
@@ -19,7 +33,8 @@ function imgAttr(tag: string, name: string): string {
 }
 
 // ponytail: tag-stripping only, real HTML rendering never
-const NOISE_TAGS = /<\/?(?:details|summary|p)[^>]*>|<br\s*\/?>/gi;
+const NOISE_TAGS =
+  /<\/?(?:details|summary|p|div|span)[^>]*>|<br\s*\/?>|<\/?recording_ref\b[^>]*>/gi;
 
 const PR_BODY_BEGIN = /<!--\s*CURSOR_AGENT_PR_BODY_BEGIN\s*-->/i;
 const PR_BODY_END = /<!--\s*CURSOR_AGENT_PR_BODY_END\s*-->/i;
@@ -50,6 +65,13 @@ export function cleanPrBody(body: string): string {
   return text.replace(HTML_COMMENT, "").trim();
 }
 
+function preprocess(body: string): string {
+  return body
+    .replace(NOISE_TAGS, "\n")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 /**
  * Splits agent/PR prose into text, inline images and links. Cursor posts its
  * artifacts as markdown images or HTML <img> tags in the PR body, so this is
@@ -63,7 +85,7 @@ export function tokenize(body: string): Token[] {
     out.push(t);
   };
 
-  const text = body.replace(NOISE_TAGS, "\n");
+  const text = preprocess(body);
   for (const m of text.matchAll(PATTERN)) {
     const [whole, imgAlt, imgUrl, linkText, linkUrl, imgTag, bare] = m;
     // trailing sentence punctuation is prose, not part of a bare url
@@ -123,4 +145,178 @@ export function extractImages(
     }
   }
   return out;
+}
+
+// Asterisks only for emphasis — underscores collide with snake_case paths.
+const INLINE_PATTERN =
+  /(!\[([^\]]*)\]\(([^\s)]+)\))|(\[([^\]]*)\]\(([^\s)]+)\))|(<img\b[^>]*>)|(`+)([^`]+)\8|(\*\*)(.+?)\10|(?<!\*)\*(?!\*)([^*]+?)\*(?!\*)|(https?:\/\/[^\s<>()[\]]+)/g;
+
+/**
+ * Parses inline markdown: images, links, code, bold, italic, bare urls.
+ *
+ * @param text - A single block's inline source (no block structure).
+ * @returns Inline nodes safe to render (non-http urls stay as text).
+ */
+export function parseInline(text: string): Inline[] {
+  const out: Inline[] = [];
+  let last = 0;
+  const pushText = (value: string) => {
+    if (!value) return;
+    const prev = out[out.length - 1];
+    if (prev?.kind === "text") prev.text += value;
+    else out.push({ kind: "text", text: value });
+  };
+
+  for (const m of text.matchAll(INLINE_PATTERN)) {
+    const index = m.index ?? 0;
+    pushText(text.slice(last, index));
+    const [
+      whole,
+      ,
+      imgAlt,
+      imgUrl,
+      ,
+      linkText,
+      linkUrl,
+      imgTag,
+      ,
+      codeBody,
+      ,
+      strongBody,
+      emBody,
+      bare,
+    ] = m;
+
+    if (imgUrl !== undefined) {
+      const url = safeUrl(imgUrl);
+      if (url) out.push({ kind: "image", url, alt: imgAlt ?? "" });
+      else pushText(whole);
+    } else if (imgTag !== undefined) {
+      const url = safeUrl(imgAttr(imgTag, "src"));
+      if (url) out.push({ kind: "image", url, alt: imgAttr(imgTag, "alt") });
+      else pushText(whole);
+    } else if (linkUrl !== undefined) {
+      const url = safeUrl(linkUrl);
+      if (url) out.push({ kind: "link", url, text: linkText || url });
+      else pushText(whole);
+    } else if (codeBody !== undefined) {
+      out.push({ kind: "code", text: codeBody });
+    } else if (strongBody !== undefined) {
+      out.push({ kind: "strong", children: parseInline(strongBody) });
+    } else if (emBody !== undefined) {
+      out.push({ kind: "em", children: parseInline(emBody) });
+    } else if (bare !== undefined) {
+      const trimmed = bare.replace(/[.,;:!?]+$/, "");
+      const url = safeUrl(trimmed);
+      if (url) {
+        out.push({ kind: "link", url, text: url });
+        pushText(bare.slice(trimmed.length));
+      } else pushText(whole);
+    }
+    last = index + whole.length;
+  }
+  pushText(text.slice(last));
+  return out;
+}
+
+function isImageOnly(children: Inline[]): children is [Extract<Inline, { kind: "image" }>] {
+  return children.length === 1 && children[0]?.kind === "image";
+}
+
+/**
+ * Parses GitHub/Cursor-style markdown into blocks (headings, lists, code, paragraphs).
+ *
+ * @param body - Cleaned PR / agent prose.
+ * @param opts.hideImages - Drop image-only lines (gallery already shows them).
+ * @returns Block tree for Markdownish.
+ */
+export function parseBlocks(
+  body: string,
+  opts: { hideImages?: boolean } = {},
+): Block[] {
+  const text = preprocess(body);
+  const lines = text.split("\n");
+  const blocks: Block[] = [];
+  let i = 0;
+
+  const flushParagraph = (buf: string[]) => {
+    const joined = buf.join("\n").trim();
+    if (!joined) return;
+    const children = parseInline(joined);
+    if (opts.hideImages && isImageOnly(children)) return;
+    if (opts.hideImages) {
+      const filtered = children.filter((c) => c.kind !== "image");
+      if (filtered.length === 0) return;
+      blocks.push({ kind: "paragraph", children: filtered });
+      return;
+    }
+    blocks.push({ kind: "paragraph", children });
+  };
+
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    const fence = line.match(/^```([\w-.]*)\s*$/);
+    if (fence) {
+      const lang = fence[1] ?? "";
+      const chunk: string[] = [];
+      i += 1;
+      while (i < lines.length && !/^```\s*$/.test(lines[i] ?? "")) {
+        chunk.push(lines[i] ?? "");
+        i += 1;
+      }
+      if (i < lines.length) i += 1; // closing fence
+      blocks.push({ kind: "code", lang, text: chunk.join("\n") });
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (heading) {
+      blocks.push({
+        kind: "heading",
+        level: heading[1].length,
+        children: parseInline(heading[2]),
+      });
+      i += 1;
+      continue;
+    }
+
+    const ul = line.match(/^[-*+]\s+(.+)$/);
+    const ol = line.match(/^\d+\.\s+(.+)$/);
+    if (ul || ol) {
+      const ordered = !!ol;
+      const items: Inline[][] = [];
+      while (i < lines.length) {
+        const cur = lines[i] ?? "";
+        const item = ordered
+          ? cur.match(/^\d+\.\s+(.+)$/)
+          : cur.match(/^[-*+]\s+(.+)$/);
+        if (!item) break;
+        items.push(parseInline(item[1]));
+        i += 1;
+      }
+      blocks.push({ kind: "list", ordered, items });
+      continue;
+    }
+
+    const buf: string[] = [];
+    while (i < lines.length) {
+      const cur = lines[i] ?? "";
+      if (!cur.trim()) break;
+      if (/^```/.test(cur)) break;
+      if (/^#{1,6}\s+/.test(cur)) break;
+      if (/^[-*+]\s+/.test(cur)) break;
+      if (/^\d+\.\s+/.test(cur)) break;
+      buf.push(cur);
+      i += 1;
+    }
+    flushParagraph(buf);
+  }
+
+  return blocks;
 }
