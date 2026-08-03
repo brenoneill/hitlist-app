@@ -50,7 +50,7 @@ export default function TaskWorkspace() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <AppHeader backHref="/app" />
+      <AppHeader />
 
       {!task ? (
         isLoading ? (
