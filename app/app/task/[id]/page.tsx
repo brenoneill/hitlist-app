@@ -3,23 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import type { Task } from "@/app/lib/tasks";
-import {
-  useSendMessage,
-  useTaskMessages,
-  useTasks,
-} from "@/app/lib/queries";
+import { useTasks } from "@/app/lib/queries";
 import { PROVIDER_META } from "@/app/lib/providerMeta";
-import { Button } from "@/app/components/Button";
+import { Conversation } from "@/app/components/Conversation";
 import { Icon } from "@/app/components/Icons";
 import { PrTab } from "@/app/components/PrTab";
 import { elapsed } from "@/app/components/Sheets";
 import { TabPanel, Tabs } from "@/app/components/Tabs";
-import { StatusBadge, wasDeployed } from "@/app/components/TaskItem";
-import { ErrorText } from "@/app/components/ui/ErrorText";
-import { Markdownish } from "@/app/components/ui/Markdownish";
+import { StatusBadge } from "@/app/components/TaskItem";
 import { Skeleton } from "@/app/components/ui/Skeleton";
-import { Textarea } from "@/app/components/ui/Textarea";
 
 type WorkspaceTab = "agent" | "pr";
 
@@ -117,7 +109,7 @@ export default function TaskWorkspace() {
             onChange={setPicked}
           >
             <TabPanel id="agent">
-              <Conversation task={task} />
+              <Conversation task={task} onShowPr={() => setPicked("pr")} />
             </TabPanel>
             <TabPanel id="pr">
               <PrTab task={task} />
@@ -150,116 +142,4 @@ function TabBarSkeleton() {
   );
 }
 
-function Conversation({ task }: { task: Task }) {
-  const [draft, setDraft] = useState("");
-  const running = task.status === "running";
-  const { data: messages } = useTaskMessages(task.id, running);
-  const sendMessage = useSendMessage(task.id);
-  const supportsFollowups =
-    !!task.provider && PROVIDER_META[task.provider].supportsFollowups;
-
-  // pre-feature dispatches have no stored turns — synthesize the prompt from the
-  // task; the run summary has its own home in the PR tab
-  const shown = messages?.length
-    ? messages
-    : [
-        {
-          id: "local-prompt",
-          role: "user" as const,
-          body:
-            `# Task\n${task.title}` +
-            (task.details ? `\n\n## Context\n${task.details}` : ""),
-        },
-      ];
-
-  function send() {
-    const text = draft.trim();
-    if (!text) return;
-    sendMessage.mutate(text, { onSuccess: () => setDraft("") });
-  }
-
-  if (!wasDeployed(task) && !messages?.length) {
-    return (
-      <p className="mb-6 font-mono text-xs text-muted">
-        No agent deployed yet — deploy from the hitlist to start.
-      </p>
-    );
-  }
-
-  return (
-    <section className="mb-6">
-      {supportsFollowups && task.agentUrl && (
-        <p className="mb-2 text-right">
-          <a
-            href={task.agentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whitespace-nowrap font-mono text-xs text-muted underline underline-offset-4"
-          >
-            Open agent ↗
-          </a>
-        </p>
-      )}
-      <div className="flex flex-col gap-2">
-        {shown.map((m) => (
-          <div
-            key={m.id}
-            className={`max-w-[88%] rounded-xl border px-4 py-3 text-sm ${
-              m.role === "user"
-                ? "self-end border-blood/30 bg-blood/10"
-                : "self-start border-edge bg-surface text-muted"
-            }`}
-          >
-            <Markdownish text={m.body} />
-          </div>
-        ))}
-        {running && (
-          <p className="self-start font-mono text-[11px] uppercase tracking-widest text-warn animate-pulse">
-            Agent working…
-          </p>
-        )}
-      </div>
-
-      {supportsFollowups && task.agentId ? (
-        <div className="mt-3">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={
-              running
-                ? "Agent is working — reply when it finishes"
-                : "Send a follow-up… (pushes to the same PR)"
-            }
-            disabled={running || sendMessage.isPending}
-            aria-label="Follow-up for the agent"
-            className="min-h-[3.5rem]"
-          />
-          <Button
-            onClick={send}
-            disabled={running || sendMessage.isPending || !draft.trim()}
-            className="mt-2 w-full"
-          >
-            {sendMessage.isPending ? "Sending…" : "Send follow-up"}
-          </Button>
-          {sendMessage.error && (
-            <ErrorText className="mt-2">{sendMessage.error.message}</ErrorText>
-          )}
-        </div>
-      ) : (
-        task.agentUrl && (
-          <Button
-            href={task.agentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outline"
-            className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
-          >
-            Continue with the agent
-            <Icon name="external" className="size-4" />
-          </Button>
-        )
-      )}
-    </section>
-  );
-}
 

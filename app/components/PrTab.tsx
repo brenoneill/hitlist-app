@@ -19,7 +19,7 @@ import { Skeleton } from "@/app/components/ui/Skeleton";
  * cross-site <img> load never carries — route those through our installation-token
  * proxy. Everything else (catbox, cursor.com artifacts) loads directly.
  */
-function isGithubHost(url: string): boolean {
+export function isGithubHost(url: string): boolean {
   try {
     const h = new URL(url).hostname;
     return h === "github.com" || h.endsWith(".githubusercontent.com");
@@ -28,7 +28,7 @@ function isGithubHost(url: string): boolean {
   }
 }
 
-const PR_STATE = {
+export const PR_STATE = {
   open: "text-info",
   merged: "text-ok",
   closed: "text-muted",

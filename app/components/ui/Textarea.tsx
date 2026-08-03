@@ -1,12 +1,15 @@
 import type { TextareaHTMLAttributes } from "react";
 import { fieldClass, type FieldTone } from "@/app/components/ui/fieldClasses";
 
-export type TextareaVariant = "default" | "mono" | "ghost";
+export type TextareaVariant = "default" | "mono" | "ghost" | "pill";
 
 const VARIANT: Record<TextareaVariant, string> = {
   default:
     "field-sizing-content min-h-[5.5rem] w-full resize-none overflow-hidden px-4 py-3 text-base leading-normal",
   mono: "w-full resize-none p-3 font-mono text-xs",
+  // single-line chat composer that grows with content, capped before it takes over the screen
+  pill:
+    "field-sizing-content min-h-0 max-h-32 w-full resize-none overflow-y-auto rounded-full px-4 py-2.5 text-base leading-normal",
   ghost:
     "field-sizing-content w-full resize-none overflow-hidden break-words rounded-xl border border-transparent bg-transparent px-0 py-0 text-lg font-medium outline-none focus:border-edge focus:bg-background focus:px-3 focus:py-2",
 };

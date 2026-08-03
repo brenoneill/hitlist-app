@@ -32,6 +32,8 @@ const E2E_PR_FIXTURE = {
     "</a></div>",
   state: "open",
   draft: false,
+  createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+  mergedAt: undefined,
   headRef: "feat/preview-links",
   headSha: "e2e0000",
   baseRef: "main",

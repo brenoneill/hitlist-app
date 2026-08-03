@@ -163,6 +163,10 @@ export interface PrDetails {
   state: PrState;
   /** True while the PR is still a GitHub draft (agents open drafts by default). */
   draft: boolean;
+  /** GitHub created_at — anchors the "PR opened" timeline event. */
+  createdAt: string;
+  /** GitHub merged_at; fallback when task.mergedAt was never stamped. */
+  mergedAt?: string;
   headRef: string;
   /** Tip commit of the head branch — what deployments are registered against. */
   headSha: string;
@@ -202,6 +206,8 @@ export async function getPrDetails(
     merged: boolean;
     state: string;
     draft: boolean;
+    created_at: string;
+    merged_at: string | null;
     head: { ref: string; sha: string };
     base: { ref: string };
     additions: number;
@@ -218,6 +224,8 @@ export async function getPrDetails(
     body: pr.body ?? undefined,
     state: pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open",
     draft: pr.draft,
+    createdAt: pr.created_at,
+    mergedAt: pr.merged_at ?? undefined,
     headRef: pr.head.ref,
     headSha: pr.head.sha,
     baseRef: pr.base.ref,
