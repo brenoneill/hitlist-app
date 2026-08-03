@@ -310,6 +310,12 @@ function ImageViewer({
   const count = images.length;
   const canNavigate = count > 1;
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // mouse has no native drag-scroll; touch/pen keep the snap strip
+  const mouseDrag = useRef<{
+    id: number;
+    startX: number;
+    startScroll: number;
+  } | null>(null);
 
   function scrollToIndex(next: number, behavior: ScrollBehavior) {
     const el = scrollerRef.current;
@@ -365,6 +371,42 @@ function ImageViewer({
     if (next !== index && next >= 0 && next < count) onIndexChange(next);
   }
 
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!canNavigate || e.pointerType !== "mouse") return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    mouseDrag.current = {
+      id: e.pointerId,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+    };
+    el.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = mouseDrag.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollLeft = drag.startScroll - (e.clientX - drag.startX);
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = mouseDrag.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    mouseDrag.current = null;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const width = el.clientWidth;
+    if (width <= 0) return;
+    const next = Math.max(
+      0,
+      Math.min(count - 1, Math.round(el.scrollLeft / width)),
+    );
+    onIndexChange(next);
+    scrollToIndex(next, "smooth");
+  }
+
   if (!current) return null;
 
   return (
@@ -395,7 +437,13 @@ function ImageViewer({
       <div
         ref={scrollerRef}
         onScroll={onScroll}
-        className="-mx-5 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className={`-mx-5 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          canNavigate ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
       >
         {images.map((img) => (
           <div
