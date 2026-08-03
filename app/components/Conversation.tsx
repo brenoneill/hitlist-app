@@ -24,19 +24,7 @@ interface ShownMessage {
   role: "user" | "agent";
   body: string;
   createdAt?: string;
-  /** Placeholder turn held while the real transcript loads. */
-  pending?: true;
 }
-
-/**
- * Stand-in turns so the timeline's chips and PR card render in their final
- * positions on the first paint — otherwise a one-bubble guess is replaced by
- * the real N turns and everything below it lurches.
- */
-const LOADING_TURNS: ShownMessage[] = [
-  { id: "pending-user", role: "user", body: "", pending: true },
-  { id: "pending-agent", role: "agent", body: "", pending: true },
-];
 
 type TimelineItem =
   | { key: string; kind: "message"; msg: ShownMessage }
@@ -179,31 +167,21 @@ export function Conversation({
     task.id,
     running,
   );
-  const { data: pr } = usePrDetails(task.id, !!task.prUrl);
+  const { data: pr, isLoading: prLoading } = usePrDetails(
+    task.id,
+    !!task.prUrl,
+  );
   const sendMessage = useSendMessage(task.id);
   const supportsFollowups =
     !!task.provider && PROVIDER_META[task.provider].supportsFollowups;
 
-  // pre-feature dispatches have no stored turns — synthesize the prompt from the
-  // task; the run summary has its own home in the PR tab
-  const shown: ShownMessage[] = messages?.length
-    ? messages
-    : messagesLoading
-      ? LOADING_TURNS
-      : [
-          {
-            id: "local-prompt",
-            role: "user" as const,
-            body:
-              `# Task\n${task.title}` +
-              (task.details ? `\n\n## Context\n${task.details}` : ""),
-          },
-        ];
-
-  function send() {
-    const text = draft.trim();
-    if (!text) return;
-    sendMessage.mutate(text, { onSuccess: () => setDraft("") });
+  // Event chips and the PR card sit in the timeline with the turns — hold the
+  // whole tab until both reads land so nothing paints ahead of the rest.
+  if (
+    (messagesLoading && !messages) ||
+    (!!task.prUrl && prLoading && !pr)
+  ) {
+    return <ConversationSkeleton hasPr={!!task.prUrl} />;
   }
 
   if (!wasDeployed(task) && !messages?.length) {
@@ -212,6 +190,26 @@ export function Conversation({
         No agent deployed yet — deploy from the hitlist to start.
       </p>
     );
+  }
+
+  // pre-feature dispatches have no stored turns — synthesize the prompt from the
+  // task; the run summary has its own home in the PR tab
+  const shown: ShownMessage[] = messages?.length
+    ? messages
+    : [
+        {
+          id: "local-prompt",
+          role: "user" as const,
+          body:
+            `# Task\n${task.title}` +
+            (task.details ? `\n\n## Context\n${task.details}` : ""),
+        },
+      ];
+
+  function send() {
+    const text = draft.trim();
+    if (!text) return;
+    sendMessage.mutate(text, { onSuccess: () => setDraft("") });
   }
 
   return (
@@ -225,15 +223,9 @@ export function Conversation({
                 item.msg.role === "user"
                   ? "self-end border-blood/30 bg-blood/10"
                   : "self-start border-edge bg-surface text-muted"
-              } ${item.msg.pending ? "w-[70%]" : ""}`}
+              }`}
             >
-              {item.msg.pending && (
-                <>
-                  <Skeleton className="h-4 rounded bg-edge" />
-                  <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
-                </>
-              )}
-              {!item.msg.pending && <Markdownish text={item.msg.body} />}
+              <Markdownish text={item.msg.body} />
               {item.msg.createdAt && (
                 <p
                   className={`mt-1.5 font-mono text-[10px] text-muted/70 ${
@@ -321,6 +313,52 @@ export function Conversation({
   );
 }
 
+/**
+ * Full-tab placeholder while messages (and PR details, when linked) load.
+ * Lifecycle chips and the PR card used to paint from task data ahead of the
+ * transcript, then jump once turns arrived.
+ */
+function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
+  return (
+    <section className="mb-6" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading conversation</span>
+      <div className="flex flex-col gap-2" aria-hidden>
+        <div className="w-[70%] max-w-[88%] self-end rounded-xl border border-blood/30 bg-blood/10 px-4 py-3">
+          <Skeleton className="h-4 rounded bg-edge" />
+          <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+        </div>
+        <ChipSkeleton className="w-44" />
+        {hasPr && (
+          <>
+            <ChipSkeleton className="w-36" />
+            <PrCardSkeleton />
+          </>
+        )}
+        <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
+          <Skeleton className="h-4 rounded bg-edge" />
+          <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+        </div>
+      </div>
+      <div className="mt-3 flex items-end gap-2" aria-hidden>
+        <Skeleton className="h-11 flex-1 rounded-full bg-edge" />
+        <Skeleton className="size-11 shrink-0 rounded-full bg-edge" />
+      </div>
+    </section>
+  );
+}
+
+/** Matches `Chip variant="surface"` chrome with pulsing bars inside. */
+function ChipSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 self-center rounded-full border border-edge bg-surface px-3 py-1 ${className}`}
+    >
+      <Skeleton className="size-3 shrink-0 rounded bg-edge" />
+      <Skeleton className="h-3 min-w-0 flex-1 rounded bg-edge" />
+    </span>
+  );
+}
+
 /** Teaser for the task's PR; stats, screenshots, description and diffs live in the PR tab. */
 function PrCard({
   pr,
@@ -329,8 +367,7 @@ function PrCard({
   pr: PrDetails | undefined;
   onShowPr: () => void;
 }) {
-  // the pr read can't start until the task read unlocks it, so it always lands
-  // second — hold the card's footprint instead of popping it into the timeline
+  // error / empty fallback — the tab skeleton already covers the in-flight case
   if (!pr) return <PrCardSkeleton />;
   return (
     <div className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3">

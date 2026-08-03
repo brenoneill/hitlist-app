@@ -43,6 +43,12 @@ export function PrTab({ task }: { task: Task }) {
   const mergeMutation = useMergePr(task.id);
   const readyMutation = useMarkPrReady(task.id);
 
+  // Summary and previewUrl live on the task, but visual proof needs the PR
+  // body — paint nothing until that read lands so sections don't arrive staggered.
+  if (task.prUrl && isLoading && !pr) {
+    return <PrTabSkeleton />;
+  }
+
   const resolveImageUrl = (url: string) =>
     isGithubHost(url)
       ? `/api/tasks/${task.id}/pr/image?url=${encodeURIComponent(url)}`
@@ -56,16 +62,6 @@ export function PrTab({ task }: { task: Task }) {
 
   return (
     <section className="mb-6">
-      {!pr && isLoading && (
-        <div
-          aria-hidden
-          className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
-        >
-          <Skeleton className="h-5 w-3/4 rounded bg-edge" />
-          <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
-          <Skeleton className="mt-1 h-4 w-2/3 rounded bg-edge" />
-        </div>
-      )}
       {pr && (
         <div className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3">
           <p className="break-words text-sm font-medium">
@@ -116,12 +112,6 @@ export function PrTab({ task }: { task: Task }) {
             />
           ))}
         </div>
-      ) : isLoading ? (
-        // most screenshots live in the pr body, so hold a thumb's worth of room
-        // rather than showing "none" and then growing a 144px strip
-        <div className="-mx-4 mb-4 flex gap-2 px-4 pb-1">
-          <Skeleton className="h-36 aspect-[16/10] rounded-lg border border-edge bg-surface" />
-        </div>
       ) : (
         <p className="mb-4 font-mono text-xs text-muted">
           No screenshots — the agent didn&apos;t post any for this task.
@@ -143,7 +133,7 @@ export function PrTab({ task }: { task: Task }) {
         </>
       )}
 
-      <Deployments task={task} deployments={pr?.deployments} loading={isLoading} />
+      <Deployments task={task} deployments={pr?.deployments} />
 
       <FieldLabel as="h2" className="mb-2">
         Pull request
@@ -155,7 +145,6 @@ export function PrTab({ task }: { task: Task }) {
         </p>
       ) : (
         <>
-          {isLoading && <PrBodySkeleton />}
           {error && (
             <>
               <ErrorText className="mb-2">{error.message}</ErrorText>
@@ -498,25 +487,63 @@ function ImageViewer({
 }
 
 /**
- * Holds the description row, file list and action button while the pr read is
- * in flight — the real block is 300px+, so a token placeholder just moves the
- * jump rather than removing it.
+ * Full-tab placeholder while PR details load. Summary / previewUrl are already
+ * on the task, so a partial paint used to land those first and then jump when
+ * visual proof resolved (often to "no screenshots").
  */
-function PrBodySkeleton() {
+function PrTabSkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <section className="mb-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading pull request</span>
-      <Skeleton className="mb-3 h-[42px] rounded-xl border border-edge bg-surface" />
-      <div className="mb-3 flex flex-col gap-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton
-            key={i}
-            className="h-[42px] rounded-xl border border-edge bg-surface"
-          />
-        ))}
+      <div
+        aria-hidden
+        className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
+      >
+        <Skeleton className="h-5 w-3/4 rounded bg-edge" />
+        <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
+        <Skeleton className="mt-1 h-4 w-2/3 rounded bg-edge" />
       </div>
-      <Skeleton className="h-11 rounded-xl bg-edge" />
-    </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Visual proof
+      </FieldLabel>
+      <div className="-mx-4 mb-4 flex gap-2 px-4 pb-1" aria-hidden>
+        <Skeleton className="h-36 aspect-[16/10] rounded-lg border border-edge bg-surface" />
+      </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Summary
+      </FieldLabel>
+      <div
+        aria-hidden
+        className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
+      >
+        <Skeleton className="h-4 w-full rounded bg-edge" />
+        <Skeleton className="mt-2 h-4 w-5/6 rounded bg-edge" />
+        <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+      </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Deployments
+      </FieldLabel>
+      <Skeleton className="mb-4 h-[86px] rounded-xl border border-edge bg-surface" />
+
+      <FieldLabel as="h2" className="mb-2">
+        Pull request
+      </FieldLabel>
+      <div aria-hidden>
+        <Skeleton className="mb-3 h-[42px] rounded-xl border border-edge bg-surface" />
+        <div className="mb-3 flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton
+              key={i}
+              className="h-[42px] rounded-xl border border-edge bg-surface"
+            />
+          ))}
+        </div>
+        <Skeleton className="h-11 rounded-xl bg-edge" />
+      </div>
+    </section>
   );
 }
 
@@ -570,11 +597,9 @@ function deployDotClass(state: string): string {
 function Deployments({
   task,
   deployments,
-  loading,
 }: {
   task: Task;
   deployments?: Deployment[];
-  loading?: boolean;
 }) {
   const rows = deployments?.length
     ? deployments
@@ -587,9 +612,7 @@ function Deployments({
       <FieldLabel as="h2" className="mb-2">
         Deployments
       </FieldLabel>
-      {rows.length === 0 && loading ? (
-        <Skeleton className="mb-4 h-[86px] rounded-xl border border-edge bg-surface" />
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="mb-4 font-mono text-xs text-muted">
           No deployment yet — it appears once a preview build finishes.
         </p>
