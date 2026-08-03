@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
@@ -37,9 +37,7 @@ const PR_STATE = {
 /** The PR tab: visual proof up top, then summary, deployments, files, sticky merge. */
 export function PrTab({ task }: { task: Task }) {
   const [confirming, setConfirming] = useState(false);
-  const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(
-    null,
-  );
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
   const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
   const mergeMutation = useMergePr(task.id);
@@ -51,6 +49,10 @@ export function PrTab({ task }: { task: Task }) {
       : url;
   const prBody = pr?.body ? cleanPrBody(pr.body) : undefined;
   const images = extractImages(prBody, task.agentSummary);
+  const lightboxOpen =
+    lightboxIndex != null &&
+    lightboxIndex >= 0 &&
+    lightboxIndex < images.length;
 
   return (
     <section className="mb-6">
@@ -94,13 +96,13 @@ export function PrTab({ task }: { task: Task }) {
       </FieldLabel>
       {images.length > 0 ? (
         <div className="-mx-4 mb-4 flex snap-x scroll-pl-4 gap-2 overflow-x-auto px-4 pb-1">
-          {images.map((img) => (
+          {images.map((img, i) => (
             <ScreenshotThumb
               key={img.url}
               url={img.url}
               src={resolveImageUrl(img.url)}
               alt={img.alt}
-              onOpen={() => setLightbox(img)}
+              onOpen={() => setLightboxIndex(i)}
             />
           ))}
         </div>
@@ -230,28 +232,14 @@ export function PrTab({ task }: { task: Task }) {
         </>
       )}
 
-      {lightbox && (
-        <Sheet onClose={() => setLightbox(null)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
-          <img
-            src={resolveImageUrl(lightbox.url)}
-            alt={lightbox.alt}
-            className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
-          />
-          {lightbox.alt && (
-            <p className="mt-2 font-mono text-xs text-muted">{lightbox.alt}</p>
-          )}
-          <Button
-            href={lightbox.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outline"
-            className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
-          >
-            Open full size
-            <Icon name="external" className="size-4" />
-          </Button>
-        </Sheet>
+      {lightboxOpen && lightboxIndex != null && (
+        <ImageViewer
+          images={images}
+          index={lightboxIndex}
+          resolveImageUrl={resolveImageUrl}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
 
       {openFile && (
@@ -292,6 +280,106 @@ export function PrTab({ task }: { task: Task }) {
         </OverlayDialog>
       )}
     </section>
+  );
+}
+
+/**
+ * Full-size PR screenshot sheet with prev/next navigation and caption.
+ * @param images - Gallery entries from the PR body / agent summary.
+ * @param index - Currently viewed image index.
+ * @param resolveImageUrl - Proxy GitHub-hosted assets when needed.
+ * @param onIndexChange - Move to another image in the gallery.
+ * @param onClose - Dismiss the sheet after exit animation.
+ */
+function ImageViewer({
+  images,
+  index,
+  resolveImageUrl,
+  onIndexChange,
+  onClose,
+}: {
+  images: { url: string; alt: string }[];
+  index: number;
+  resolveImageUrl: (url: string) => string;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}) {
+  const current = images[index];
+  const count = images.length;
+  const canNavigate = count > 1;
+
+  function go(delta: number) {
+    if (!canNavigate) return;
+    onIndexChange((index + delta + count) % count);
+  }
+
+  useEffect(() => {
+    if (!canNavigate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onIndexChange((index - 1 + count) % count);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        onIndexChange((index + 1) % count);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canNavigate, count, index, onIndexChange]);
+
+  if (!current) return null;
+
+  return (
+    <Sheet onClose={onClose}>
+      {canNavigate && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            aria-label="Previous image"
+            className="flex size-10 items-center justify-center rounded-xl border border-edge active:bg-background"
+          >
+            <Icon name="chevron" className="size-4 rotate-90" />
+          </button>
+          <p className="font-mono text-xs text-muted" aria-live="polite">
+            {index + 1} / {count}
+          </p>
+          <button
+            type="button"
+            onClick={() => go(1)}
+            aria-label="Next image"
+            className="flex size-10 items-center justify-center rounded-xl border border-edge active:bg-background"
+          >
+            <Icon name="chevron" className="size-4 -rotate-90" />
+          </button>
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
+      <img
+        src={resolveImageUrl(current.url)}
+        alt={current.alt}
+        className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
+      />
+      <div className="mt-3">
+        <FieldLabel as="h2" className="mb-1">
+          Caption
+        </FieldLabel>
+        <p className="font-mono text-xs text-muted">
+          {current.alt.trim() || "No caption"}
+        </p>
+      </div>
+      <Button
+        href={current.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
+      >
+        Open full size
+        <Icon name="external" className="size-4" />
+      </Button>
+    </Sheet>
   );
 }
 
