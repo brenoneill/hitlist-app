@@ -56,6 +56,16 @@ export function PrTab({ task }: { task: Task }) {
 
   return (
     <section className="mb-6">
+      {!pr && isLoading && (
+        <div
+          aria-hidden
+          className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
+        >
+          <Skeleton className="h-5 w-3/4 rounded bg-edge" />
+          <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
+          <Skeleton className="mt-1 h-4 w-2/3 rounded bg-edge" />
+        </div>
+      )}
       {pr && (
         <div className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3">
           <p className="break-words text-sm font-medium">
@@ -106,6 +116,12 @@ export function PrTab({ task }: { task: Task }) {
             />
           ))}
         </div>
+      ) : isLoading ? (
+        // most screenshots live in the pr body, so hold a thumb's worth of room
+        // rather than showing "none" and then growing a 144px strip
+        <div className="-mx-4 mb-4 flex gap-2 px-4 pb-1">
+          <Skeleton className="h-36 aspect-[16/10] rounded-lg border border-edge bg-surface" />
+        </div>
       ) : (
         <p className="mb-4 font-mono text-xs text-muted">
           No screenshots — the agent didn&apos;t post any for this task.
@@ -127,7 +143,7 @@ export function PrTab({ task }: { task: Task }) {
         </>
       )}
 
-      <Deployments task={task} deployments={pr?.deployments} />
+      <Deployments task={task} deployments={pr?.deployments} loading={isLoading} />
 
       <div className="mb-2 flex items-center gap-1.5">
         <FieldLabel as="h2">Pull request</FieldLabel>
@@ -150,9 +166,7 @@ export function PrTab({ task }: { task: Task }) {
         </p>
       ) : (
         <>
-          {isLoading && (
-            <Skeleton className="h-24 rounded-xl border border-edge bg-surface" />
-          )}
+          {isLoading && <PrBodySkeleton />}
           {error && (
             <>
               <ErrorText className="mb-2">{error.message}</ErrorText>
@@ -465,7 +479,9 @@ function ImageViewer({
               src={resolveImageUrl(img.url)}
               alt={img.alt}
               draggable={false}
-              className="pointer-events-none max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
+              // fixed height (not max-h) so the sheet — and the scroll offsets
+              // `scrollToIndex` measures — settle before any image decodes
+              className="pointer-events-none h-[70dvh] w-full rounded-lg border border-edge bg-edge/40 object-contain"
             />
           </div>
         ))}
@@ -489,6 +505,29 @@ function ImageViewer({
         <Icon name="external" className="size-4" />
       </Button>
     </Sheet>
+  );
+}
+
+/**
+ * Holds the description row, file list and action button while the pr read is
+ * in flight — the real block is 300px+, so a token placeholder just moves the
+ * jump rather than removing it.
+ */
+function PrBodySkeleton() {
+  return (
+    <div aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading pull request</span>
+      <Skeleton className="mb-3 h-[42px] rounded-xl border border-edge bg-surface" />
+      <div className="mb-3 flex flex-col gap-2">
+        {[0, 1, 2].map((i) => (
+          <Skeleton
+            key={i}
+            className="h-[42px] rounded-xl border border-edge bg-surface"
+          />
+        ))}
+      </div>
+      <Skeleton className="h-11 rounded-xl bg-edge" />
+    </div>
   );
 }
 
@@ -516,10 +555,11 @@ function ScreenshotThumb({
       <img
         src={src}
         alt={alt}
-        loading="lazy"
         onError={() => setFailed(true)}
         data-original-url={url}
-        className="h-36 w-auto max-w-[75vw] rounded-lg border border-edge object-cover"
+        // the box has to be known before decode or the thumb starts as a 2px
+        // line and shoves its neighbours sideways when the bytes land
+        className="h-36 aspect-[16/10] rounded-lg border border-edge bg-edge object-cover"
       />
     </button>
   );
@@ -541,9 +581,11 @@ function deployDotClass(state: string): string {
 function Deployments({
   task,
   deployments,
+  loading,
 }: {
   task: Task;
   deployments?: Deployment[];
+  loading?: boolean;
 }) {
   const rows = deployments?.length
     ? deployments
@@ -556,7 +598,9 @@ function Deployments({
       <FieldLabel as="h2" className="mb-2">
         Deployments
       </FieldLabel>
-      {rows.length === 0 ? (
+      {rows.length === 0 && loading ? (
+        <Skeleton className="mb-4 h-[86px] rounded-xl border border-edge bg-surface" />
+      ) : rows.length === 0 ? (
         <p className="mb-4 font-mono text-xs text-muted">
           No deployment yet — it appears once a preview build finishes.
         </p>

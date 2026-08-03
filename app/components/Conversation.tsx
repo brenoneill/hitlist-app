@@ -17,6 +17,7 @@ import { wasDeployed } from "@/app/components/TaskItem";
 import { Chip } from "@/app/components/ui/Chip";
 import { ErrorText } from "@/app/components/ui/ErrorText";
 import { Markdownish } from "@/app/components/ui/Markdownish";
+import { Skeleton } from "@/app/components/ui/Skeleton";
 import { Textarea } from "@/app/components/ui/Textarea";
 
 interface ShownMessage {
@@ -24,7 +25,19 @@ interface ShownMessage {
   role: "user" | "agent";
   body: string;
   createdAt?: string;
+  /** Placeholder turn held while the real transcript loads. */
+  pending?: true;
 }
+
+/**
+ * Stand-in turns so the timeline's chips and PR card render in their final
+ * positions on the first paint — otherwise a one-bubble guess is replaced by
+ * the real N turns and everything below it lurches.
+ */
+const LOADING_TURNS: ShownMessage[] = [
+  { id: "pending-user", role: "user", body: "", pending: true },
+  { id: "pending-agent", role: "agent", body: "", pending: true },
+];
 
 type TimelineItem =
   | { key: string; kind: "message"; msg: ShownMessage }
@@ -91,13 +104,14 @@ function buildTimeline(
       });
     }
     if (task.prUrl) {
+      // the number is already in the url — read it there rather than waiting on
+      // the pr fetch, so the chip doesn't grow a `#123` after the fact
+      const number = pr?.number ?? task.prUrl.match(/\/pull\/(\d+)/)?.[1];
       items.push({
         key: "pr-open",
         kind: "event",
         icon: "pr",
-        label: pr
-          ? `PR ${pr.draft ? "drafted" : "opened"} #${pr.number}`
-          : "PR opened",
+        label: `PR ${pr?.draft ? "drafted" : "opened"}${number ? ` #${number}` : ""}`,
         iso: pr?.createdAt,
         cls: "text-info",
       });
@@ -162,7 +176,10 @@ export function Conversation({
 }) {
   const [draft, setDraft] = useState("");
   const running = task.status === "running";
-  const { data: messages } = useTaskMessages(task.id, running);
+  const { data: messages, isLoading: messagesLoading } = useTaskMessages(
+    task.id,
+    running,
+  );
   const { data: pr } = usePrDetails(task.id, !!task.prUrl);
   const sendMessage = useSendMessage(task.id);
   const supportsFollowups =
@@ -172,15 +189,17 @@ export function Conversation({
   // task; the run summary has its own home in the PR tab
   const shown: ShownMessage[] = messages?.length
     ? messages
-    : [
-        {
-          id: "local-prompt",
-          role: "user" as const,
-          body:
-            `# Task\n${task.title}` +
-            (task.details ? `\n\n## Context\n${task.details}` : ""),
-        },
-      ];
+    : messagesLoading
+      ? LOADING_TURNS
+      : [
+          {
+            id: "local-prompt",
+            role: "user" as const,
+            body:
+              `# Task\n${task.title}` +
+              (task.details ? `\n\n## Context\n${task.details}` : ""),
+          },
+        ];
 
   function send() {
     const text = draft.trim();
@@ -207,9 +226,15 @@ export function Conversation({
                 item.msg.role === "user"
                   ? "self-end border-blood/30 bg-blood/10"
                   : "self-start border-edge bg-surface text-muted"
-              }`}
+              } ${item.msg.pending ? "w-[70%]" : ""}`}
             >
-              <Markdownish text={item.msg.body} />
+              {item.msg.pending && (
+                <>
+                  <Skeleton className="h-4 rounded bg-edge" />
+                  <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+                </>
+              )}
+              {!item.msg.pending && <Markdownish text={item.msg.body} />}
               {item.msg.createdAt && (
                 <p
                   className={`mt-1.5 font-mono text-[10px] text-muted/70 ${
@@ -335,7 +360,9 @@ function PrCard({
   task: Task;
   onShowPr: () => void;
 }) {
-  if (!pr) return null;
+  // the pr read can't start until the task read unlocks it, so it always lands
+  // second — hold the card's footprint instead of popping it into the timeline
+  if (!pr) return <PrCardSkeleton task={task} />;
   const preview = previewHref(task, pr);
   const shot = extractImages(
     pr.body ? cleanPrBody(pr.body) : undefined,
@@ -396,6 +423,26 @@ function PrCard({
   );
 }
 
+/** `PrCard`'s footprint, held while the pr read is in flight. */
+function PrCardSkeleton({ task }: { task: Task }) {
+  // the summary already tells us whether the card will carry a thumb, so the
+  // placeholder can reserve the right height before the pr body arrives
+  const willHaveThumb = !!extractImages(task.agentSummary)[0];
+  return (
+    <div
+      aria-hidden
+      className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3"
+    >
+      <Skeleton className="h-5 w-3/4 rounded bg-edge" />
+      <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
+      {willHaveThumb && (
+        <Skeleton className="mt-2 h-24 aspect-[16/10] rounded-lg bg-edge" />
+      )}
+      <Skeleton className="mt-3 h-[46px] rounded-xl bg-edge" />
+    </div>
+  );
+}
+
 /** ScreenshotThumb minus the lightbox — hides itself if the asset 404s. */
 function PrCardThumb({ src, alt }: { src: string; alt?: string }) {
   const [failed, setFailed] = useState(false);
@@ -407,7 +454,7 @@ function PrCardThumb({ src, alt }: { src: string; alt?: string }) {
       alt={alt ?? "PR screenshot"}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="mt-2 h-24 w-auto max-w-full rounded-lg border border-edge object-cover"
+      className="mt-2 h-24 aspect-[16/10] rounded-lg border border-edge bg-edge object-cover"
     />
   );
 }

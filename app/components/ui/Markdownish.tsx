@@ -36,7 +36,7 @@ function InlineImage({ url, src, alt }: { url: string; src: string; alt: string 
         alt={alt}
         loading="lazy"
         onError={() => setFailed(true)}
-        className="max-w-full rounded-lg border border-edge"
+        className="aspect-[16/10] w-full rounded-lg border border-edge bg-edge/40 object-contain"
       />
     </a>
   );

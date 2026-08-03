@@ -114,9 +114,15 @@ function WorkspaceSkeleton() {
   return (
     <div aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading mission</span>
-      <Skeleton className="mb-6 h-6 w-2/3 rounded bg-edge" />
+      {/* mirrors the loaded header: title, status badge, repo + branch lines */}
+      <div className="mb-6 flex flex-col gap-1">
+        <Skeleton className="h-7 w-2/3 rounded bg-edge" />
+        <Skeleton className="h-5 w-24 rounded-full bg-edge" />
+        <Skeleton className="h-4 w-1/2 rounded bg-edge" />
+        <Skeleton className="h-4 w-2/5 rounded bg-edge" />
+      </div>
       <TabBarSkeleton />
-      <Skeleton className="h-40 rounded-xl border border-edge bg-surface" />
+      <Skeleton className="h-72 rounded-xl border border-edge bg-surface" />
     </div>
   );
 }

@@ -33,6 +33,7 @@ import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
 import { ModelSelect } from "@/app/components/ModelSelect";
 import { ErrorText } from "@/app/components/ui/ErrorText";
 import { FieldLabel } from "@/app/components/ui/FieldLabel";
+import { Skeleton } from "@/app/components/ui/Skeleton";
 import { TextInput } from "@/app/components/ui/TextInput";
 import { Textarea } from "@/app/components/ui/Textarea";
 import { ProviderRadio } from "@/app/components/ProviderRadio";
@@ -425,7 +426,9 @@ function Section({
   summary?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  // a step that is already done on mount starts folded, so it can't paint open
+  // and then collapse a frame later
+  const [open, setOpen] = useState(!done);
   const autoFolded = useRef(false);
 
   useEffect(() => {
@@ -484,20 +487,46 @@ function Section({
   );
 }
 
+/**
+ * Three folded steps plus the footer — the shape a returning, fully-configured
+ * user lands on. Cheaper than being wrong in the other direction: an empty page
+ * that then paints the whole settings tree.
+ */
+function SettingsSkeleton() {
+  return (
+    <div className="mb-6" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading settings</span>
+      {[0, 1, 2].map((i) => (
+        <section key={i} className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Skeleton className="size-5 shrink-0 rounded-full bg-edge" />
+            <Skeleton className="h-5 flex-1 rounded bg-edge" />
+          </div>
+          <Skeleton className="h-4 w-2/3 rounded bg-edge" />
+        </section>
+      ))}
+      <Skeleton className="mb-6 h-16 rounded-xl border border-edge bg-surface" />
+      <Skeleton className="mb-6 h-9 rounded border-t border-edge bg-edge" />
+    </div>
+  );
+}
+
 export function GithubRepos({
   repos,
   connected,
+  reposLoading,
   blockedRepos,
   onToggleBlocked,
 }: {
   repos: Repo[] | null;
   connected: boolean;
+  reposLoading?: boolean;
   blockedRepos: number[];
   onToggleBlocked: (id: number) => void;
 }) {
   const { data: session, status } = useSession();
   const signedIn = status === "authenticated";
-  const { data: keys } = useProviderKeys(signedIn);
+  const { data: keys, isLoading: keysLoading } = useProviderKeys(signedIn);
   const { data: defaults } = useDeployDefaults(signedIn);
   const saveDefaults = useSaveDeployDefaults();
   const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
@@ -528,7 +557,12 @@ export function GithubRepos({
   const defaultModel = defaults?.model ?? "";
   const repoCount = repos?.length ?? 0;
 
-  if (status === "loading") return null;
+  // `keys` and `connected` decide both the step order and which sections start
+  // folded, so rendering before they land means re-laying the whole page out a
+  // beat later — hold the shape instead
+  if (status === "loading" || keysLoading || reposLoading) {
+    return <SettingsSkeleton />;
+  }
 
   const providerSummary = (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
