@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
@@ -284,7 +284,9 @@ export function PrTab({ task }: { task: Task }) {
 }
 
 /**
- * Full-size PR screenshot sheet with prev/next navigation and caption.
+ * Full-size PR screenshot sheet with swipe + arrow navigation and caption.
+ * Images live in a snap-scroll strip (same pattern as ActionRow) so each
+ * item is natively swipable; arrows / keys scroll that strip into place.
  * @param images - Gallery entries from the PR body / agent summary.
  * @param index - Currently viewed image index.
  * @param resolveImageUrl - Proxy GitHub-hosted assets when needed.
@@ -307,26 +309,61 @@ function ImageViewer({
   const current = images[index];
   const count = images.length;
   const canNavigate = count > 1;
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  function scrollToIndex(next: number, behavior: ScrollBehavior) {
+    const el = scrollerRef.current;
+    const slide = el?.children[next] as HTMLElement | undefined;
+    if (!el || !slide) return;
+    el.scrollTo({ left: slide.offsetLeft, behavior });
+  }
 
   function go(delta: number) {
     if (!canNavigate) return;
-    onIndexChange((index + delta + count) % count);
+    const next = (index + delta + count) % count;
+    // wrapping jumps across the strip — skip the long smooth pan
+    const wrapping =
+      (index === 0 && next === count - 1) ||
+      (index === count - 1 && next === 0);
+    onIndexChange(next);
+    scrollToIndex(next, wrapping ? "auto" : "smooth");
   }
+
+  // land on the opened thumb without animating past neighbors
+  useEffect(() => {
+    scrollToIndex(index, "auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
 
   useEffect(() => {
     if (!canNavigate) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        onIndexChange((index - 1 + count) % count);
+        const next = (index - 1 + count) % count;
+        const wrapping = index === 0;
+        onIndexChange(next);
+        scrollToIndex(next, wrapping ? "auto" : "smooth");
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        onIndexChange((index + 1) % count);
+        const next = (index + 1) % count;
+        const wrapping = index === count - 1;
+        onIndexChange(next);
+        scrollToIndex(next, wrapping ? "auto" : "smooth");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [canNavigate, count, index, onIndexChange]);
+
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el || !canNavigate) return;
+    const width = el.clientWidth;
+    if (width <= 0) return;
+    const next = Math.round(el.scrollLeft / width);
+    if (next !== index && next >= 0 && next < count) onIndexChange(next);
+  }
 
   if (!current) return null;
 
@@ -355,12 +392,26 @@ function ImageViewer({
           </button>
         </div>
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
-      <img
-        src={resolveImageUrl(current.url)}
-        alt={current.alt}
-        className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
-      />
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="-mx-5 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {images.map((img) => (
+          <div
+            key={img.url}
+            className="w-full shrink-0 snap-center px-5"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
+            <img
+              src={resolveImageUrl(img.url)}
+              alt={img.alt}
+              draggable={false}
+              className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
+            />
+          </div>
+        ))}
+      </div>
       <div className="mt-3">
         <FieldLabel as="h2" className="mb-1">
           Caption
