@@ -286,7 +286,7 @@ export function Conversation({
               onClick={send}
               disabled={running || sendMessage.isPending || !draft.trim()}
               aria-label="Send follow-up"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-info text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-info text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
             >
               <Icon name="send" className="size-5" />
             </button>
