@@ -315,6 +315,7 @@ function ImageViewer({
     id: number;
     startX: number;
     startScroll: number;
+    startIndex: number;
   } | null>(null);
 
   function scrollToIndex(next: number, behavior: ScrollBehavior) {
@@ -379,6 +380,7 @@ function ImageViewer({
       id: e.pointerId,
       startX: e.clientX,
       startScroll: el.scrollLeft,
+      startIndex: index,
     };
     el.setPointerCapture(e.pointerId);
   }
@@ -395,14 +397,11 @@ function ImageViewer({
     const drag = mouseDrag.current;
     if (!drag || drag.id !== e.pointerId) return;
     mouseDrag.current = null;
-    const el = scrollerRef.current;
-    if (!el) return;
-    const width = el.clientWidth;
-    if (width <= 0) return;
-    const next = Math.max(
-      0,
-      Math.min(count - 1, Math.round(el.scrollLeft / width)),
-    );
+    const dx = e.clientX - drag.startX;
+    // commit on a short swipe; otherwise snap back to the start slide
+    let next = drag.startIndex;
+    if (dx <= -60) next = Math.min(count - 1, drag.startIndex + 1);
+    else if (dx >= 60) next = Math.max(0, drag.startIndex - 1);
     onIndexChange(next);
     scrollToIndex(next, "smooth");
   }
