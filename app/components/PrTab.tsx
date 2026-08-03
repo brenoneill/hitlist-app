@@ -455,7 +455,7 @@ function ImageViewer({
               src={resolveImageUrl(img.url)}
               alt={img.alt}
               draggable={false}
-              className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
+              className="pointer-events-none max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
             />
           </div>
         ))}
