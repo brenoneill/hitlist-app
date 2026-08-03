@@ -1,6 +1,6 @@
 /** Shared border/focus chrome for text fields and selects. */
 export const FIELD_BASE =
-  "rounded-xl border border-edge outline-none placeholder:text-muted focus:border-blood disabled:opacity-50";
+  "rounded-xl border border-edge outline-none placeholder:text-muted focus:border-info disabled:opacity-50";
 
 export type FieldTone = "background" | "surface";
 
