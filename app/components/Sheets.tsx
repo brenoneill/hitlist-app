@@ -15,7 +15,6 @@ import {
 import {
   LAST_PROVIDER_KEY,
   PROVIDER_IDS,
-  PROVIDER_META,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -25,14 +24,7 @@ import {
   type VisualConfirmationId,
 } from "@/app/lib/prOptions";
 import { deployDefaultsChips } from "@/app/lib/deployDefaultsLabel";
-import {
-  StatusBadge,
-  agentIcon,
-  deployable,
-  prIcon,
-  redeployable,
-  workspaceHref,
-} from "@/app/components/TaskItem";
+import { deployable } from "@/app/components/TaskItem";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { ModelSelect } from "@/app/components/ModelSelect";
@@ -45,8 +37,8 @@ import { ErrorText } from "@/app/components/ui/ErrorText";
 import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
 import { Textarea } from "@/app/components/ui/Textarea";
 
-/** Sheet-menu redeploy: Settings defaults (provider / model / visual). */
-function useQuickRedeploy() {
+/** One-tap redeploy: Settings defaults (provider / model / visual). */
+export function useQuickRedeploy() {
   const { data: keys } = useProviderKeys();
   const { data: defaults } = useDeployDefaults();
   const dispatch = useDispatchTask();
@@ -107,22 +99,19 @@ export function elapsed(iso: string): string {
 }
 
 /**
- * Shared sheet body: status badge, run details, deploy button, PR/agent links,
- * error. `children` render between the status block and the deploy button (the
- * details textarea in TaskSheet). Dispatching `lead` dispatches its whole group.
+ * Shared sheet body: deploy settings + button + error. `children` render above
+ * the settings (the details textarea in TaskSheet). Dispatching `lead`
+ * dispatches its whole group.
  */
 function AgentActions({
   lead,
   canDeploy,
-  hideRepo,
   beforeSend,
   children,
 }: {
   lead: Task;
   /** False when neither the task nor any group member has a repo tagged. */
   canDeploy: boolean;
-  /** When the parent sheet owns an editable repo chip. */
-  hideRepo?: boolean;
   beforeSend?: () => Promise<void>;
   children?: React.ReactNode;
 }) {
@@ -179,63 +168,7 @@ function AgentActions({
 
   return (
     <>
-      <div className="mb-5 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          {lead.provider && (
-            <Icon
-              name={PROVIDER_META[lead.provider].icon}
-              className="size-3.5 shrink-0 text-muted"
-            />
-          )}
-          <StatusBadge task={lead} />
-        </div>
-        {lead.status === "running" && lead.dispatchedAt && (
-          <p className="font-mono text-xs text-warn">
-            Working for {elapsed(lead.dispatchedAt)}
-          </p>
-        )}
-        {!hideRepo && lead.repoUrl && (
-          <p className="truncate font-mono text-xs text-muted">{lead.repoUrl}</p>
-        )}
-        {lead.branch && (
-          <p className="truncate font-mono text-xs text-muted">
-            <Icon name="pr" className="mr-1 inline size-3 align-[-2px]" />
-            {lead.branch}
-          </p>
-        )}
-      </div>
-
       {children}
-
-      {lead.agentSummary && (
-        <p className="mb-3 whitespace-pre-wrap break-words rounded-xl border border-edge bg-background px-4 py-3 text-sm text-muted">
-          {lead.agentSummary}
-        </p>
-      )}
-
-      {lead.prUrl && (
-        <Button
-          href={workspaceHref(lead, "pr")}
-          variant={lead.status === "done" ? "ok" : "info"}
-          className="mb-3 flex w-full items-center justify-center gap-2"
-        >
-          <Icon name={prIcon(lead)} className="size-4" />
-          {lead.prState === "merged" ? "View merged PR" : "Review PR"}
-        </Button>
-      )}
-
-      {lead.previewUrl && (
-        <Button
-          href={lead.previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outline"
-          className="mb-3 flex w-full items-center justify-center gap-2"
-        >
-          <Icon name="external" className="size-4" />
-          Open preview
-        </Button>
-      )}
 
       {deployable(lead) && (
         <>
@@ -304,17 +237,6 @@ function AgentActions({
         </>
       )}
 
-      {(lead.agentId || lead.prUrl) && (
-        <Button
-          href={workspaceHref(lead, "agent")}
-          variant="outline"
-          className="mb-3 flex w-full items-center justify-center gap-2 active:bg-background"
-        >
-          <Icon name="crosshair" className="size-4" />
-          Open workspace
-        </Button>
-      )}
-
       {dispatch.error && (
         <ErrorText className="mb-3">
           {dispatch.error.message || "dispatch failed"}
@@ -349,10 +271,7 @@ export function TaskSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const patchTask = usePatchTask();
   const toggleDone = useToggleDone();
-  const { redeploy, pending: redeploying, error: redeployError } =
-    useQuickRedeploy();
   const editable = deployable(task);
-  const canRedeploy = redeployable(task) && canDeploy;
   const markExecuted = () => toggleDone.mutate(task);
   const tagged = repos.find((r) => r.url === task.repoUrl);
   const repoMatches = repos
@@ -445,27 +364,6 @@ export function TaskSheet({
           onClose={() => setMenuOpen(false)}
           className="right-0 top-8 min-w-40"
         >
-          {canRedeploy && (
-            <MenuItem
-              icon="crosshair"
-              disabled={redeploying}
-              onClick={() => {
-                setMenuOpen(false);
-                redeploy(task.id);
-              }}
-            >
-              {task.groupId ? "Redeploy group" : "Redeploy"}
-            </MenuItem>
-          )}
-          {task.agentUrl && (
-            <MenuItem
-              icon={agentIcon(task)}
-              href={workspaceHref(task, "agent")}
-              onClick={() => setMenuOpen(false)}
-            >
-              Open workspace
-            </MenuItem>
-          )}
           <MenuItem
             icon={task.status === "done" ? "x" : "check"}
             disabled={toggleDone.isPending}
@@ -540,12 +438,7 @@ export function TaskSheet({
           )}
         </div>
       )}
-      <AgentActions
-        lead={task}
-        canDeploy={canDeploy}
-        hideRepo={editable}
-        beforeSend={saveDetails}
-      >
+      <AgentActions lead={task} canDeploy={canDeploy} beforeSend={saveDetails}>
         {editable ? (
           <>
             <Textarea
@@ -656,11 +549,6 @@ export function TaskSheet({
           </>
         )}
       </AgentActions>
-      {redeployError && (
-        <ErrorText className="mt-1">
-          {redeployError.message || "redeploy failed"}
-        </ErrorText>
-      )}
     </Sheet>
   );
 }
@@ -679,10 +567,6 @@ export function GroupSheet({
 }) {
   const lead = members[0];
   const editable = deployable(lead);
-  const canRedeploy =
-    members.every(redeployable) && members.some((m) => m.repoUrl);
-  const { redeploy, pending: redeploying, error: redeployError } =
-    useQuickRedeploy();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Sheet onClose={onClose}>
@@ -703,27 +587,6 @@ export function GroupSheet({
           onClose={() => setMenuOpen(false)}
           className="right-0 top-8 min-w-40"
         >
-          {canRedeploy && (
-            <MenuItem
-              icon="crosshair"
-              disabled={redeploying}
-              onClick={() => {
-                setMenuOpen(false);
-                redeploy(lead.id);
-              }}
-            >
-              Redeploy group
-            </MenuItem>
-          )}
-          {lead.agentUrl && (
-            <MenuItem
-              icon={agentIcon(lead)}
-              href={workspaceHref(lead, "agent")}
-              onClick={() => setMenuOpen(false)}
-            >
-              Open workspace
-            </MenuItem>
-          )}
           <MenuItem
             icon="x"
             destructive
@@ -756,11 +619,6 @@ export function GroupSheet({
         ))}
       </ul>
       <AgentActions lead={lead} canDeploy={members.some((m) => m.repoUrl)} />
-      {redeployError && (
-        <ErrorText className="mt-1">
-          {redeployError.message || "redeploy failed"}
-        </ErrorText>
-      )}
     </Sheet>
   );
 }

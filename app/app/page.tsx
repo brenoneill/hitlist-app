@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import {
@@ -52,6 +53,7 @@ function isSetupComplete(
 }
 
 export default function Home() {
+  const router = useRouter();
   const { status } = useSession();
   const signedIn = status === "authenticated";
   const [title, setTitle] = useState("");
@@ -170,6 +172,19 @@ export default function Home() {
     removeTask.mutate(id);
   }
 
+  // deployed work lives in the workspace; the sheet is only for configure & deploy
+  function open(id: string) {
+    const t = tasks.find((x) => x.id === id);
+    if (t && wasDeployed(t)) router.push(`/app/task/${id}`);
+    else setSelectedId(id);
+  }
+
+  function openGroup(groupId: string) {
+    const lead = tasks.find((t) => t.groupId === groupId);
+    if (lead && wasDeployed(lead)) router.push(`/app/task/${lead.id}`);
+    else setSelectedGroup(groupId);
+  }
+
   const projects = projectsWithHits(tasks);
   // Ignore selections for projects that no longer have hits (deleted/retagged).
   const liveProjectUrls = new Set(projects.map((p) => p.url));
@@ -268,7 +283,12 @@ export default function Home() {
         ...(wasDeployed(task) ? { redeploy: true } : {}),
       },
       {
-        onError: () => {
+        onError: (err) => {
+          // the slimmed sheet can't redeploy, so failures there surface as a toast
+          if (wasDeployed(task)) {
+            setToast(err.message || "redeploy failed");
+            return;
+          }
           setSelectedGroup(null);
           setSelectedId(task.id);
         },
@@ -377,8 +397,8 @@ export default function Home() {
       <ListTab
         activeProjectFilter={activeProjectFilter}
         onSelectProjectsChange={setSelectedProjects}
-        onSelectId={setSelectedId}
-        onSelectGroup={setSelectedGroup}
+        onSelectId={open}
+        onSelectGroup={openGroup}
         visible={visible}
         flying={flying}
         pending={pending}

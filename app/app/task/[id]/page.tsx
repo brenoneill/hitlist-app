@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import { useTasks } from "@/app/lib/queries";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRemoveTask, useTasks, useToggleDone } from "@/app/lib/queries";
 import { PROVIDER_META } from "@/app/lib/providerMeta";
 import { AppHeader } from "@/app/components/AppHeader";
 import { Conversation } from "@/app/components/Conversation";
 import { Icon } from "@/app/components/Icons";
 import { PrTab } from "@/app/components/PrTab";
-import { elapsed } from "@/app/components/Sheets";
+import { elapsed, useQuickRedeploy } from "@/app/components/Sheets";
 import { TabPanel, Tabs } from "@/app/components/Tabs";
-import { StatusBadge } from "@/app/components/TaskItem";
+import { StatusBadge, agentIcon, redeployable } from "@/app/components/TaskItem";
+import { ErrorText } from "@/app/components/ui/ErrorText";
+import { Menu, MenuItem } from "@/app/components/ui/Menu";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 
 type WorkspaceTab = "agent" | "pr";
@@ -18,6 +20,7 @@ type WorkspaceTab = "agent" | "pr";
 /** Mission workspace: full agent conversation + in-app PR review and merge. */
 export default function TaskWorkspace() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { data: tasks, isLoading } = useTasks();
   const task = tasks?.find((t) => t.id === id);
   const members = task?.groupId
@@ -25,11 +28,25 @@ export default function TaskWorkspace() {
     : [];
   // the task arrives async, so derive the default rather than syncing it in an effect
   const urlTab = useSearchParams().get("tab");
-  const [picked, setPicked] = useState<WorkspaceTab | null>(null);
-  const tab =
-    picked ??
-    (urlTab === "agent" || urlTab === "pr" ? urlTab : null) ??
-    (task?.prUrl ? "pr" : "agent");
+  const tab: WorkspaceTab =
+    urlTab === "agent" || urlTab === "pr"
+      ? urlTab
+      : task?.prUrl
+        ? "pr"
+        : "agent";
+  // native replaceState integrates with useSearchParams (Next SPA guide) —
+  // shareable/refresh-stable tab without history entries
+  const setTab = (t: WorkspaceTab) =>
+    window.history.replaceState(null, "", `/app/task/${id}?tab=${t}`);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggleDone = useToggleDone();
+  const removeTask = useRemoveTask();
+  const { redeploy, pending: redeploying, error: redeployError } =
+    useQuickRedeploy();
+  const canRedeploy =
+    !!task &&
+    redeployable(task) &&
+    (members.length > 1 ? members.some((m) => m.repoUrl) : !!task.repoUrl);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
@@ -46,9 +63,83 @@ export default function TaskWorkspace() {
       ) : (
         <>
           <div className="mb-6 flex flex-col gap-1">
-            <p className="whitespace-pre-wrap break-words text-lg font-medium">
-              {task.title}
-            </p>
+            {/* z-40 while open so the menu stacks above the sticky z-30 tab bar */}
+            <div
+              className={`relative flex items-start gap-2 ${menuOpen ? "z-40" : ""}`}
+            >
+              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-lg font-medium">
+                {task.title}
+              </p>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-label="More actions"
+                className="shrink-0 p-1 text-muted hover:text-foreground"
+              >
+                <Icon name="ellipsis" className="size-4" />
+              </button>
+              <Menu
+                open={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                className="right-0 top-8 min-w-40"
+              >
+                {canRedeploy && (
+                  <MenuItem
+                    icon="crosshair"
+                    disabled={redeploying}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      redeploy(task.id);
+                    }}
+                  >
+                    {task.groupId ? "Redeploy group" : "Redeploy"}
+                  </MenuItem>
+                )}
+                <MenuItem
+                  icon={task.status === "done" ? "x" : "check"}
+                  disabled={toggleDone.isPending}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    toggleDone.mutate(task);
+                  }}
+                >
+                  {task.status === "done" ? "Unmark" : "Mark executed"}
+                </MenuItem>
+                {task.agentUrl && task.provider && (
+                  <MenuItem
+                    icon={agentIcon(task)}
+                    href={task.agentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Open in {PROVIDER_META[task.provider].label} ↗
+                  </MenuItem>
+                )}
+                {task.prUrl && (
+                  <MenuItem
+                    icon="pr"
+                    href={task.prUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    View PR on GitHub ↗
+                  </MenuItem>
+                )}
+                <MenuItem
+                  icon="trash"
+                  destructive
+                  onClick={() => {
+                    setMenuOpen(false);
+                    removeTask.mutate(task.id);
+                    router.push("/app");
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </Menu>
+            </div>
             {members.length > 1 && (
               <p className="font-mono text-xs text-muted">
                 Group of {members.length}:{" "}
@@ -80,6 +171,11 @@ export default function TaskWorkspace() {
                 {task.branch}
               </p>
             )}
+            {redeployError && (
+              <ErrorText>
+                {redeployError.message || "redeploy failed"}
+              </ErrorText>
+            )}
           </div>
 
           <Tabs
@@ -94,10 +190,10 @@ export default function TaskWorkspace() {
               { id: "pr", label: "PR", icon: "pr" },
             ]}
             active={tab}
-            onChange={setPicked}
+            onChange={setTab}
           >
             <TabPanel id="agent">
-              <Conversation task={task} onShowPr={() => setPicked("pr")} />
+              <Conversation task={task} onShowPr={() => setTab("pr")} />
             </TabPanel>
             <TabPanel id="pr">
               <PrTab task={task} />

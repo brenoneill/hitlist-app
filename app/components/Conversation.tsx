@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { PrDetails } from "@/app/lib/githubApp";
-import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
 import {
   usePrDetails,
@@ -12,7 +11,7 @@ import {
 import { PROVIDER_META } from "@/app/lib/providerMeta";
 import { Button } from "@/app/components/Button";
 import { Icon, type IconName } from "@/app/components/Icons";
-import { isGithubHost, PR_STATE } from "@/app/components/PrTab";
+import { PR_STATE } from "@/app/components/PrTab";
 import { wasDeployed } from "@/app/components/TaskItem";
 import { Chip } from "@/app/components/ui/Chip";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -257,20 +256,9 @@ export function Conversation({
               {item.iso && (
                 <span className="text-muted/60"> · {when(item.iso)}</span>
               )}
-              {item.key === "pr-open" && task.prUrl && (
-                <a
-                  href={task.prUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open PR on GitHub"
-                  className="ml-1 inline-flex align-middle text-muted/60 hover:text-muted"
-                >
-                  <Icon name="external" className="size-3" />
-                </a>
-              )}
             </Chip>
           ) : (
-            <PrCard key={item.key} pr={pr} task={task} onShowPr={onShowPr} />
+            <PrCard key={item.key} pr={pr} onShowPr={onShowPr} />
           ),
         )}
         {running && (
@@ -282,18 +270,6 @@ export function Conversation({
 
       {supportsFollowups && task.agentId ? (
         <div className="mt-3">
-          {task.agentUrl && (
-            <p className="mb-2">
-              <a
-                href={task.agentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="whitespace-nowrap font-mono text-xs text-muted underline underline-offset-4"
-              >
-                Open agent ↗
-              </a>
-            </p>
-          )}
           <div className="flex items-end gap-2">
             <Textarea
               variant="pill"
@@ -345,89 +321,43 @@ export function Conversation({
   );
 }
 
-/** The task's own preview build, or the first successful one GitHub reports for the PR. */
-function previewHref(task: Task, pr: PrDetails): string | undefined {
-  return pr.deployments?.find((d) => d.state === "success" && d.url)?.url ?? task.previewUrl;
-}
-
-/** Compact inline summary of the task's PR; full description and diffs stay in the PR tab. */
+/** Teaser for the task's PR; stats, screenshots, description and diffs live in the PR tab. */
 function PrCard({
   pr,
-  task,
   onShowPr,
 }: {
   pr: PrDetails | undefined;
-  task: Task;
   onShowPr: () => void;
 }) {
   // the pr read can't start until the task read unlocks it, so it always lands
   // second — hold the card's footprint instead of popping it into the timeline
-  if (!pr) return <PrCardSkeleton task={task} />;
-  const preview = previewHref(task, pr);
-  const shot = extractImages(
-    pr.body ? cleanPrBody(pr.body) : undefined,
-    task.agentSummary,
-  )[0];
+  if (!pr) return <PrCardSkeleton />;
   return (
     <div className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3">
       <p className="break-words text-sm font-medium">
         {pr.title} <span className="font-mono text-xs text-muted">#{pr.number}</span>
       </p>
-      <p className="mt-1 font-mono text-xs">
-        <span
-          className={`uppercase tracking-widest ${
-            pr.draft ? "text-warn" : PR_STATE[pr.state]
-          }`}
-        >
-          {pr.draft ? "draft" : pr.state}
-        </span>{" "}
-        <span className="text-ok">+{pr.additions}</span>{" "}
-        <span className="text-blood">−{pr.deletions}</span>{" "}
-        <span className="text-muted">
-          · {pr.changedFiles} {pr.changedFiles === 1 ? "file" : "files"}
-        </span>
+      <p
+        className={`mt-1 font-mono text-xs uppercase tracking-widest ${
+          pr.draft ? "text-warn" : PR_STATE[pr.state]
+        }`}
+      >
+        {pr.draft ? "draft" : pr.state}
       </p>
-      {shot && (
-        <PrCardThumb
-          src={
-            isGithubHost(shot.url)
-              ? `/api/tasks/${task.id}/pr/image?url=${encodeURIComponent(shot.url)}`
-              : shot.url
-          }
-          alt={shot.alt}
-        />
-      )}
-      <div className="mt-3 flex gap-2">
-        <Button
-          variant="outline"
-          onClick={onShowPr}
-          className="flex flex-1 items-center justify-center gap-2 active:bg-background"
-        >
-          View PR
-          <Icon name="pr" className="size-4" />
-        </Button>
-        {preview && (
-          <Button
-            href={preview}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outline"
-            className="flex flex-1 items-center justify-center gap-2 active:bg-background"
-          >
-            Preview
-            <Icon name="external" className="size-4" />
-          </Button>
-        )}
-      </div>
+      <Button
+        variant="outline"
+        onClick={onShowPr}
+        className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
+      >
+        View PR
+        <Icon name="pr" className="size-4" />
+      </Button>
     </div>
   );
 }
 
 /** `PrCard`'s footprint, held while the pr read is in flight. */
-function PrCardSkeleton({ task }: { task: Task }) {
-  // the summary already tells us whether the card will carry a thumb, so the
-  // placeholder can reserve the right height before the pr body arrives
-  const willHaveThumb = !!extractImages(task.agentSummary)[0];
+function PrCardSkeleton() {
   return (
     <div
       aria-hidden
@@ -435,26 +365,7 @@ function PrCardSkeleton({ task }: { task: Task }) {
     >
       <Skeleton className="h-5 w-3/4 rounded bg-edge" />
       <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
-      {willHaveThumb && (
-        <Skeleton className="mt-2 h-24 aspect-[16/10] rounded-lg bg-edge" />
-      )}
       <Skeleton className="mt-3 h-[46px] rounded-xl bg-edge" />
     </div>
-  );
-}
-
-/** ScreenshotThumb minus the lightbox — hides itself if the asset 404s. */
-function PrCardThumb({ src, alt }: { src: string; alt?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt ?? "PR screenshot"}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className="mt-2 h-24 aspect-[16/10] rounded-lg border border-edge bg-edge object-cover"
-    />
   );
 }

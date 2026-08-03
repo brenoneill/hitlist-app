@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -34,14 +33,11 @@ import {
   StatusBadge,
   TaskItem,
   TaskItemLinks,
-  agentIcon,
   deployable,
-  inFlight,
   prLinkClass,
   redeployable,
   taskItemShellClass,
   wasDeployed,
-  workspaceHref,
 } from "@/app/components/TaskItem";
 
 export {
@@ -522,7 +518,6 @@ function TaskRow({
   onDelete?: (id: string) => void;
   onDeploy?: (t: Task) => void;
 }) {
-  const router = useRouter();
   const actions: RowAction[] = [];
   // only when a repo is tagged — otherwise open the sheet to tag one first
   if (onDeploy && deployable(task) && task.repoUrl)
@@ -536,12 +531,6 @@ function TaskRow({
       icon: "crosshair",
       label: "Redeploy",
       onClick: () => onDeploy(task),
-    });
-  if (task.agentUrl)
-    actions.push({
-      icon: agentIcon(task),
-      label: "Open workspace",
-      onClick: () => router.push(workspaceHref(task, "agent")),
     });
   if (onToggle)
     actions.push({
@@ -714,7 +703,6 @@ function SortableMember({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: `member-${task.id}` });
-  const router = useRouter();
   const actions: RowAction[] = [];
   if (canDeploy)
     actions.push({
@@ -727,12 +715,6 @@ function SortableMember({
       icon: "crosshair",
       label: "Redeploy group",
       onClick: () => onDeploy(task),
-    });
-  if (task.agentUrl)
-    actions.push({
-      icon: agentIcon(task),
-      label: "Open workspace",
-      onClick: () => router.push(workspaceHref(task, "agent")),
     });
   actions.push({
     icon: task.status === "done" ? "x" : "check",

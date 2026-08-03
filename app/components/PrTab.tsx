@@ -145,20 +145,9 @@ export function PrTab({ task }: { task: Task }) {
 
       <Deployments task={task} deployments={pr?.deployments} loading={isLoading} />
 
-      <div className="mb-2 flex items-center gap-1.5">
-        <FieldLabel as="h2">Pull request</FieldLabel>
-        {task.prUrl && (
-          <a
-            href={task.prUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Open pull request on GitHub"
-            className="text-muted hover:text-fg"
-          >
-            <Icon name="external" className="size-3" />
-          </a>
-        )}
-      </div>
+      <FieldLabel as="h2" className="mb-2">
+        Pull request
+      </FieldLabel>
 
       {!task.prUrl ? (
         <p className="font-mono text-xs text-muted">
