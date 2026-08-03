@@ -17,9 +17,13 @@ The reviewer reads this on a phone, without the code checked out, and should be 
 
 1–2 sentences: what changed and why. If visual confirmation was required, screenshots/recording go directly under this, per the visual instructions.
 
+### Verified
+
+How you confirmed it works: what you ran and what you observed (e.g. "ran the dev server, toggled X, reloaded — state persisted"). Bullets, one line each. Screenshots show the UI exists; this shows it was exercised.
+
 ### Data shape
 
-Only if data changed (types, API payloads, DB schema, props): show the before → after shape in a short code block (≤15 lines, just the fields that changed — not the diff). If no data changed, write "No data shape changes."
+Only if data changed (types, API payloads, DB schema, props, persisted keys): show the before → after shape in a short code block (≤15 lines, just the fields that changed — not the diff). If no data changed, omit this section entirely — no heading, no "no changes" line.
 
 ### Components
 
@@ -28,6 +32,10 @@ Which existing components/utilities you reused, and — if you created anything 
 ### Rationale
 
 The decisions you made and why, including any assumptions where the task was ambiguous and what alternative you rejected. Bullets, one line each.
+
+### Not done
+
+Only if non-empty: adjacent work you noticed but deliberately skipped, one bullet each. Omit the section when there's nothing to say.
 
 ### Review guide
 

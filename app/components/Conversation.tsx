@@ -258,7 +258,7 @@ export function Conversation({
       {supportsFollowups && task.agentId ? (
         <div className="mt-3">
           {task.agentUrl && (
-            <p className="mb-2 text-right">
+            <p className="mb-2">
               <a
                 href={task.agentUrl}
                 target="_blank"

@@ -12,14 +12,23 @@ const E2E_PR_FIXTURE = {
     "<!-- CURSOR_AGENT_PR_BODY_BEGIN -->\n" +
     "### TL;DR\n" +
     "Repos in settings now start collapsed; tap a header to expand.\n\n" +
+    "### Verified\n" +
+    "- Ran the dev server; repo sections start collapsed on load.\n" +
+    "- Toggled a repo open, reloaded — open state persisted.\n\n" +
     "### Data shape\n" +
-    "No data shape changes.\n\n" +
+    "```\n" +
+    "localStorage (per repo)\n" +
+    "- (none)\n" +
+    '+ "repo-open-<id>": "1"  // present = expanded\n' +
+    "```\n\n" +
     "### Components\n" +
     "- Reused fold chrome in `RepoSections` (`details` / `summary`).\n" +
     "- Persistence helpers live in `app/settings/persist.ts`.\n\n" +
     "### Rationale\n" +
     "- Collapsed by default keeps the phone review short.\n" +
     "- Open state is per-repo in `localStorage`, not a new settings field.\n\n" +
+    "### Not done\n" +
+    "- No collapse-all/expand-all control — out of scope for this task.\n\n" +
     "### Review guide\n" +
     "1. **`app/settings/RepoSections.tsx`** — **review**: open state persistence.\n" +
     "2. **`app/settings/persist.ts`** — **mechanical**: localStorage helpers.\n\n" +
