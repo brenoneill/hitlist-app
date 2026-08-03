@@ -9,10 +9,24 @@ const E2E_PR_FIXTURE = {
   number: 1,
   title: "Collapse repo sections by default",
   body:
+    "<!-- CURSOR_AGENT_PR_BODY_BEGIN -->\n" +
+    "### TL;DR\n" +
     "Repos in settings now start collapsed; tap a header to expand.\n\n" +
+    "### Data shape\n" +
+    "No data shape changes.\n\n" +
+    "### Components\n" +
+    "- Reused existing fold chrome in settings.\n\n" +
+    "### Rationale\n" +
+    "- Collapsed by default keeps the phone review short.\n\n" +
+    "### Review guide\n" +
+    "1. `app/settings/RepoSections.tsx` — **review**: open state persistence.\n\n" +
     '<img src="https://placehold.co/640x360/png?text=Collapsed" alt="Repos collapsed by default">\n' +
     '<img src="https://placehold.co/640x400/png?text=Expanded" alt="Expanded on tap">\n\n' +
-    "<details><summary>Notes</summary>State persists per repo in localStorage.</details>",
+    "<details><summary>Notes</summary>State persists per repo in localStorage.</details>\n" +
+    "<!-- CURSOR_AGENT_PR_BODY_END -->\n" +
+    '<div><a href="https://cursor.com/agents/bc-e2e-fixture">' +
+    '<img alt="Open in Cursor" src="https://cursor.com/assets/images/open-in-web-dark.png">' +
+    "</a></div>",
   state: "open",
   draft: false,
   headRef: "feat/preview-links",

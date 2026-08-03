@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
-import { extractImages } from "@/app/lib/markdownish";
+import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
 import { useMarkPrReady, useMergePr, usePrDetails } from "@/app/lib/queries";
 import { Button } from "@/app/components/Button";
@@ -49,7 +49,8 @@ export function PrTab({ task }: { task: Task }) {
     isGithubHost(url)
       ? `/api/tasks/${task.id}/pr/image?url=${encodeURIComponent(url)}`
       : url;
-  const images = extractImages(pr?.body, task.agentSummary);
+  const prBody = pr?.body ? cleanPrBody(pr.body) : undefined;
+  const images = extractImages(prBody, task.agentSummary);
 
   return (
     <section className="mb-6">
@@ -156,13 +157,13 @@ export function PrTab({ task }: { task: Task }) {
           )}
           {pr && (
             <>
-              {pr.body && (
+              {prBody && (
                 <details className="mb-3 overflow-hidden rounded-xl border border-edge bg-surface">
                   <summary className="cursor-pointer px-4 py-3 font-mono text-xs active:bg-background">
                     Description
                   </summary>
                   <Markdownish
-                    text={pr.body}
+                    text={prBody}
                     hideImages
                     resolveImageUrl={resolveImageUrl}
                     className="border-t border-edge px-4 py-3 text-xs text-muted"
