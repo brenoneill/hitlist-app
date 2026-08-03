@@ -22,6 +22,7 @@ import {
 } from "@/app/lib/providerMeta";
 import { optionsForMode } from "@/app/lib/prOptions";
 import { type Repo } from "@/app/components/GithubRepos";
+import { AppHeader } from "@/app/components/AppHeader";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
@@ -51,7 +52,7 @@ function isSetupComplete(
 }
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const signedIn = status === "authenticated";
   const [title, setTitle] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -293,28 +294,7 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Icon name="crosshair" className="size-6 text-blood" />
-          HITLIST
-        </h1>
-        <Link
-          href="/app/settings"
-          aria-label="Settings"
-          className="flex size-10 items-center justify-center rounded-xl border border-edge bg-surface text-muted transition-colors active:bg-background"
-        >
-          {session?.user?.image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external GitHub avatar; no images.remotePatterns configured
-            <img
-              src={session.user.image}
-              alt=""
-              className="size-7 rounded-full"
-            />
-          ) : (
-            <Icon name="settings" className="size-4" />
-          )}
-        </Link>
-      </div>
+      <AppHeader />
 
       <div
         aria-hidden

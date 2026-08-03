@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTasks } from "@/app/lib/queries";
 import { PROVIDER_META } from "@/app/lib/providerMeta";
+import { AppHeader } from "@/app/components/AppHeader";
 import { Conversation } from "@/app/components/Conversation";
 import { Icon } from "@/app/components/Icons";
 import { PrTab } from "@/app/components/PrTab";
@@ -33,19 +33,7 @@ export default function TaskWorkspace() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
-      <div className="mb-4 flex items-center gap-2">
-        <Link
-          href="/app"
-          aria-label="Back to hitlist"
-          className="-ml-1 p-1 text-muted active:text-foreground"
-        >
-          <Icon name="chevron" className="size-5 rotate-90" />
-        </Link>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Icon name="crosshair" className="size-6 text-blood" />
-          HITLIST
-        </h1>
-      </div>
+      <AppHeader backHref="/app" />
 
       {!task ? (
         isLoading ? (
