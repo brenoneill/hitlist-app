@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
@@ -37,9 +37,7 @@ const PR_STATE = {
 /** The PR tab: visual proof up top, then summary, deployments, files, sticky merge. */
 export function PrTab({ task }: { task: Task }) {
   const [confirming, setConfirming] = useState(false);
-  const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(
-    null,
-  );
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
   const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
   const mergeMutation = useMergePr(task.id);
@@ -51,6 +49,10 @@ export function PrTab({ task }: { task: Task }) {
       : url;
   const prBody = pr?.body ? cleanPrBody(pr.body) : undefined;
   const images = extractImages(prBody, task.agentSummary);
+  const lightboxOpen =
+    lightboxIndex != null &&
+    lightboxIndex >= 0 &&
+    lightboxIndex < images.length;
 
   return (
     <section className="mb-6">
@@ -94,13 +96,13 @@ export function PrTab({ task }: { task: Task }) {
       </FieldLabel>
       {images.length > 0 ? (
         <div className="-mx-4 mb-4 flex snap-x scroll-pl-4 gap-2 overflow-x-auto px-4 pb-1">
-          {images.map((img) => (
+          {images.map((img, i) => (
             <ScreenshotThumb
               key={img.url}
               url={img.url}
               src={resolveImageUrl(img.url)}
               alt={img.alt}
-              onOpen={() => setLightbox(img)}
+              onOpen={() => setLightboxIndex(i)}
             />
           ))}
         </div>
@@ -230,28 +232,14 @@ export function PrTab({ task }: { task: Task }) {
         </>
       )}
 
-      {lightbox && (
-        <Sheet onClose={() => setLightbox(null)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
-          <img
-            src={resolveImageUrl(lightbox.url)}
-            alt={lightbox.alt}
-            className="max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
-          />
-          {lightbox.alt && (
-            <p className="mt-2 font-mono text-xs text-muted">{lightbox.alt}</p>
-          )}
-          <Button
-            href={lightbox.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outline"
-            className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
-          >
-            Open full size
-            <Icon name="external" className="size-4" />
-          </Button>
-        </Sheet>
+      {lightboxOpen && lightboxIndex != null && (
+        <ImageViewer
+          images={images}
+          index={lightboxIndex}
+          resolveImageUrl={resolveImageUrl}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
 
       {openFile && (
@@ -292,6 +280,204 @@ export function PrTab({ task }: { task: Task }) {
         </OverlayDialog>
       )}
     </section>
+  );
+}
+
+/**
+ * Full-size PR screenshot sheet with swipe + arrow navigation and caption.
+ * Images live in a snap-scroll strip (same pattern as ActionRow) so each
+ * item is natively swipable; arrows / keys scroll that strip into place.
+ * @param images - Gallery entries from the PR body / agent summary.
+ * @param index - Currently viewed image index.
+ * @param resolveImageUrl - Proxy GitHub-hosted assets when needed.
+ * @param onIndexChange - Move to another image in the gallery.
+ * @param onClose - Dismiss the sheet after exit animation.
+ */
+function ImageViewer({
+  images,
+  index,
+  resolveImageUrl,
+  onIndexChange,
+  onClose,
+}: {
+  images: { url: string; alt: string }[];
+  index: number;
+  resolveImageUrl: (url: string) => string;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}) {
+  const current = images[index];
+  const count = images.length;
+  const canNavigate = count > 1;
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  // mouse has no native drag-scroll; touch/pen keep the snap strip
+  const mouseDrag = useRef<{
+    id: number;
+    startX: number;
+    startScroll: number;
+    startIndex: number;
+  } | null>(null);
+
+  function scrollToIndex(next: number, behavior: ScrollBehavior) {
+    const el = scrollerRef.current;
+    const slide = el?.children[next] as HTMLElement | undefined;
+    if (!el || !slide) return;
+    el.scrollTo({ left: slide.offsetLeft, behavior });
+  }
+
+  function go(delta: number) {
+    if (!canNavigate) return;
+    const next = (index + delta + count) % count;
+    // wrapping jumps across the strip — skip the long smooth pan
+    const wrapping =
+      (index === 0 && next === count - 1) ||
+      (index === count - 1 && next === 0);
+    onIndexChange(next);
+    scrollToIndex(next, wrapping ? "auto" : "smooth");
+  }
+
+  // land on the opened thumb without animating past neighbors
+  useEffect(() => {
+    scrollToIndex(index, "auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
+
+  useEffect(() => {
+    if (!canNavigate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        const next = (index - 1 + count) % count;
+        const wrapping = index === 0;
+        onIndexChange(next);
+        scrollToIndex(next, wrapping ? "auto" : "smooth");
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        const next = (index + 1) % count;
+        const wrapping = index === count - 1;
+        onIndexChange(next);
+        scrollToIndex(next, wrapping ? "auto" : "smooth");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canNavigate, count, index, onIndexChange]);
+
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el || !canNavigate) return;
+    const width = el.clientWidth;
+    if (width <= 0) return;
+    const next = Math.round(el.scrollLeft / width);
+    if (next !== index && next >= 0 && next < count) onIndexChange(next);
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!canNavigate || e.pointerType !== "mouse") return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    mouseDrag.current = {
+      id: e.pointerId,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      startIndex: index,
+    };
+    el.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = mouseDrag.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollLeft = drag.startScroll - (e.clientX - drag.startX);
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = mouseDrag.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    mouseDrag.current = null;
+    const dx = e.clientX - drag.startX;
+    // commit on a short swipe; otherwise snap back to the start slide
+    let next = drag.startIndex;
+    if (dx <= -60) next = Math.min(count - 1, drag.startIndex + 1);
+    else if (dx >= 60) next = Math.max(0, drag.startIndex - 1);
+    onIndexChange(next);
+    scrollToIndex(next, "smooth");
+  }
+
+  if (!current) return null;
+
+  return (
+    <Sheet onClose={onClose}>
+      {canNavigate && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            aria-label="Previous image"
+            className="flex size-10 items-center justify-center rounded-xl border border-edge active:bg-background"
+          >
+            <Icon name="chevron" className="size-4 rotate-90" />
+          </button>
+          <p className="font-mono text-xs text-muted" aria-live="polite">
+            {index + 1} / {count}
+          </p>
+          <button
+            type="button"
+            onClick={() => go(1)}
+            aria-label="Next image"
+            className="flex size-10 items-center justify-center rounded-xl border border-edge active:bg-background"
+          >
+            <Icon name="chevron" className="size-4 -rotate-90" />
+          </button>
+        </div>
+      )}
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className={`-mx-5 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          canNavigate ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
+      >
+        {images.map((img) => (
+          <div
+            key={img.url}
+            className="w-full shrink-0 snap-center px-5"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- artifact hosts are arbitrary and unknown ahead of time */}
+            <img
+              src={resolveImageUrl(img.url)}
+              alt={img.alt}
+              draggable={false}
+              className="pointer-events-none max-h-[70dvh] w-full rounded-lg border border-edge object-contain"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3">
+        <FieldLabel as="h2" className="mb-1">
+          Caption
+        </FieldLabel>
+        <p className="font-mono text-xs text-muted">
+          {current.alt.trim() || "No caption"}
+        </p>
+      </div>
+      <Button
+        href={current.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
+      >
+        Open full size
+        <Icon name="external" className="size-4" />
+      </Button>
+    </Sheet>
   );
 }
 
