@@ -327,10 +327,10 @@ function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
         </div>
-        <Skeleton className="h-6 w-40 self-center rounded-full bg-edge" />
+        <ChipSkeleton className="w-44" />
         {hasPr && (
           <>
-            <Skeleton className="h-6 w-36 self-center rounded-full bg-edge" />
+            <ChipSkeleton className="w-36" />
             <PrCardSkeleton />
           </>
         )}
@@ -344,6 +344,18 @@ function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
         <Skeleton className="size-11 shrink-0 rounded-full bg-edge" />
       </div>
     </section>
+  );
+}
+
+/** Matches `Chip variant="surface"` chrome with pulsing bars inside. */
+function ChipSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 self-center rounded-full border border-edge bg-surface px-3 py-1 ${className}`}
+    >
+      <Skeleton className="size-3 shrink-0 rounded bg-edge" />
+      <Skeleton className="h-3 min-w-0 flex-1 rounded bg-edge" />
+    </span>
   );
 }
 
