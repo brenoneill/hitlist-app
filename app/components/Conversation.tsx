@@ -355,8 +355,7 @@ function PrCard({
   pr: PrDetails | undefined;
   onShowPr: () => void;
 }) {
-  // the pr read can't start until the task read unlocks it, so it always lands
-  // second — hold the card's footprint instead of popping it into the timeline
+  // error / empty fallback — the tab skeleton already covers the in-flight case
   if (!pr) return <PrCardSkeleton />;
   return (
     <div className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3">
