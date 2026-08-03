@@ -20,8 +20,9 @@ interface ListTabProps {
   onRemoveTask: (id: string) => void;
   onDeployTask: (task: Task) => void;
   onDraggingChange: (dragging: boolean) => void;
-  setupComplete: boolean;
-  onGoToSettings: () => void;
+  showSetupCta: boolean;
+  hasProjects: boolean;
+  onOpenFilter: () => void;
 }
 
 export function ListTab({
@@ -40,35 +41,29 @@ export function ListTab({
   onRemoveTask,
   onDeployTask,
   onDraggingChange,
-  setupComplete,
-  onGoToSettings,
+  showSetupCta,
+  hasProjects,
+  onOpenFilter,
 }: ListTabProps) {
   const filterActive = activeProjectFilter.size > 0;
   const listEmpty = visible.length === 0;
 
   return (
     <>
-      {filterActive && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {[...activeProjectFilter].map((url) => {
-            const name = url.split("/").pop() ?? url;
-            return (
-              <Chip
-                key={url}
-                variant="info"
-                icon="filter"
-                onClick={() => {
-                  const next = new Set(activeProjectFilter);
-                  next.delete(url);
-                  onSelectProjectsChange(next);
-                }}
-              >
-                {name}
-                <Icon name="x" className="size-3" />
-                <span className="sr-only">Remove {name} filter</span>
-              </Chip>
-            );
-          })}
+      {hasProjects && (
+        <div className="mb-3 flex flex-wrap justify-end items-center gap-2">
+          <Chip
+            variant="surface"
+            icon="filter"
+            onClick={onOpenFilter}
+            aria-label={
+              filterActive
+                ? `Filter by project, ${activeProjectFilter.size} selected`
+                : "Filter by project"
+            }
+          >
+            Filter{filterActive ? ` · ${activeProjectFilter.size}` : ""}
+          </Chip>
         </div>
       )}
       {loading ? (
@@ -81,10 +76,10 @@ export function ListTab({
           <p className="font-mono text-sm uppercase tracking-widest text-muted">
             No active marks
           </p>
-          {!setupComplete && (
+          {showSetupCta && (
             <Button
               variant="ghost"
-              onClick={onGoToSettings}
+              href="/app/settings"
               className="mt-4 font-mono text-xs"
             >
               Finish setup in Settings →

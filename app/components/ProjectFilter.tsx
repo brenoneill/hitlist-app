@@ -70,44 +70,6 @@ export function matchesProjectFilter(
 }
 
 /**
- * Icon button that opens the project filter; shows a count badge when active.
- *
- * @param activeCount - Number of selected projects (0 = unfiltered).
- * @param disabled - When there are no projects with hits.
- * @param onClick - Opens the slideout.
- */
-export function ProjectFilterButton({
-  activeCount,
-  disabled,
-  onClick,
-}: {
-  activeCount: number;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={
-        activeCount > 0
-          ? `Filter by project, ${activeCount} selected`
-          : "Filter by project"
-      }
-      className="relative flex size-10 items-center justify-center rounded-xl border border-edge bg-surface text-muted transition-colors active:bg-background disabled:opacity-40"
-    >
-      <Icon name="filter" className="size-4" />
-      {activeCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-info px-1 font-mono text-[10px] font-bold leading-none text-white">
-          {activeCount}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/**
  * Right-edge slideout listing projects that have hits. Tapping toggles
  * selection immediately; empty selection clears the filter.
  *

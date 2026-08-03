@@ -23,19 +23,16 @@ const TabContext = createContext<TabContextValue | null>(null);
 /**
  * Segmented control with a sliding pill, plus directional panel transitions.
  * Pass `TabPanel` children for each tab id; panels animate based on tab order.
- * `stickyExtra` sits under the tablist in the same sticky chrome (e.g. mark input).
  */
 export function Tabs<T extends string>({
   tabs,
   active,
   onChange,
-  stickyExtra,
   children,
 }: {
   tabs: { id: T; label: string; icon: IconName }[];
   active: T;
   onChange: (id: T) => void;
-  stickyExtra?: ReactNode;
   children?: ReactNode;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -84,9 +81,7 @@ export function Tabs<T extends string>({
         <div
           ref={listRef}
           role="tablist"
-          className={`relative flex gap-1 rounded-xl border border-edge bg-surface p-1 ${
-            stickyExtra ? "mb-4" : ""
-          }`}
+          className="relative flex gap-1 rounded-xl border border-edge bg-surface p-1"
         >
           {indicator && (
             <div
@@ -112,9 +107,7 @@ export function Tabs<T extends string>({
                 aria-selected={isActive}
                 onClick={() => select(tab.id)}
                 className={`relative z-10 flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 font-mono text-xs font-bold uppercase tracking-widest transition-colors duration-300 motion-reduce:transition-none ${
-                  isActive
-                    ? "text-white"
-                    : "text-muted active:bg-background/60"
+                  isActive ? "text-white" : "text-muted active:bg-background/60"
                 }`}
               >
                 <Icon name={tab.icon} className="size-4" />
@@ -123,7 +116,6 @@ export function Tabs<T extends string>({
             );
           })}
         </div>
-        {stickyExtra}
       </div>
       {children}
     </TabContext.Provider>

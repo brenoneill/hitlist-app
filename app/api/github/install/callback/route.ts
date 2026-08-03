@@ -30,5 +30,5 @@ export async function GET(req: Request) {
   if (session?.user && installationId) {
     await setGithubInstallationId(session.user.id, installationId);
   }
-  return Response.redirect(new URL("/", url));
+  return Response.redirect(new URL("/app/settings", url));
 }

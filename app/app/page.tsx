@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
 import {
@@ -24,36 +25,21 @@ import { type Repo } from "@/app/components/GithubRepos";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
-  ProjectFilterButton,
   ProjectFilterSlideout,
   matchesProjectFilter,
   projectsWithHits,
 } from "@/app/components/ProjectFilter";
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
-import { TabPanel, Tabs } from "@/app/components/Tabs";
 import { inFlight, wasDeployed } from "@/app/components/TaskList";
-import { SettingsTab } from "@/app/components/SettingsTab";
 import { ListTab } from "@/app/components/ListTab";
 import { Chip } from "@/app/components/ui/Chip";
 import { Menu } from "@/app/components/ui/Menu";
 import { TextInput } from "@/app/components/ui/TextInput";
 
-type Tab = "list" | "settings";
-
 const TOAST_SHELL =
   "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4";
 const TOAST_PILL =
   "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
-
-const LIST_FIRST: { id: Tab; label: string; icon: "list" | "settings" }[] = [
-  { id: "list", label: "List", icon: "list" },
-  { id: "settings", label: "Settings", icon: "settings" },
-];
-const SETTINGS_FIRST: { id: Tab; label: string; icon: "list" | "settings" }[] =
-  [
-    { id: "settings", label: "Settings", icon: "settings" },
-    { id: "list", label: "List", icon: "list" },
-  ];
 
 /** True once the user can tag repos and dispatch agents. */
 function isSetupComplete(
@@ -65,7 +51,7 @@ function isSetupComplete(
 }
 
 export default function Home() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const signedIn = status === "authenticated";
   const [title, setTitle] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,12 +63,9 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  // null until session + (when signed in) key/GitHub fetches settle — avoids a Settings→List jump
-  const [tab, setTab] = useState<Tab | null>(null);
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
-  const wasSetupComplete = useRef(false);
 
   // dragging pauses the poll so a refetch can't clobber the drag
   const { data, isLoading: loading } = useTasks(dragging);
@@ -97,6 +80,11 @@ export default function Home() {
     github?.connected ?? false,
     Object.values(providerKeys ?? {}).some(Boolean),
   );
+  // Offer the setup CTA only once the fetches settle — no flash for configured users.
+  const showSetupCta =
+    status !== "loading" &&
+    (!signedIn || (reposFetched && keysFetched)) &&
+    !setupComplete;
   const addTask = useAddTask();
   const removeTask = useRemoveTask();
   const reorder = useReorderTasks();
@@ -110,36 +98,11 @@ export default function Home() {
     setBlockedRepos(JSON.parse(localStorage.getItem("blockedRepos") ?? "[]"));
   }, []);
 
-  // Hold the tab decision until keys + GitHub connection are known; then land once.
-  useEffect(() => {
-    if (status === "loading") return;
-    if (signedIn && (!reposFetched || !keysFetched)) return;
-    if (setupComplete) {
-      if (!wasSetupComplete.current) {
-        wasSetupComplete.current = true;
-        setTab("list");
-      }
-      return;
-    }
-    wasSetupComplete.current = false;
-    setTab("settings");
-  }, [status, signedIn, reposFetched, keysFetched, setupComplete]);
-
   // Focus after mount — autoFocus on the SSR'd input trips hydration on
   // Chrome iOS, which injects __gchrome_uniqueid before React attaches.
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
-
-  function toggleBlocked(id: number) {
-    setBlockedRepos((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : [...prev, id];
-      localStorage.setItem("blockedRepos", JSON.stringify(next));
-      return next;
-    });
-  }
 
   const pickable = useMemo(
     () => repos?.filter((r) => !blockedRepos.includes(r.id)) ?? [],
@@ -335,149 +298,122 @@ export default function Home() {
           <Icon name="crosshair" className="size-6 text-blood" />
           HITLIST
         </h1>
-        {projects.length > 0 && (
-          <ProjectFilterButton
-            activeCount={activeProjectFilter.size}
-            onClick={() => setProjectFilterOpen(true)}
-          />
-        )}
+        <Link
+          href="/app/settings"
+          aria-label="Settings"
+          className="flex size-10 items-center justify-center rounded-xl border border-edge bg-surface text-muted transition-colors active:bg-background"
+        >
+          {session?.user?.image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- external GitHub avatar; no images.remotePatterns configured
+            <img
+              src={session.user.image}
+              alt=""
+              className="size-7 rounded-full"
+            />
+          ) : (
+            <Icon name="settings" className="size-4" />
+          )}
+        </Link>
       </div>
 
-      {tab === null ? (
-        <div aria-busy="true" aria-live="polite">
-          <span className="sr-only">Loading settings</span>
-          <div className="mb-6 flex gap-1 rounded-xl border border-edge bg-surface p-1">
-            <div className="h-10 flex-1 animate-pulse rounded-lg bg-edge/80 motion-reduce:animate-none" />
-            <div className="h-10 flex-1 animate-pulse rounded-lg bg-edge/50 motion-reduce:animate-none" />
-          </div>
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <div className="h-4 w-28 animate-pulse rounded bg-edge motion-reduce:animate-none" />
-            <div className="h-4 w-16 animate-pulse rounded bg-edge/60 motion-reduce:animate-none" />
-          </div>
-          <div className="mb-6 flex gap-2">
-            <div className="h-12 min-w-0 flex-1 animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
-            <div className="h-12 w-[4.5rem] animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
-          </div>
-          <div className="h-28 animate-pulse rounded-xl border border-edge bg-surface motion-reduce:animate-none" />
-        </div>
-      ) : (
-        <Tabs
-          tabs={setupComplete ? LIST_FIRST : SETTINGS_FIRST}
-          active={tab}
-          onChange={setTab}
-          stickyExtra={
-            tab === "list" ? (
-              <form onSubmit={add} className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <div className="relative min-w-0 flex-1">
-                    <TextInput
-                      ref={titleRef}
-                      tone="surface"
-                      value={title}
-                      onChange={(e) => {
-                        setTitle(e.target.value);
-                        setDismissed(false);
-                        setMIdx(0);
-                      }}
-                      onKeyDown={onTitleKeyDown}
-                      placeholder={
-                        signedIn
-                          ? "Name your next hit… (-- tags a repo)"
-                          : "Sign in to mark hits…"
-                      }
-                      enterKeyHint="done"
-                      autoCorrect="off"
-                      disabled={!signedIn}
-                      // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
-                      // onto inputs before hydration; those are harmless and unavoidable.
-                      suppressHydrationWarning
-                      aria-describedby={
-                        status === "unauthenticated"
-                          ? "mark-signin-hint"
-                          : undefined
-                      }
-                    />
-                    <Menu
-                      open={mentionOpen}
-                      onClose={() => setDismissed(true)}
-                      className="inset-x-0 top-full mt-1"
-                    >
-                      {matches.map((r, i) => (
-                        <button
-                          type="button"
-                          key={r.id}
-                          onClick={() => pickMention(r)}
-                          className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
-                            i === mIdx ? "bg-background" : ""
-                          }`}
-                        >
-                          {r.name}
-                        </button>
-                      ))}
-                    </Menu>
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={!signedIn || !title.trim()}
-                    className="px-5"
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top,0px)] bg-background"
+      />
+      <div className="sticky top-[env(safe-area-inset-top,0px)] z-30 -mx-4 bg-background px-4 pb-4">
+        <form onSubmit={add} className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <TextInput
+                ref={titleRef}
+                tone="surface"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setDismissed(false);
+                  setMIdx(0);
+                }}
+                onKeyDown={onTitleKeyDown}
+                placeholder={
+                  signedIn
+                    ? "Name your next hit… (-- tags a repo)"
+                    : "Sign in to mark hits…"
+                }
+                enterKeyHint="done"
+                autoCorrect="off"
+                disabled={!signedIn}
+                // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
+                // onto inputs before hydration; those are harmless and unavoidable.
+                suppressHydrationWarning
+                aria-describedby={
+                  status === "unauthenticated" ? "mark-signin-hint" : undefined
+                }
+              />
+              <Menu
+                open={mentionOpen}
+                onClose={() => setDismissed(true)}
+                className="inset-x-0 top-full mt-1"
+              >
+                {matches.map((r, i) => (
+                  <button
+                    type="button"
+                    key={r.id}
+                    onClick={() => pickMention(r)}
+                    className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
+                      i === mIdx ? "bg-background" : ""
+                    }`}
                   >
-                    Mark
-                  </Button>
-                </div>
-                {repo && (
-                  <Chip
-                    variant="surface"
-                    icon="crosshair"
-                    onDismiss={() => setRepo(null)}
-                    dismissLabel="Remove repo"
-                  >
-                    {repo.name}
-                  </Chip>
-                )}
-                {status === "unauthenticated" && (
-                  <p
-                    id="mark-signin-hint"
-                    className="font-mono text-xs text-muted"
-                  >
-                    Sign in from Settings to mark hits
-                  </p>
-                )}
-              </form>
-            ) : undefined
-          }
-        >
-          <TabPanel id="settings">
-            <SettingsTab
-              repos={repos}
-              connected={github?.connected ?? false}
-              blockedRepos={blockedRepos}
-              onToggleBlocked={toggleBlocked}
-            />
-          </TabPanel>
+                    {r.name}
+                  </button>
+                ))}
+              </Menu>
+            </div>
+            <Button
+              type="submit"
+              disabled={!signedIn || !title.trim()}
+              className="px-5"
+            >
+              Mark
+            </Button>
+          </div>
+          {repo && (
+            <Chip
+              variant="surface"
+              icon="crosshair"
+              onDismiss={() => setRepo(null)}
+              dismissLabel="Remove repo"
+            >
+              {repo.name}
+            </Chip>
+          )}
+          {status === "unauthenticated" && (
+            <p id="mark-signin-hint" className="font-mono text-xs text-muted">
+              Sign in from Settings to mark hits
+            </p>
+          )}
+        </form>
+      </div>
 
-          <TabPanel id="list">
-            <ListTab
-              activeProjectFilter={activeProjectFilter}
-              onSelectProjectsChange={setSelectedProjects}
-              onSelectId={setSelectedId}
-              onSelectGroup={setSelectedGroup}
-              visible={visible}
-              flying={flying}
-              pending={pending}
-              done={done}
-              tasks={tasks}
-              loading={loading}
-              onReorderVisible={persistVisibleOrder}
-              onToggleTask={toggle.mutate}
-              onRemoveTask={remove}
-              onDeployTask={deploy}
-              onDraggingChange={setDragging}
-              setupComplete={setupComplete}
-              onGoToSettings={() => setTab("settings")}
-            />
-          </TabPanel>
-        </Tabs>
-      )}
+      <ListTab
+        activeProjectFilter={activeProjectFilter}
+        onSelectProjectsChange={setSelectedProjects}
+        onSelectId={setSelectedId}
+        onSelectGroup={setSelectedGroup}
+        visible={visible}
+        flying={flying}
+        pending={pending}
+        done={done}
+        tasks={tasks}
+        loading={loading}
+        onReorderVisible={persistVisibleOrder}
+        onToggleTask={toggle.mutate}
+        onRemoveTask={remove}
+        onDeployTask={deploy}
+        onDraggingChange={setDragging}
+        showSetupCta={showSetupCta}
+        hasProjects={projects.length > 0}
+        onOpenFilter={() => setProjectFilterOpen(true)}
+      />
 
       {undo && !dragging ? (
         <div className={TOAST_SHELL}>
@@ -508,8 +444,7 @@ export default function Home() {
           canDeploy={
             !!selected.repoUrl ||
             tasks.some(
-              (t) =>
-                t.groupId && t.groupId === selected.groupId && !!t.repoUrl,
+              (t) => t.groupId && t.groupId === selected.groupId && !!t.repoUrl,
             )
           }
           repos={pickable}
