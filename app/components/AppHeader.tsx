@@ -5,8 +5,12 @@ import { useSession } from "next-auth/react";
 import { Icon } from "@/app/components/Icons";
 
 /**
- * Shared top bar: back link + title (defaults to the HITLIST wordmark) +
- * optional settings/avatar link.
+ * Shared top bar: optional back link + title (defaults to the HITLIST
+ * wordmark linking home) + optional settings/avatar link.
+ *
+ * @param backHref - When set, shows a chevron back control to this path.
+ * @param title - Page title; omit to show the HITLIST wordmark (links to `/app`).
+ * @param hideSettingsLink - Hide the settings/avatar affordance (e.g. on settings).
  */
 export function AppHeader({
   backHref,
@@ -34,9 +38,15 @@ export function AppHeader({
         {title ? (
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         ) : (
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Icon name="crosshair" className="size-6 text-blood" />
-            HITLIST
+          <h1 className="text-2xl font-bold tracking-tight">
+            <Link
+              href="/app"
+              className="flex items-center gap-2"
+              aria-label="HITLIST home"
+            >
+              <Icon name="crosshair" className="size-6 text-blood" />
+              HITLIST
+            </Link>
           </h1>
         )}
       </div>
