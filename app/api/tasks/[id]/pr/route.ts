@@ -14,6 +14,7 @@ const E2E_PR_FIXTURE = {
     '<img src="https://placehold.co/640x400/png?text=Expanded" alt="Expanded on tap">\n\n' +
     "<details><summary>Notes</summary>State persists per repo in localStorage.</details>",
   state: "open",
+  draft: false,
   headRef: "feat/preview-links",
   headSha: "e2e0000",
   baseRef: "main",

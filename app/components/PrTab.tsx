@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { extractImages } from "@/app/lib/markdownish";
 import type { Task } from "@/app/lib/tasks";
-import { useMergePr, usePrDetails } from "@/app/lib/queries";
+import { useMarkPrReady, useMergePr, usePrDetails } from "@/app/lib/queries";
 import { Button } from "@/app/components/Button";
 import { Icon } from "@/app/components/Icons";
 import { Sheet } from "@/app/components/Sheets";
@@ -43,6 +43,7 @@ export function PrTab({ task }: { task: Task }) {
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
   const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
   const mergeMutation = useMergePr(task.id);
+  const readyMutation = useMarkPrReady(task.id);
 
   const resolveImageUrl = (url: string) =>
     isGithubHost(url)
@@ -70,9 +71,13 @@ export function PrTab({ task }: { task: Task }) {
           </p>
           <p className="mt-1 font-mono text-xs">
             <span
-              className={`uppercase tracking-widest ${PR_STATE[pr.state as keyof typeof PR_STATE] ?? "text-muted"}`}
+              className={`uppercase tracking-widest ${
+                pr.draft
+                  ? "text-warn"
+                  : (PR_STATE[pr.state as keyof typeof PR_STATE] ?? "text-muted")
+              }`}
             >
-              {pr.state}
+              {pr.draft ? "draft" : pr.state}
             </span>{" "}
             <span className="text-ok">+{pr.additions}</span>{" "}
             <span className="text-blood">−{pr.deletions}</span>{" "}
@@ -175,7 +180,27 @@ export function PrTab({ task }: { task: Task }) {
                 ))}
               </div>
 
-              {pr.state === "open" && (
+              {pr.state === "open" && pr.draft && (
+                <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+                  <Button
+                    variant="info"
+                    onClick={() => readyMutation.mutate()}
+                    disabled={readyMutation.isPending}
+                    className="flex w-full items-center justify-center gap-2"
+                  >
+                    <Icon name="check" className="size-4" />
+                    {readyMutation.isPending
+                      ? "Marking ready…"
+                      : "Mark as Ready"}
+                  </Button>
+                  {readyMutation.error && (
+                    <ErrorText className="mt-2">
+                      {readyMutation.error.message}
+                    </ErrorText>
+                  )}
+                </div>
+              )}
+              {pr.state === "open" && !pr.draft && (
                 <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
                   <Button
                     variant="ok"

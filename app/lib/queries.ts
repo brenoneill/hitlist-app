@@ -228,6 +228,18 @@ export function useMergePr(taskId: string) {
   });
 }
 
+/** Marks a draft PR ready for review; Merge stays hidden until this succeeds. */
+export function useMarkPrReady(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>(`/api/tasks/${taskId}/pr/ready`, send("POST")),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...PR, taskId] });
+    },
+  });
+}
+
 /**
  * The task's agent conversation. Polls alongside the task poll while the agent
  * is out, so replies land as runs finish.

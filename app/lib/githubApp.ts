@@ -161,6 +161,8 @@ export interface PrDetails {
   title: string;
   body?: string;
   state: PrState;
+  /** True while the PR is still a GitHub draft (agents open drafts by default). */
+  draft: boolean;
   headRef: string;
   /** Tip commit of the head branch — what deployments are registered against. */
   headSha: string;
@@ -199,6 +201,7 @@ export async function getPrDetails(
     body: string | null;
     merged: boolean;
     state: string;
+    draft: boolean;
     head: { ref: string; sha: string };
     base: { ref: string };
     additions: number;
@@ -214,6 +217,7 @@ export async function getPrDetails(
     title: pr.title,
     body: pr.body ?? undefined,
     state: pr.merged ? "merged" : pr.state === "closed" ? "closed" : "open",
+    draft: pr.draft,
     headRef: pr.head.ref,
     headSha: pr.head.sha,
     baseRef: pr.base.ref,
@@ -228,6 +232,62 @@ export async function getPrDetails(
       patch: f.patch,
     })),
   };
+}
+
+/**
+ * Marks a draft PR ready for review (needs Pull requests: Write).
+ * GitHub rejects REST PATCH `draft: false`; this uses the GraphQL
+ * `markPullRequestReadyForReview` mutation with the PR's `node_id`.
+ * Idempotent when the PR is already ready.
+ * @throws GitHub's own message so the UI can show it.
+ */
+export async function markPrReady(
+  prUrl: string,
+  installationId: string,
+): Promise<void> {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+  if (!m) throw new Error("unrecognized PR url");
+  const token = await getInstallationToken(installationId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  };
+  const prRes = await fetch(
+    `https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`,
+    { headers },
+  );
+  if (prRes.status === 404) throw new Error("PR not found on GitHub");
+  if (!prRes.ok) throw new Error(`GitHub API ${prRes.status}`);
+  const pr = (await prRes.json()) as { draft: boolean; node_id: string };
+  if (!pr.draft) return;
+
+  const gqlRes = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: `mutation($id: ID!) {
+        markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+          pullRequest { isDraft }
+        }
+      }`,
+      variables: { id: pr.node_id },
+    }),
+  });
+  if (!gqlRes.ok) {
+    const body = (await gqlRes.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(body.message ?? `GitHub API ${gqlRes.status}`);
+  }
+  const body = (await gqlRes.json()) as {
+    errors?: { message: string }[];
+  };
+  if (body.errors?.length) {
+    throw new Error(body.errors[0].message);
+  }
 }
 
 /**
