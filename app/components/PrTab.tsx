@@ -1,10 +1,29 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  nextMarkForRepo,
+  readAutoStartNextMark,
+  writeAutoStartNextMark,
+} from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
+import { optionsForMode } from "@/app/lib/prOptions";
+import {
+  LAST_PROVIDER_KEY,
+  PROVIDER_IDS,
+  pickDefaultProvider,
+} from "@/app/lib/providerMeta";
+import {
+  useDeployDefaults,
+  useDispatchTask,
+  useMarkPrReady,
+  useMergePr,
+  usePrDetails,
+  useProviderKeys,
+  useTasks,
+} from "@/app/lib/queries";
 import type { Task } from "@/app/lib/tasks";
-import { useMarkPrReady, useMergePr, usePrDetails } from "@/app/lib/queries";
 import { Button } from "@/app/components/Button";
 import { Icon } from "@/app/components/Icons";
 import { Sheet } from "@/app/components/Sheets";
@@ -39,9 +58,16 @@ export function PrTab({ task }: { task: Task }) {
   const [confirming, setConfirming] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
+  // SSR-safe default; synced from localStorage when the confirm sheet opens
+  const [autoStartNext, setAutoStartNext] = useState(false);
   const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
+  const { data: tasks } = useTasks();
+  const { data: providerKeys } = useProviderKeys();
+  const { data: deployDefaults } = useDeployDefaults();
   const mergeMutation = useMergePr(task.id);
   const readyMutation = useMarkPrReady(task.id);
+  const dispatch = useDispatchTask();
+  const nextMark = nextMarkForRepo(tasks ?? [], task);
 
   // Summary and previewUrl live on the task, but visual proof needs the PR
   // body — paint nothing until that read lands so sections don't arrive staggered.
@@ -210,7 +236,12 @@ export function PrTab({ task }: { task: Task }) {
                 <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
                   <Button
                     variant="ok"
-                    onClick={() => setConfirming(true)}
+                    onClick={() => {
+                      if (task.repoUrl) {
+                        setAutoStartNext(readAutoStartNextMark(task.repoUrl));
+                      }
+                      setConfirming(true);
+                    }}
                     disabled={mergeMutation.isPending}
                     className="flex w-full items-center justify-center gap-2"
                   >
@@ -260,10 +291,58 @@ export function PrTab({ task }: { task: Task }) {
                 Squash-merges {pr ? `#${pr.number}` : "the PR"} into{" "}
                 {pr?.baseRef ?? "the base branch"}.
               </p>
+              {nextMark && task.repoUrl && (
+                <label className="mb-3 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={autoStartNext}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setAutoStartNext(on);
+                      writeAutoStartNextMark(task.repoUrl!, on);
+                    }}
+                    className="mt-0.5 size-3.5 shrink-0 accent-blood"
+                  />
+                  <span>
+                    Auto-start next Mark
+                    <span className="mt-0.5 block truncate font-mono text-[11px]">
+                      {nextMark.title}
+                    </span>
+                  </span>
+                </label>
+              )}
               <Button
                 variant="ok"
                 onClick={() => {
-                  mergeMutation.mutate();
+                  const shouldStart = autoStartNext && !!nextMark;
+                  const nextId = nextMark?.id;
+                  mergeMutation.mutate(undefined, {
+                    onSuccess: () => {
+                      if (!shouldStart || !nextId) return;
+                      const provider = pickDefaultProvider(
+                        PROVIDER_IDS.filter((p) => providerKeys?.[p]),
+                        deployDefaults?.provider ??
+                          localStorage.getItem(LAST_PROVIDER_KEY),
+                      );
+                      if (provider) {
+                        localStorage.setItem(LAST_PROVIDER_KEY, provider);
+                      }
+                      dispatch.mutate({
+                        id: nextId,
+                        ...(provider ? { provider } : {}),
+                        ...(deployDefaults?.model
+                          ? { model: deployDefaults.model }
+                          : {}),
+                        ...(deployDefaults?.visualConfirmation
+                          ? {
+                              options: optionsForMode(
+                                deployDefaults.visualConfirmation,
+                              ),
+                            }
+                          : {}),
+                      });
+                    },
+                  });
                   requestClose();
                 }}
                 className="mb-2 flex w-full items-center justify-center gap-2"
