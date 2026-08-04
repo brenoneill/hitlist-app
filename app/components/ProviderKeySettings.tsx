@@ -21,30 +21,41 @@ import { TextInput } from "@/app/components/ui/TextInput";
  */
 export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
   const meta = PROVIDER_META[provider];
-  const tip = PROVIDER_TIPS[provider];
+  const tips = PROVIDER_TIPS[provider];
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  // null until mounted — avoids flashing the tip after a prior dismiss
-  const [tipDone, setTipDone] = useState<boolean | null>(null);
+  // null until mounted — avoids flashing tips before localStorage is read
+  const [doneKeys, setDoneKeys] = useState<Set<string> | null>(null);
   const { data, isPending: loading } = useProviderKeys();
   const save = useSaveProviderKey();
   const clear = useClearProviderKey();
   const hasKey = data?.[provider] ?? false;
   const busy = loading || save.isPending || clear.isPending;
   const canSave = key.trim().length > 0;
-  const showTip = !!tip && hasKey && tipDone === false;
+  const pendingTips =
+    tips && doneKeys
+      ? tips
+          .map((t, i) => ({ tip: t, n: i + 1 }))
+          .filter(({ tip }) => !doneKeys.has(tip.storageKey))
+      : [];
+  const showTips = hasKey && pendingTips.length > 0;
   const showCopilotHint = provider === "copilot" && hasKey;
 
   useEffect(() => {
-    if (!tip) return;
-    setTipDone(localStorage.getItem(tip.storageKey) === "1");
-  }, [tip]);
+    if (!tips?.length) return;
+    setDoneKeys(
+      new Set(
+        tips
+          .filter((t) => localStorage.getItem(t.storageKey) === "1")
+          .map((t) => t.storageKey),
+      ),
+    );
+  }, [tips]);
 
-  function ackTip() {
-    if (!tip) return;
-    localStorage.setItem(tip.storageKey, "1");
-    setTipDone(true);
+  function ackTip(storageKey: string) {
+    localStorage.setItem(storageKey, "1");
+    setDoneKeys((prev) => new Set([...(prev ?? []), storageKey]));
   }
 
   function submit(e: React.FormEvent) {
@@ -172,29 +183,42 @@ export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
         </div>
       )}
 
-      {showTip && tip && (
+      {showTips && (
         <div className="border-t border-edge px-4 py-3">
-          <p className="text-xs text-muted">
-            {tip.before}{" "}
-            <span className="text-foreground">{tip.highlight}</span> {tip.after}{" "}
-            <a
-              href={tip.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-4"
-            >
-              {tip.linkLabel}
-            </a>
+          <p className="mb-2 text-xs font-medium text-foreground">
+            {pendingTips.length === 1
+              ? "One more step in Cursor"
+              : `${pendingTips.length} more steps in Cursor`}
           </p>
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={ackTip}
-              className="size-3.5 shrink-0 accent-blood"
-            />
-            I&apos;ve turned this on
-          </label>
+          <ol className="space-y-3">
+            {pendingTips.map(({ tip, n }) => (
+              <li key={tip.storageKey}>
+                <p className="text-xs text-muted">
+                  <span className="font-medium text-foreground">{n}. </span>
+                  {tip.before}{" "}
+                  <span className="text-foreground">{tip.highlight}</span>{" "}
+                  {tip.after}{" "}
+                  <a
+                    href={tip.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4"
+                  >
+                    {tip.linkLabel}
+                  </a>
+                </p>
+                <label className="mt-1.5 flex cursor-pointer items-center gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    onChange={() => ackTip(tip.storageKey)}
+                    className="size-3.5 shrink-0 accent-blood"
+                  />
+                  I&apos;ve done this
+                </label>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 

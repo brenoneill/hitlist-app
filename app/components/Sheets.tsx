@@ -14,7 +14,7 @@ import {
 } from "@/app/lib/queries";
 import {
   LAST_PROVIDER_KEY,
-  PROVIDER_IDS,
+  OFFERED_PROVIDER_IDS,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -44,7 +44,7 @@ export function useQuickRedeploy() {
   const dispatch = useDispatchTask();
   function redeploy(id: string) {
     const provider = pickDefaultProvider(
-      PROVIDER_IDS.filter((p) => keys?.[p]),
+      OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]),
       defaults?.provider ??
         (typeof window === "undefined"
           ? null
@@ -122,7 +122,7 @@ function AgentActions({
     useState<VisualConfirmationId | null>(null);
   const [defaultsOpen, setDefaultsOpen] = useState(false);
   const { data: keys } = useProviderKeys();
-  const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  const configured = OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]);
   // derived, not seeded state — `keys` arrives async after the sheet opens
   const [chosen, setChosen] = useState<ProviderId | null>(null);
   const provider =

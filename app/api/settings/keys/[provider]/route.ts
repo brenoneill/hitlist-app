@@ -1,9 +1,9 @@
 import { requireUserId } from "@/auth";
-import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import { OFFERED_PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { clearProviderKey, setProviderKey } from "@/app/lib/userSettings";
 
 function parseProvider(value: string): ProviderId | undefined {
-  return PROVIDER_IDS.find((p) => p === value);
+  return OFFERED_PROVIDER_IDS.find((p) => p === value);
 }
 
 export async function POST(

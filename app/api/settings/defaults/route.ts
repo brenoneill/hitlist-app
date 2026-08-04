@@ -1,5 +1,5 @@
 import { requireUserId } from "@/auth";
-import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import { OFFERED_PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { isVisualConfirmationId } from "@/app/lib/prOptions";
 import {
   getDeployDefaults,
@@ -43,12 +43,14 @@ export async function PUT(req: Request) {
       patch.provider = null;
     } else if (
       typeof body.provider === "string" &&
-      PROVIDER_IDS.includes(body.provider as ProviderId)
+      OFFERED_PROVIDER_IDS.includes(body.provider as ProviderId)
     ) {
       patch.provider = body.provider as ProviderId;
     } else {
       return Response.json(
-        { error: "provider must be cursor, copilot, or null" },
+        {
+          error: `provider must be ${OFFERED_PROVIDER_IDS.join(", ")}, or null`,
+        },
         { status: 400 },
       );
     }

@@ -12,6 +12,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
  * Shipping one: add it to PROVIDER_META + providers.ts, then drop it here.
  */
 const WISHLIST = [
+  "GitHub Copilot",
   "Claude Code",
   "OpenAI Codex",
   "Devin",
@@ -86,8 +87,8 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
       <p
         className={`text-sm leading-relaxed text-muted ${compact ? "mt-1" : "mt-2 max-w-lg"}`}
       >
-        HitList dispatches to Cursor and GitHub Copilot today. Tap the ones you
-        want next — the most-wished provider gets built first.
+        HitList dispatches to Cursor today. Tap the ones you want next — the
+        most-wished provider gets built first.
       </p>
       <ul className={`flex flex-wrap gap-2 ${compact ? "mt-3" : "mt-6"}`}>
         {WISHLIST.map((provider) => {

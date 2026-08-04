@@ -18,7 +18,7 @@ import {
 } from "@/app/lib/queries";
 import {
   LAST_PROVIDER_KEY,
-  PROVIDER_IDS,
+  OFFERED_PROVIDER_IDS,
   pickDefaultProvider,
 } from "@/app/lib/providerMeta";
 import { optionsForMode } from "@/app/lib/prOptions";
@@ -269,7 +269,7 @@ export default function Home() {
   function deploy(task: Task) {
     // Settings default provider if still configured; else last-used / first key
     const provider = pickDefaultProvider(
-      PROVIDER_IDS.filter((p) => providerKeys?.[p]),
+      OFFERED_PROVIDER_IDS.filter((p) => providerKeys?.[p]),
       deployDefaults?.provider ?? localStorage.getItem(LAST_PROVIDER_KEY),
     );
     dispatch.mutate(

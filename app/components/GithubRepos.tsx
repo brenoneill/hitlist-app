@@ -21,11 +21,10 @@ import {
 } from "@/app/lib/queries";
 import { DEFAULT_VISUAL_CONFIRMATION } from "@/app/lib/prOptions";
 import {
-  COPILOT_ALLOWLIST_TIP_PREFIX,
+  CURSOR_INTEGRATIONS_URL,
   LAST_PROVIDER_KEY,
-  PROVIDER_IDS,
+  OFFERED_PROVIDER_IDS,
   PROVIDER_META,
-  copilotAllowlistUrl,
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
@@ -72,62 +71,15 @@ function RepoAccessPanel({
   onToggleBlocked: () => void;
 }) {
   const { data } = useRepoNotes(repo.url);
-  const { data: keys } = useProviderKeys();
   const save = useSaveRepoNotes();
   const addTask = useAddTask();
   // null until typed in, so the server value can arrive without a seeding effect
   const [draft, setDraft] = useState<string | null>(null);
-  // null until mounted — avoids flashing the tip after a prior dismiss
-  const [allowlistTipDone, setAllowlistTipDone] = useState<boolean | null>(
-    null,
-  );
   const notes = draft ?? data?.notes ?? "";
   const dirty = !!data && notes.trim() !== data.notes.trim();
-  const tipKey = `${COPILOT_ALLOWLIST_TIP_PREFIX}${repo.url}`;
-  const showAllowlistTip = !!keys?.copilot && allowlistTipDone === false;
-
-  useEffect(() => {
-    if (!keys?.copilot) return;
-    setAllowlistTipDone(localStorage.getItem(tipKey) === "1");
-  }, [keys?.copilot, tipKey]);
-
-  function ackAllowlistTip() {
-    localStorage.setItem(tipKey, "1");
-    setAllowlistTipDone(true);
-  }
 
   return (
     <div className="border-t border-edge px-4 py-3">
-      {showAllowlistTip && (
-        <div className="mb-3 border-b border-edge pb-3">
-          <p className="text-xs text-muted">
-            Add{" "}
-            <span className="text-foreground">
-              files.catbox.moe
-            </span>{" "}
-            to this repo&apos;s Copilot allowlist so agents can fetch your
-            screenshots.{" "}
-            <a
-              href={copilotAllowlistUrl(repo.name)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-4"
-            >
-              Open allowlist settings ↗
-            </a>
-          </p>
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={ackAllowlistTip}
-              className="size-3.5 shrink-0 accent-blood"
-            />
-            I&apos;ve turned this on
-          </label>
-        </div>
-      )}
-
       <label htmlFor={`notes-${repo.id}`} className="text-xs font-medium">
         Agent access notes
       </label>
@@ -529,8 +481,8 @@ export function GithubRepos({
   const { data: keys, isLoading: keysLoading } = useProviderKeys(signedIn);
   const { data: defaults } = useDeployDefaults(signedIn);
   const saveDefaults = useSaveDeployDefaults();
-  const hasAnyKey = Object.values(keys ?? {}).some(Boolean);
-  const configured = PROVIDER_IDS.filter((p) => keys?.[p]);
+  const configured = OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]);
+  const hasAnyKey = configured.length > 0;
   // Defaults stay visible the whole time — last + disabled until ready, then move to top.
   const defaultsReady = signedIn && hasAnyKey && connected;
   // Numbers follow visual order for the current phase:
@@ -566,7 +518,7 @@ export function GithubRepos({
 
   const providerSummary = (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-      {PROVIDER_IDS.map((p) => (
+      {OFFERED_PROVIDER_IDS.map((p) => (
         <span key={p} className="flex items-center gap-1.5">
           <span
             className={`size-1.5 shrink-0 rounded-full ${
@@ -702,7 +654,7 @@ export function GithubRepos({
 
       <Section
         n={providerStep}
-        title="Add an agent provider"
+        title="Connect Cursor (More providers coming soon)"
         done={signedIn && hasAnyKey}
         disabled={!signedIn}
         summary={providerSummary}
@@ -712,10 +664,11 @@ export function GithubRepos({
         ) : (
           <>
             <p className="mb-3 text-sm text-muted">
-              Add a key for at least one provider — it&apos;s who does the work
-              when you deploy an agent.
+              Add your Cursor API key, then connect GitHub in Cursor for the
+              same repos — agents need Cursor&apos;s access separately from
+              HitList.
             </p>
-            {PROVIDER_IDS.map((p) => (
+            {OFFERED_PROVIDER_IDS.map((p) => (
               <ProviderKeySettings key={p} provider={p} />
             ))}
           </>
@@ -738,6 +691,18 @@ export function GithubRepos({
               request read-only access to a repo&apos;s name and URL — never its
               code.
             </p>
+            <p className="mb-3 text-sm text-muted">
+              Also{" "}
+              <a
+                href={CURSOR_INTEGRATIONS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4"
+              >
+                connect those same repos in Cursor
+              </a>{" "}
+              — without that, cloud agents can&apos;t clone or open PRs.
+            </p>
             {INSTALL_URL ? (
               <Button
                 href={INSTALL_URL}
@@ -759,11 +724,26 @@ export function GithubRepos({
             )}
           </div>
         ) : (
-          <RepoList
-            repos={repos ?? []}
-            blockedRepos={blockedRepos}
-            onToggleBlocked={onToggleBlocked}
-          />
+          <>
+            <p className="mb-3 text-sm text-muted">
+              HitList can see these repos. Make sure the same ones are granted
+              under{" "}
+              <a
+                href={CURSOR_INTEGRATIONS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4"
+              >
+                Cursor → Integrations → GitHub
+              </a>
+              .
+            </p>
+            <RepoList
+              repos={repos ?? []}
+              blockedRepos={blockedRepos}
+              onToggleBlocked={onToggleBlocked}
+            />
+          </>
         )}
       </Section>
 

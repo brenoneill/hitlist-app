@@ -1,6 +1,6 @@
 import { requireUserId } from "@/auth";
 import { getTask, listTasks, updateTask, type Task } from "@/app/lib/tasks";
-import { PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import { OFFERED_PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
 import { PROVIDERS } from "@/app/lib/providers";
 import {
   getAgentAccessNotes,
@@ -138,14 +138,18 @@ export async function POST(
   const defaults = await getDeployDefaults(userId);
 
   // no provider in the body (quick deploy) ⇒ Settings default, else first key
-  let provider = PROVIDER_IDS.find((p) => p === requested);
+  let provider = OFFERED_PROVIDER_IDS.find((p) => p === requested);
   let apiKey = provider ? await getProviderKey(userId, provider) : undefined;
-  if (!apiKey && defaults.provider) {
+  if (
+    !apiKey &&
+    defaults.provider &&
+    OFFERED_PROVIDER_IDS.includes(defaults.provider)
+  ) {
     apiKey = await getProviderKey(userId, defaults.provider);
     if (apiKey) provider = defaults.provider;
   }
   if (!apiKey) {
-    for (const p of PROVIDER_IDS) {
+    for (const p of OFFERED_PROVIDER_IDS) {
       apiKey = await getProviderKey(userId, p);
       if (apiKey) {
         provider = p;

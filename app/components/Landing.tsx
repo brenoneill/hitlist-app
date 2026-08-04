@@ -73,7 +73,7 @@ const FEATURES: {
   {
     icon: "cursor",
     title: "Deploy a cloud agent",
-    body: "Hand the hit to Cursor or Copilot from your phone. Come back when the PR is ready to review.",
+    body: "Hand the hit to Cursor from your phone. Come back when the PR is ready to review.",
   },
   {
     icon: "pr",
