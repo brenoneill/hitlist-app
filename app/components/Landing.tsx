@@ -82,11 +82,6 @@ const FEATURES: {
     body: "PR summary, changed files, deployments, and a merge button — plus agent status and PR links across the whole list.",
   },
   {
-    icon: "cursor",
-    title: "Brief the agent",
-    body: "Follow the full transcript and send follow-up messages from your phone when the first pass isn’t quite right.",
-  },
-  {
     icon: "merge",
     title: "Auto-dispatch the next hit",
     body: "Merge a PR and the next marked hit for that repo dispatches on its own. Your hit list keeps itself moving.",
@@ -213,8 +208,7 @@ export function Landing() {
             </p>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
               Gather the tasks a phone can finish, fire a Cursor cloud agent at
-              them, and verify what comes back — visual proof in the PR, review
-              and merge without leaving the list.
+              them, and verify what comes back before merging - all from your phone.
             </p>
             <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">
               Free · Open source
@@ -455,7 +449,7 @@ function FlowDiagram() {
           </Fragment>
         ))}
       </div>
-      <div className="mt-5 min-h-24 rounded-xl border border-edge bg-surface/60 px-4 py-3 sm:min-h-20">
+      <div className="mt-5 h-28 overflow-hidden rounded-xl border border-edge bg-surface/60 px-4 py-3 sm:h-24">
         <h3 className="flex items-center gap-2 font-semibold tracking-tight">
           <span className="font-mono text-[11px] text-muted">
             {active + 1}/{FLOW.length}
