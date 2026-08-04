@@ -32,6 +32,7 @@ import {
 import { GroupSheet, TaskSheet } from "@/app/components/Sheets";
 import { inFlight, wasDeployed } from "@/app/components/TaskList";
 import { ListTab } from "@/app/components/ListTab";
+import { Icon } from "@/app/components/Icons";
 import { Chip } from "@/app/components/ui/Chip";
 import { Menu } from "@/app/components/ui/Menu";
 import { TextInput } from "@/app/components/ui/TextInput";
@@ -47,20 +48,27 @@ function isSetupComplete(
 }
 
 /**
- * Strips a whole-token `#dispatch` tag from a Mark title when present.
+ * Strips a whole-token `#dispatch` / `#deploy` tag from a Mark title when present.
  * @param title - Trimmed composer text
  * @returns Cleaned title and whether immediate deploy was requested
  */
 function parseDeployTag(title: string): { title: string; deploy: boolean } {
-  const deploy = /(^|\s)#dispatch(?=\s|$)/i.test(title);
+  const deploy = /(^|\s)#(?:dispatch|deploy)(?=\s|$)/i.test(title);
   if (!deploy) return { title, deploy: false };
   return {
     title: title
-      .replace(/(^|\s)#dispatch(?=\s|$)/gi, "$1")
+      .replace(/(^|\s)#(?:dispatch|deploy)(?=\s|$)/gi, "$1")
       .replace(/\s+/g, " ")
       .trim(),
     deploy: true,
   };
+}
+
+/** True when `#…` at the end of the title should offer the Immediate dispatch chip. */
+function matchesDispatchMention(filter: string): boolean {
+  const q = filter.toLowerCase();
+  if (!q) return true;
+  return "dispatch".startsWith(q) || "deploy".startsWith(q);
 }
 
 export default function Home() {
@@ -125,6 +133,8 @@ export default function Home() {
 
   // -- mention picker: chip is the chosen repo, dropdown filters as you type
   const [repo, setRepo] = useState<Repo | null>(null);
+  // # mention picker: chip flags immediate dispatch on Mark
+  const [immediateDispatch, setImmediateDispatch] = useState(false);
   const [mIdx, setMIdx] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   // ponytail: trigger only matches at the end of the input; mid-string caret editing won't open it
@@ -139,24 +149,46 @@ export default function Home() {
           .slice(0, 6)
       : [];
   const mentionOpen = matches.length > 0;
+  // #dispatch dropdown — only when repo mention isn't already open
+  const hashMention =
+    !immediateDispatch && !mentionOpen
+      ? title.match(/(?:^|\s)#(\S*)$/)
+      : null;
+  const dispatchOpen =
+    !!hashMention && !dismissed && matchesDispatchMention(hashMention[1]);
 
   function pickMention(r: Repo) {
     setRepo(r);
     setTitle((t) => t.replace(/(?:--|[—–])\S*$/, "").trimEnd());
   }
 
+  /** Commits `#…` into the Immediate dispatch chip and clears the trigger from the title. */
+  function pickDispatch() {
+    setImmediateDispatch(true);
+    setTitle((t) => t.replace(/(^|\s)#\S*$/, "$1").trimEnd());
+  }
+
   function onTitleKeyDown(e: React.KeyboardEvent) {
-    if (!mentionOpen) return;
-    if (e.key === "ArrowDown") {
+    if (mentionOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMIdx((i) => (i + 1) % matches.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMIdx((i) => (i + matches.length - 1) % matches.length);
+      } else if (e.key === "Enter") {
+        // picks instead of submitting the form
+        e.preventDefault();
+        pickMention(matches[Math.min(mIdx, matches.length - 1)]);
+      } else if (e.key === "Escape") {
+        setDismissed(true);
+      }
+      return;
+    }
+    if (!dispatchOpen) return;
+    if (e.key === "Enter") {
       e.preventDefault();
-      setMIdx((i) => (i + 1) % matches.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setMIdx((i) => (i + matches.length - 1) % matches.length);
-    } else if (e.key === "Enter") {
-      // picks instead of submitting the form
-      e.preventDefault();
-      pickMention(matches[Math.min(mIdx, matches.length - 1)]);
+      pickDispatch();
     } else if (e.key === "Escape") {
       setDismissed(true);
     }
@@ -166,9 +198,12 @@ export default function Home() {
     e.preventDefault();
     const raw = title.trim();
     if (!raw) return;
-    const { title: t, deploy: wantsDeploy } = parseDeployTag(raw);
+    const { title: t, deploy: fromTag } = parseDeployTag(raw);
     if (!t) return;
+    const hadDispatchChip = immediateDispatch;
+    const wantsDeploy = hadDispatchChip || fromTag;
     setTitle("");
+    setImmediateDispatch(false);
     addTask.mutate(
       { title: t, repoUrl: repo?.url },
       {
@@ -177,6 +212,7 @@ export default function Home() {
         },
         onError: (err) => {
           setTitle(raw);
+          if (hadDispatchChip) setImmediateDispatch(true);
           showToast(err.message || "failed to mark", { tone: "error" });
         },
       },
@@ -372,22 +408,33 @@ export default function Home() {
                 }
               />
               <Menu
-                open={mentionOpen}
+                open={mentionOpen || dispatchOpen}
                 onClose={() => setDismissed(true)}
                 className="inset-x-0 top-full mt-1"
               >
-                {matches.map((r, i) => (
-                  <button
-                    type="button"
-                    key={r.id}
-                    onClick={() => pickMention(r)}
-                    className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
-                      i === mIdx ? "bg-background" : ""
-                    }`}
-                  >
-                    {r.name}
-                  </button>
-                ))}
+                {mentionOpen
+                  ? matches.map((r, i) => (
+                      <button
+                        type="button"
+                        key={r.id}
+                        onClick={() => pickMention(r)}
+                        className={`block w-full truncate px-4 py-2.5 text-left font-mono text-sm ${
+                          i === mIdx ? "bg-background" : ""
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))
+                  : (
+                      <button
+                        type="button"
+                        onClick={pickDispatch}
+                        className="flex w-full items-center gap-2 bg-background px-4 py-2.5 text-left font-mono text-sm"
+                      >
+                        <Icon name="send" className="size-4 text-blood" />
+                        Immediate dispatch
+                      </button>
+                    )}
               </Menu>
             </div>
             <Button
@@ -398,7 +445,7 @@ export default function Home() {
               Mark
             </Button>
           </div>
-          {(repo || projects.length > 0) && (
+          {(repo || immediateDispatch || projects.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               {repo && (
                 <Chip
@@ -408,6 +455,16 @@ export default function Home() {
                   dismissLabel="Remove repo"
                 >
                   {repo.name}
+                </Chip>
+              )}
+              {immediateDispatch && (
+                <Chip
+                  variant="surface"
+                  icon="send"
+                  onDismiss={() => setImmediateDispatch(false)}
+                  dismissLabel="Remove immediate dispatch"
+                >
+                  Dispatch
                 </Chip>
               )}
               {projects.length > 0 && (
