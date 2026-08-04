@@ -151,6 +151,20 @@ function when(iso: string): string {
     : `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
 }
 
+/**
+ * Live preview URL for the PR branch — prefer a deployment from the PR read,
+ * else the `previewUrl` the task poll stores.
+ * @param task - Hit whose polled preview URL may already be known.
+ * @param pr - Optional PR details whose deployments may carry a fresher URL.
+ * @returns Absolute preview URL, or undefined when none is available yet.
+ */
+function resolvePreviewUrl(
+  task: Task,
+  pr: PrDetails | undefined,
+): string | undefined {
+  return pr?.deployments?.find((d) => d.url)?.url ?? task.previewUrl;
+}
+
 /** The Agent tab: conversation bubbles interleaved with lifecycle event chips. */
 export function Conversation({
   task,
@@ -166,6 +180,7 @@ export function Conversation({
     running,
   );
   const { data: pr } = usePrDetails(task.id, !!task.prUrl);
+  const previewUrl = resolvePreviewUrl(task, pr);
   const sendMessage = useSendMessage(task.id);
   const supportsFollowups =
     !!task.provider && PROVIDER_META[task.provider].supportsFollowups;
@@ -174,7 +189,12 @@ export function Conversation({
   // messages land so nothing paints ahead of the rest. PR details can arrive
   // later; View PR only needs `task.prUrl`.
   if (messagesLoading && !messages) {
-    return <ConversationSkeleton hasPr={!!task.prUrl} />;
+    return (
+      <ConversationSkeleton
+        hasPr={!!task.prUrl}
+        hasPreview={!!task.previewUrl}
+      />
+    );
   }
 
   if (!wasDeployed(task) && !messages?.length) {
@@ -228,15 +248,26 @@ export function Conversation({
                   {when(item.msg.createdAt)}
                 </p>
               )}
-              {item.msg.role === "agent" && task.prUrl && (
-                <Button
-                  variant="outline"
-                  onClick={onShowPr}
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 py-2 text-xs active:bg-background"
-                >
-                  View PR
-                  <Icon name="pr" className="size-3.5" />
-                </Button>
+              {item.msg.role === "agent" && (task.prUrl || previewUrl) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {task.prUrl && (
+                    <Button variant="outlineSm" onClick={onShowPr}>
+                      View PR
+                      <Icon name="pr" className="size-3" />
+                    </Button>
+                  )}
+                  {previewUrl && (
+                    <Button
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outlineSm"
+                    >
+                      View Preview
+                      <Icon name="external" className="size-3" />
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           ) : (
@@ -318,7 +349,13 @@ export function Conversation({
  * Full-tab placeholder while messages load. Lifecycle chips used to paint
  * from task data ahead of the transcript, then jump once turns arrived.
  */
-function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
+function ConversationSkeleton({
+  hasPr,
+  hasPreview,
+}: {
+  hasPr: boolean;
+  hasPreview: boolean;
+}) {
   return (
     <section className="mb-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading conversation</span>
@@ -332,7 +369,12 @@ function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
         <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
-          {hasPr && <Skeleton className="mt-3 h-9 rounded-xl bg-edge" />}
+          {(hasPr || hasPreview) && (
+            <div className="mt-2 flex gap-1.5">
+              {hasPr && <Skeleton className="h-6 w-16 rounded-lg bg-edge" />}
+              {hasPreview && <Skeleton className="h-6 w-24 rounded-lg bg-edge" />}
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-3 flex items-end gap-2" aria-hidden>
