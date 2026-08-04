@@ -71,6 +71,28 @@ function matchesDispatchMention(filter: string): boolean {
   return "dispatch".startsWith(q) || "deploy".startsWith(q);
 }
 
+/**
+ * Strips a completed whole-token `#dispatch` into chip state.
+ * Partials (`#dis`) and glued forms (`#dispatch-`) are left alone.
+ * @param value - Current composer text
+ * @returns Cleaned title and whether the token was consumed
+ */
+function consumeDispatchToken(value: string): {
+  title: string;
+  consumed: boolean;
+} {
+  if (!/(^|\s)#dispatch(?=\s|$)/i.test(value)) {
+    return { title: value, consumed: false };
+  }
+  return {
+    title: value
+      .replace(/(^|\s)#dispatch(?=\s|$)/gi, "$1")
+      .replace(/\s+/g, " ")
+      .trim(),
+    consumed: true,
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const { status } = useSession();
@@ -387,9 +409,19 @@ export default function Home() {
                 tone="surface"
                 value={title}
                 onChange={(e) => {
-                  setTitle(e.target.value);
                   setDismissed(false);
                   setMIdx(0);
+                  const next = e.target.value;
+                  if (!immediateDispatch) {
+                    const { title: cleaned, consumed } =
+                      consumeDispatchToken(next);
+                    if (consumed) {
+                      setImmediateDispatch(true);
+                      setTitle(cleaned);
+                      return;
+                    }
+                  }
+                  setTitle(next);
                 }}
                 onKeyDown={onTitleKeyDown}
                 placeholder={
