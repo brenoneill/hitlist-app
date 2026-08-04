@@ -400,10 +400,12 @@ export default function Home() {
                       : "Filter by project"
                   }
                 >
-                  Filter
-                  {activeProjectFilter.size > 0
-                    ? ` · ${activeProjectFilter.size}`
-                    : ""}
+                  <span className="sr-only">
+                    Filter
+                    {activeProjectFilter.size > 0
+                      ? ` · ${activeProjectFilter.size}`
+                      : ""}
+                  </span>
                 </Chip>
               )}
             </div>
