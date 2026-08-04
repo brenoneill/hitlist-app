@@ -23,8 +23,8 @@ export async function requireUserId(): Promise<string | Response> {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // default scope (read:user user:email) — identity only, no repo access.
-  // Repo listing goes through a separate GitHub App install (see app/lib/githubApp.ts)
-  // scoped to Metadata: Read-only, so this login can't read any code.
+  // Repo access goes through a separate GitHub App install (see app/lib/githubApp.ts
+  // for its actual permissions) — this login itself can't read any code.
   providers: [
     GitHub,
     // Sandbox sign-in for agent/E2E runs (npm run dev:e2e) — GitHub OAuth can't

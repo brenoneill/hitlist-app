@@ -687,9 +687,9 @@ export function GithubRepos({
         ) : !connected ? (
           <div className="rounded-xl border border-edge bg-surface p-4">
             <p className="mb-3 text-sm text-muted">
-              Connect GitHub to pick which repos HitList can see. We only ever
-              request read-only access to a repo&apos;s name and URL — never its
-              code.
+              Connect GitHub to pick which repos HitList can see. The app can
+              read PR diffs and merge when you ask it to — HitList never
+              stores your code.
             </p>
             <p className="mb-3 text-sm text-muted">
               Also{" "}

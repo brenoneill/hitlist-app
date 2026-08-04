@@ -62,48 +62,63 @@ const FEATURES: {
 }[] = [
   {
     icon: "crosshair",
-    title: "Mark small hits",
-    body: "Capture the small tasks you can review well in a PR — before they slip between meetings.",
+    title: "Mark phone-sized hits",
+    body: "Capture the tasks a phone review can actually finish — before they slip between meetings.",
   },
   {
-    icon: "github",
-    title: "Tag a repo",
-    body: "Type -- in the mark field to pin a GitHub repo. The agent already knows where to work.",
+    icon: "send",
+    title: "#deploy as you type",
+    body: "Type -- to tag a GitHub repo, add #deploy to the title, and the Cursor agent is already running when you hit Mark.",
   },
   {
-    icon: "cursor",
-    title: "Deploy a cloud agent",
-    body: "Hand the hit to Cursor from your phone. Come back when the PR is ready to review.",
+    icon: "image",
+    title: "Visual proof in every PR",
+    body: "Require screenshots or video with each dispatch, so you can verify the change without checking out the code.",
   },
   {
     icon: "pr",
-    title: "Track the run",
-    body: "See agent status, PR links, and merges without opening a desktop dashboard.",
+    title: "Review & merge in-app",
+    body: "PR summary, changed files, deployments, and a merge button — plus agent status and PR links across the whole list.",
   },
   {
-    icon: "list",
-    title: "Group & reorder",
-    body: "Stack related hits, drag to prioritize, and keep the pocket list under control.",
+    icon: "cursor",
+    title: "Brief the agent",
+    body: "Follow the full transcript and send follow-up messages from your phone when the first pass isn’t quite right.",
   },
   {
-    icon: "filter",
-    title: "Filter by project",
-    body: "Narrow the list to one repo when you’re mid-context and don’t want noise.",
+    icon: "merge",
+    title: "Auto-deploy the next hit",
+    body: "Merge a PR and the next marked hit for that repo dispatches on its own. Your hit list keeps itself moving.",
   },
 ];
 
 const BENEFITS = [
   {
-    title: "Built for pocket work",
-    body: "Running a major agent session from mobile is rough. Marking a small, reviewable hit and dispatching it isn’t.",
+    title: "The bet: a lot of dev work is phone-sized",
+    body: "Our hypothesis is that a growing share of dev work can be finished entirely from a phone. HitList is where you gather those marks and find out which hits agents can actually land.",
   },
   {
-    title: "Thought → agent → PR",
-    body: "Capture the task, tag the repo, fire an agent provider, and review the pull request from the same list.",
+    title: "Verify, don’t hope",
+    body: "Every dispatch can demand visual proof — screenshots or video in the PR — and a description written to be reviewed on a phone. Built for people who actually test generated code.",
   },
   {
-    title: "Keep the big work elsewhere",
-    body: "Save deep refactors for a real machine. Use HitList for scoped changes that make a clean PR review.",
+    title: "Every hit is accounted for",
+    body: "Status, transcript, follow-ups, PR links, and merges live in one list, so every agent-written change gets reviewed before it ships.",
+  },
+];
+
+const TRUST = [
+  {
+    title: "MIT-licensed and free",
+    body: "The whole app is open source on GitHub. No plans, no paywall — use ours or run your own.",
+  },
+  {
+    title: "Bring your own Cursor key",
+    body: "Agents run on your Cursor account. Your API key is encrypted at rest and only used to dispatch your hits.",
+  },
+  {
+    title: "Your code stays on GitHub",
+    body: "Sign-in is identity-only. The GitHub App is scoped to pull requests — it reads diffs to render your review and writes only when you tap merge. HitList never stores your code.",
   },
 ];
 
@@ -161,12 +176,15 @@ export function Landing() {
               HITLIST
             </h1>
             <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">
-              Small hits. Cloud agents. From your phone.
+              Make dev work from your phone scale.
             </p>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
-              Major agent work belongs on a real machine. HitList is for the
-              small tasks you can review well in a PR — mark them, tag a repo,
-              and fire a web agent while you’re on the go.
+              Gather the tasks a phone can finish, fire a Cursor cloud agent at
+              them, and verify what comes back — visual proof in the PR, review
+              and merge without leaving the list.
+            </p>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">
+              Free · Open source
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button
@@ -197,8 +215,8 @@ export function Landing() {
             Small enough to review. Ready to dispatch.
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-            Sign in and this becomes your live queue — mark a scoped task, tag a
-            repo, and fire an agent before you’re back at a desk.
+            Sign in and this becomes your live hit list — mark a scoped task,
+            tag a repo, or add #deploy to the title and it’s already running.
           </p>
           <div className="relative mx-auto mt-8 max-w-md">
             <div
@@ -221,7 +239,7 @@ export function Landing() {
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Why HitList</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">
-            Built for reviewable PRs, not sprawling refactors
+            Find the dev work your phone can finish
           </h2>
           <ul className="mt-8 space-y-8">
             {BENEFITS.map((b) => (
@@ -260,14 +278,47 @@ export function Landing() {
 
         <ProviderWishlist />
 
+        <section className="border-t border-edge/80 pt-12 mt-16">
+          <FieldLabel className="mb-2 mt-6 first:mt-0">Open source</FieldLabel>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Free, open source, your keys
+          </h2>
+          <ul className="mt-8 space-y-8">
+            {TRUST.map((t) => (
+              <li key={t.title}>
+                <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                  <Icon name="lock" className="size-4 text-blood" />
+                  {t.title}
+                </h3>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+                  {t.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-8">
+            <Button
+              href="https://github.com/brenoneill/hitlist-app"
+              target="_blank"
+              rel="noreferrer"
+              onClick={cta("open-source-github")}
+              variant="outline"
+              className="inline-flex items-center gap-2 px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <Icon name="github" className="size-4" />
+              View source on GitHub
+            </Button>
+          </div>
+        </section>
+
         <section className="mt-16 rounded-2xl border border-edge bg-surface/60 px-5 py-10 text-center sm:px-10">
           <Icon name="crosshair" className="mx-auto size-8 text-blood" />
           <h2 className="mt-4 text-2xl font-bold tracking-tight">
             Put a hit list in your pocket
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-            Sign in, connect an agent provider, and start marking the small work
-            that shouldn’t wait until you’re back at a desk.
+            Sign in with GitHub, add your Cursor API key, and start marking the
+            dev work your phone can finish.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button
@@ -290,7 +341,15 @@ export function Landing() {
       </main>
 
       <footer className="relative z-10 border-t border-edge/60 py-6 text-center font-mono text-[11px] uppercase tracking-widest text-muted">
-        HitList — small tasks, cloud agents
+        HitList — free & open source ·{" "}
+        <a
+          href="https://github.com/brenoneill/hitlist-app"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-4 transition-colors hover:text-foreground"
+        >
+          MIT on GitHub
+        </a>
       </footer>
     </div>
   );
@@ -323,7 +382,7 @@ function PreviewHitList() {
       <div className="px-4 pb-5 pt-4">
         <div className="mb-4 flex gap-2">
           <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">
-            Name your next hit…
+            Name your next hit… (-- repo, #deploy)
           </div>
           <div className={`${BLOOD_BUTTON} px-5 opacity-40`}>Mark</div>
         </div>
