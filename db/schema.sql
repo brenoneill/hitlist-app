@@ -64,3 +64,24 @@ create table repo_settings (
   agent_access_notes text,
   primary key (user_id, repo_url)
 );
+
+-- Append-mostly run history for analytics (duration, success, model, follow-ups).
+-- Tasks remain the UI source of truth for the latest run.
+create table agent_runs (
+  id text primary key,
+  user_id text not null,
+  task_id text,
+  agent_id text not null,
+  provider text not null,
+  provider_run_id text,
+  model text,
+  kind text not null
+    check (kind in ('dispatch', 'followup', 'redeploy')),
+  status text,
+  started_at timestamptz not null,
+  finished_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (provider, provider_run_id)
+);
+create index agent_runs_user_started on agent_runs (user_id, started_at desc);
+create index agent_runs_agent on agent_runs (agent_id, started_at desc);

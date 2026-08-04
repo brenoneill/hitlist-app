@@ -1,4 +1,5 @@
 import { requireUserId } from "@/auth";
+import { startRun } from "@/app/lib/agentRuns";
 import { TERMINAL_RUN, type RunStatus } from "@/app/lib/cursor";
 import { addMessage, listMessages } from "@/app/lib/messages";
 import { PROVIDERS, type ProviderClient } from "@/app/lib/providers";
@@ -108,6 +109,13 @@ export async function POST(
     );
   }
   await addMessage(userId, task.agentId, "user", text.trim());
+  await startRun({
+    userId,
+    taskId: id,
+    agentId: task.agentId,
+    provider,
+    kind: "followup",
+  }).catch(() => {});
 
   // resetting runStatus re-arms the run poll; branch/prUrl/prState stay — the
   // follow-up pushes to the same PR

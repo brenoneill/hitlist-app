@@ -154,6 +154,8 @@ export async function getLatestRun(
   const artifacts = (task.artifacts ?? []) as Artifact[];
   const branch = artifacts.find((a) => a.type === "branch")?.data?.head_ref;
   return {
+    // Copilot has no separate run id — the task is the unit of work.
+    id: agentId,
     status: STATE_MAP[task.state] ?? "RUNNING",
     // no summary field in the API — the PR body carries the write-up
     branch,

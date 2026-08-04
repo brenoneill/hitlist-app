@@ -1,4 +1,5 @@
 import { requireUserId } from "@/auth";
+import { touchRunFromPoll } from "@/app/lib/agentRuns";
 import { deleteImages } from "@/app/lib/catbox";
 import {
   addTask,
@@ -105,11 +106,22 @@ async function refresh(userId: string, tasks: Task[]): Promise<Task[]> {
     try {
       if (apiKey && needsRunPoll(task)) {
         const agentId = task.agentId!;
-        const run = runCache.has(agentId)
+        const cached = runCache.has(agentId);
+        const run = cached
           ? runCache.get(agentId)
           : await PROVIDERS[provider].getLatestRun(agentId, task.repoUrl, apiKey);
         runCache.set(agentId, run);
         if (run) {
+          // once per agent per refresh — group members share the same run
+          if (!cached) {
+            await touchRunFromPoll({
+              userId,
+              agentId,
+              provider,
+              providerRunId: run.id,
+              status: run.status,
+            }).catch(() => {});
+          }
           // ponytail: reuse "inbox" as the awaiting-merge rest state — statusDisplay
           // renders inbox+prUrl as "PR READY", so no new status is needed here.
           if (task.status === "running") {

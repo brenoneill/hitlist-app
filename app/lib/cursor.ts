@@ -90,6 +90,8 @@ export async function listModels(apiKey: string): Promise<CursorModel[]> {
 }
 
 export interface LatestRun {
+  /** Provider run id (Cursor run id; Copilot uses the task id). */
+  id?: string;
   status: RunStatus;
   /** Final assistant response text — only present on terminal runs. */
   summary?: string;
@@ -117,6 +119,7 @@ export async function getLatestRun(
   const run = await cursorGet(`${agentId}/runs/${latestRunId}`, apiKey);
   const branch = run.git?.branches?.[0];
   return {
+    id: latestRunId,
     status: run.status,
     summary: run.result,
     branch: branch?.branch,

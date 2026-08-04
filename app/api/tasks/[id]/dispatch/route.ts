@@ -13,6 +13,7 @@ import {
   type VisualConfirmationId,
 } from "@/app/lib/prOptions";
 import { playbookBootstrap } from "@/app/lib/hitlistPlaybook";
+import { startRun } from "@/app/lib/agentRuns";
 import { addMessage } from "@/app/lib/messages";
 
 /**
@@ -190,6 +191,14 @@ export async function POST(
     await addMessage(userId, agent.id, "user", promptBody(members)).catch(
       () => {},
     );
+    await startRun({
+      userId,
+      taskId: id,
+      agentId: agent.id,
+      provider,
+      model: resolvedModel ?? null,
+      kind: redeploy ? "redeploy" : "dispatch",
+    }).catch(() => {});
     const updated: Task[] = [];
     for (const m of members) {
       const u = await updateTask(userId, m.id, {
