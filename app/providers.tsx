@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { DeployQueueProvider } from "@/app/components/DeployQueue";
+import { ToastProvider } from "@/app/components/ui/Toast";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // one client per browser session, created lazily so SSR never shares it
@@ -15,7 +17,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <SessionProvider>{children}</SessionProvider>
+      <SessionProvider>
+        <ToastProvider>
+          <DeployQueueProvider>{children}</DeployQueueProvider>
+        </ToastProvider>
+      </SessionProvider>
     </QueryClientProvider>
   );
 }

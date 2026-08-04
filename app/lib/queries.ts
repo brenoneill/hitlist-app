@@ -223,7 +223,11 @@ export function useMergePr(taskId: string) {
       api<Task | Task[]>(`/api/tasks/${taskId}/pr/merge`, send("POST")),
     onSuccess: (updated) => {
       merge(qc, updated);
-      qc.invalidateQueries({ queryKey: [...PR, taskId] });
+      // patch cache instead of refetching — GitHub often 500s on a PR read
+      // right after squash merge, which surfaced as a false failure toast
+      qc.setQueryData<PrDetails>([...PR, taskId], (prev) =>
+        prev ? { ...prev, state: "merged", draft: false } : prev,
+      );
     },
   });
 }

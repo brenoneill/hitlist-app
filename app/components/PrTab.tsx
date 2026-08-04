@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  nextDeployTargetForRepo,
+  readAutoStartNextMark,
+  writeAutoStartNextMark,
+} from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
+import {
+  useMarkPrReady,
+  useMergePr,
+  usePrDetails,
+  useTasks,
+} from "@/app/lib/queries";
 import type { Task } from "@/app/lib/tasks";
-import { useMarkPrReady, useMergePr, usePrDetails } from "@/app/lib/queries";
 import { Button } from "@/app/components/Button";
+import { useDeployQueue } from "@/app/components/DeployQueue";
 import { Icon } from "@/app/components/Icons";
 import { Sheet } from "@/app/components/Sheets";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -13,6 +24,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { Markdownish } from "@/app/components/ui/Markdownish";
 import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
 import { Skeleton } from "@/app/components/ui/Skeleton";
+import { useToast } from "@/app/components/ui/Toast";
 
 /**
  * A GitHub-hosted PR asset needs the viewer's github.com session, which a
@@ -39,9 +51,19 @@ export function PrTab({ task }: { task: Task }) {
   const [confirming, setConfirming] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
-  const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
+  // SSR-safe default; synced from localStorage when the confirm sheet opens
+  const [autoStartNext, setAutoStartNext] = useState(false);
+  // stop PR reads once merged — GitHub often 500s on the post-squash refetch
+  const { data: pr, error, isLoading } = usePrDetails(
+    task.id,
+    !!task.prUrl && task.prState !== "merged",
+  );
+  const { data: tasks } = useTasks();
   const mergeMutation = useMergePr(task.id);
   const readyMutation = useMarkPrReady(task.id);
+  const { queueDeployAfterMerge } = useDeployQueue();
+  const { showToast } = useToast();
+  const nextTarget = nextDeployTargetForRepo(tasks ?? [], task);
 
   // Summary and previewUrl live on the task, but visual proof needs the PR
   // body — paint nothing until that read lands so sections don't arrive staggered.
@@ -145,7 +167,7 @@ export function PrTab({ task }: { task: Task }) {
         </p>
       ) : (
         <>
-          {error && (
+          {error && task.prState !== "merged" && (
             <>
               <ErrorText className="mb-2">{error.message}</ErrorText>
               <Button
@@ -210,7 +232,12 @@ export function PrTab({ task }: { task: Task }) {
                 <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
                   <Button
                     variant="ok"
-                    onClick={() => setConfirming(true)}
+                    onClick={() => {
+                      if (task.repoUrl) {
+                        setAutoStartNext(readAutoStartNextMark(task.repoUrl));
+                      }
+                      setConfirming(true);
+                    }}
                     disabled={mergeMutation.isPending}
                     className="flex w-full items-center justify-center gap-2"
                   >
@@ -260,10 +287,50 @@ export function PrTab({ task }: { task: Task }) {
                 Squash-merges {pr ? `#${pr.number}` : "the PR"} into{" "}
                 {pr?.baseRef ?? "the base branch"}.
               </p>
+              {nextTarget && task.repoUrl && (
+                <label className="mb-3 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={autoStartNext}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setAutoStartNext(on);
+                      writeAutoStartNextMark(task.repoUrl!, on);
+                    }}
+                    className="mt-0.5 size-3.5 shrink-0 accent-blood"
+                  />
+                  <span>
+                    {nextTarget.isGroup
+                      ? "Auto-start next group"
+                      : "Auto-start next Mark"}
+                    <span className="mt-0.5 block truncate font-mono text-[11px]">
+                      {nextTarget.label}
+                    </span>
+                  </span>
+                </label>
+              )}
               <Button
                 variant="ok"
                 onClick={() => {
-                  mergeMutation.mutate();
+                  const shouldStart = autoStartNext && !!nextTarget;
+                  const mergePromise = mergeMutation.mutateAsync();
+                  if (shouldStart && nextTarget) {
+                    // toast + dispatch live in the global queue so leaving
+                    // this page mid-merge still deploys when merge finishes
+                    queueDeployAfterMerge({
+                      mergePromise,
+                      nextTaskId: nextTarget.taskId,
+                      nextLabel: nextTarget.label,
+                      isGroup: nextTarget.isGroup,
+                    });
+                  } else {
+                    mergePromise.catch((err) => {
+                      showToast(
+                        err instanceof Error ? err.message : String(err),
+                        { tone: "error" },
+                      );
+                    });
+                  }
                   requestClose();
                 }}
                 className="mb-2 flex w-full items-center justify-center gap-2"
