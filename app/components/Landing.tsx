@@ -189,9 +189,9 @@ export function Landing() {
               <Icon name="crosshair" className="size-12 animate-crosshair text-blood sm:size-14" />
               HITLIST
             </h1>
-            <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">Make dev work from your phone scale.</p>
+            <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">The scalable way to dispatch coding agents from your phone</p>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
-              Your phone is not a great place for large PRs, but it’s perfect for small, scoped tasks. HitList is where you gather those hits and find out which ones agents can actually land.
+              Phone's are terrible for reviewing big chunks of work - but perfect for small, well-scoped tasks. HitList is the place to manage phone-perfect pieces of dev work; on the go.
             </p>
             <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">Free · Open source</p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
