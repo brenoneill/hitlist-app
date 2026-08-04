@@ -87,7 +87,7 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
       <p
         className={`text-sm leading-relaxed text-muted ${compact ? "mt-1" : "mt-2 max-w-lg"}`}
       >
-        HitList dispatches to Cursor today. Tap the ones you want next — the
+        HitList dispatches to Cursor today. Tap the ones you want next - the
         most-wished provider gets built first.
       </p>
       <ul className={`flex flex-wrap gap-2 ${compact ? "mt-3" : "mt-6"}`}>

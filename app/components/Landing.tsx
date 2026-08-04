@@ -6,11 +6,7 @@ import { track } from "@vercel/analytics";
 import type { Task } from "@/app/lib/tasks";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
-import {
-  TaskItem,
-  inFlight,
-  taskItemShellClass,
-} from "@/app/components/TaskItem";
+import { TaskItem, inFlight, taskItemShellClass } from "@/app/components/TaskItem";
 import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { ProviderWishlist } from "@/app/components/ProviderWishlist";
 
@@ -64,7 +60,7 @@ const FEATURES: {
   {
     icon: "crosshair",
     title: "Mark phone-sized hits",
-    body: "Capture the tasks a phone review can actually finish — before they slip between meetings.",
+    body: "Capture the tasks a phone review can actually finish - before they slip between meetings.",
   },
   {
     icon: "send",
@@ -79,7 +75,7 @@ const FEATURES: {
   {
     icon: "pr",
     title: "Review & merge in-app",
-    body: "PR summary, changed files, deployments, and a merge button — plus agent status and PR links across the whole list.",
+    body: "PR summary, changed files, deployments, and a merge button - plus agent status and PR links across the whole list.",
   },
   {
     icon: "merge",
@@ -127,7 +123,7 @@ const BENEFITS = [
   },
   {
     title: "Verify, don’t hope",
-    body: "Every dispatch can demand visual proof — screenshots or video in the PR — and a description written to be reviewed on a phone. Built for people who actually test generated code.",
+    body: "Every dispatch can demand visual proof - screenshots or video in the PR - and a description written to be reviewed on a phone. Built for people who actually test generated code.",
   },
   {
     title: "Every hit is accounted for",
@@ -138,7 +134,7 @@ const BENEFITS = [
 const TRUST = [
   {
     title: "MIT-licensed and free",
-    body: "The whole app is open source on GitHub. No plans, no paywall — use ours or run your own.",
+    body: "The whole app is open source on GitHub. No plans, no paywall - use ours or run your own.",
   },
   {
     title: "Bring your own Cursor key",
@@ -146,7 +142,7 @@ const TRUST = [
   },
   {
     title: "Your code stays on GitHub",
-    body: "Sign-in is identity-only. The GitHub App is scoped to pull requests — it reads diffs to render your review and writes only when you tap merge. HitList never stores your code.",
+    body: "Sign-in is identity-only. The GitHub App is scoped to pull requests - it reads diffs to render your review and writes only when you tap merge. HitList never stores your code.",
   },
 ];
 
@@ -170,10 +166,7 @@ export function Landing() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(220,38,38,0.22),transparent_55%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.08),transparent_35%)]"
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-[12%] top-[8%] size-[min(28rem,70vw)] rounded-full bg-blood/25 blur-3xl animate-scope will-change-transform"
-      />
+      <div aria-hidden className="pointer-events-none absolute -left-[12%] top-[8%] size-[min(28rem,70vw)] rounded-full bg-blood/25 blur-3xl animate-scope will-change-transform" />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(237,237,237,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(237,237,237,0.8)_1px,transparent_1px)] [background-size:48px_48px]"
@@ -184,11 +177,7 @@ export function Landing() {
           <Icon name="crosshair" className="size-5 text-blood" />
           HITLIST
         </span>
-        <button
-          type="button"
-          onClick={ctaSignIn("header-signin")}
-          className="font-mono text-[11px] uppercase tracking-widest text-muted transition-colors hover:text-foreground"
-        >
+        <button type="button" onClick={ctaSignIn("header-signin")} className="font-mono text-[11px] uppercase tracking-widest text-muted transition-colors hover:text-foreground">
           Sign in
         </button>
       </header>
@@ -197,65 +186,37 @@ export function Landing() {
         <section className="flex min-h-[min(88vh,52rem)] flex-col justify-center py-10">
           <div className="animate-rise">
             <h1 className="flex items-center gap-3 text-5xl font-bold tracking-tight sm:text-6xl">
-              <Icon
-                name="crosshair"
-                className="size-12 animate-crosshair text-blood sm:size-14"
-              />
+              <Icon name="crosshair" className="size-12 animate-crosshair text-blood sm:size-14" />
               HITLIST
             </h1>
-            <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">
-              Make dev work from your phone scale.
-            </p>
+            <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">Make dev work from your phone scale.</p>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
-              Gather the tasks a phone can finish, fire a Cursor cloud agent at
-              them, and verify what comes back before merging - all from your phone.
+              Your phone is not a great place for large PRs, but it’s perfect for small, scoped tasks. HitList is where you gather those hits and find out which ones agents can actually land.
             </p>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">
-              Free · Open source
-            </p>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">Free · Open source</p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                onClick={ctaSignIn("hero-signin")}
-                className="inline-flex items-center gap-2 px-6"
-              >
+              <Button onClick={ctaSignIn("hero-signin")} className="inline-flex items-center gap-2 px-6">
                 <Icon name="github" className="size-4" />
                 Sign in with GitHub
               </Button>
-              <Button
-                href="#preview"
-                onClick={cta("hero-see-list")}
-                variant="outline"
-                className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
-              >
+              <Button href="#preview" onClick={cta("hero-see-list")} variant="outline" className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground">
                 See a hit list
               </Button>
             </div>
           </div>
         </section>
 
-        <section
-          id="preview"
-          className="scroll-mt-8 animate-rise-delay-1 border-t border-edge/80 pt-12"
-        >
+        <section id="preview" className="scroll-mt-8 animate-rise-delay-1 border-t border-edge/80 pt-12">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Preview</FieldLabel>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Small enough to review. Ready to dispatch.
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Small enough to review. Ready to dispatch.</h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-            Sign in and this becomes your live hit list — mark a scoped task,
-            tag a repo, or add #dispatch to the title and it’s already running.
+            Sign in and this becomes your live hit list - mark a scoped task, tag a repo, or add #dispatch to the title and it’s already running.
           </p>
           <div className="relative mx-auto mt-8 max-w-md">
-            <div
-              aria-hidden
-              className="absolute -inset-3 rounded-[1.75rem] bg-blood/10 blur-2xl animate-glow"
-            />
+            <div aria-hidden className="absolute -inset-3 rounded-[1.75rem] bg-blood/10 blur-2xl animate-glow" />
             <PreviewHitList />
             <div className="mt-5 text-center">
-              <Button
-                onClick={ctaSignIn("preview-make-it-yours")}
-                className="inline-flex items-center gap-2 px-6"
-              >
+              <Button onClick={ctaSignIn("preview-make-it-yours")} className="inline-flex items-center gap-2 px-6">
                 <Icon name="github" className="size-4" />
                 Make it yours
               </Button>
@@ -265,22 +226,16 @@ export function Landing() {
 
         <section className="border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">The flow</FieldLabel>
-          <h2 className="text-2xl font-bold tracking-tight">
-            From mark to merge without leaving your phone
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">From mark to merge without leaving your phone</h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-            Every step leaves something you can check — a PR, visual proof, and
-            a live preview of the branch — so merging is a decision, not a leap
-            of faith.
+            Every step leaves something you can check - a PR, visual proof, and a live preview of the branch - so merging is a decision, not a leap of faith.
           </p>
           <FlowDiagram />
         </section>
 
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Why HitList</FieldLabel>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Find the dev work your phone can finish
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Find the dev work your phone can finish</h2>
           <ul className="mt-8 space-y-8">
             {BENEFITS.map((b) => (
               <li key={b.title}>
@@ -288,9 +243,7 @@ export function Landing() {
                   <Icon name="check" className="size-4 text-blood" />
                   {b.title}
                 </h3>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-                  {b.body}
-                </p>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{b.body}</p>
               </li>
             ))}
           </ul>
@@ -298,9 +251,7 @@ export function Landing() {
 
         <section className="border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Features</FieldLabel>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Everything you need on one screen
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Everything you need on one screen</h2>
           <ul className="mt-8 grid gap-8 sm:grid-cols-2">
             {FEATURES.map((f) => (
               <li key={f.title}>
@@ -308,9 +259,7 @@ export function Landing() {
                   <Icon name={f.icon} className="size-4 text-blood" />
                   {f.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {f.body}
-                </p>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{f.body}</p>
               </li>
             ))}
           </ul>
@@ -320,9 +269,7 @@ export function Landing() {
 
         <section className="border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Open source</FieldLabel>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Free, open source, your keys
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Free, open source, your keys</h2>
           <ul className="mt-8 space-y-8">
             {TRUST.map((t) => (
               <li key={t.title}>
@@ -330,9 +277,7 @@ export function Landing() {
                   <Icon name="lock" className="size-4 text-blood" />
                   {t.title}
                 </h3>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-                  {t.body}
-                </p>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{t.body}</p>
               </li>
             ))}
           </ul>
@@ -343,8 +288,7 @@ export function Landing() {
               rel="noreferrer"
               onClick={cta("open-source-github")}
               variant="outline"
-              className="inline-flex items-center gap-2 px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
+              className="inline-flex items-center gap-2 px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground">
               <Icon name="github" className="size-4" />
               View source on GitHub
             </Button>
@@ -353,27 +297,14 @@ export function Landing() {
 
         <section className="mt-16 rounded-2xl border border-edge bg-surface/60 px-5 py-10 text-center sm:px-10">
           <Icon name="crosshair" className="mx-auto size-8 text-blood" />
-          <h2 className="mt-4 text-2xl font-bold tracking-tight">
-            Put a hit list in your pocket
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-            Sign in with GitHub, add your Cursor API key, and start marking the
-            dev work your phone can finish.
-          </p>
+          <h2 className="mt-4 text-2xl font-bold tracking-tight">Put a hit list in your pocket</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">Sign in with GitHub, add your Cursor API key, and start marking the dev work your phone can finish.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Button
-              onClick={ctaSignIn("footer-get-started")}
-              className="inline-flex items-center gap-2 px-6"
-            >
+            <Button onClick={ctaSignIn("footer-get-started")} className="inline-flex items-center gap-2 px-6">
               <Icon name="github" className="size-4" />
               Get started
             </Button>
-            <Button
-              href="/app"
-              onClick={cta("footer-open-app")}
-              variant="outline"
-              className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
+            <Button href="/app" onClick={cta("footer-open-app")} variant="outline" className="px-5 text-muted transition-colors hover:border-foreground/30 hover:text-foreground">
               Open app
             </Button>
           </div>
@@ -382,12 +313,7 @@ export function Landing() {
 
       <footer className="relative z-10 border-t border-edge/60 py-6 text-center font-mono text-[11px] uppercase tracking-widest text-muted">
         HitList — free & open source ·{" "}
-        <a
-          href="https://github.com/brenoneill/hitlist-app"
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-4 transition-colors hover:text-foreground"
-        >
+        <a href="https://github.com/brenoneill/hitlist-app" target="_blank" rel="noreferrer" className="underline underline-offset-4 transition-colors hover:text-foreground">
           MIT on GitHub
         </a>
       </footer>
@@ -405,10 +331,7 @@ function FlowDiagram() {
 
   useEffect(() => {
     if (paused) return;
-    const id = setInterval(
-      () => setActive((a) => (a + 1) % FLOW.length),
-      1400,
-    );
+    const id = setInterval(() => setActive((a) => (a + 1) % FLOW.length), 1400);
     return () => clearInterval(id);
   }, [paused]);
 
@@ -424,11 +347,7 @@ function FlowDiagram() {
           <Fragment key={s.title}>
             {i > 0 && (
               <div aria-hidden className="relative h-px flex-1 bg-edge">
-                <div
-                  className={`absolute inset-0 origin-left bg-blood transition-transform duration-300 ease-out ${
-                    i <= active ? "scale-x-100" : "scale-x-0"
-                  }`}
-                />
+                <div className={`absolute inset-0 origin-left bg-blood transition-transform duration-300 ease-out ${i <= active ? "scale-x-100" : "scale-x-0"}`} />
               </div>
             )}
             <button
@@ -442,8 +361,7 @@ function FlowDiagram() {
                   : i < active
                     ? "border-blood/50 bg-surface text-blood/70"
                     : "border-edge bg-surface text-muted hover:border-foreground/30 hover:text-foreground"
-              }`}
-            >
+              }`}>
               <Icon name={s.icon} className="size-4" />
             </button>
           </Fragment>
@@ -456,9 +374,7 @@ function FlowDiagram() {
           </span>
           {FLOW[active].title}
         </h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted">
-          {FLOW[active].body}
-        </p>
+        <p className="mt-1 text-sm leading-relaxed text-muted">{FLOW[active].body}</p>
       </div>
     </div>
   );
@@ -474,25 +390,18 @@ function PreviewHitList() {
   const done = DEMO_SEED.filter((t) => t.status === "done");
 
   return (
-    <div
-      aria-hidden
-      className="relative overflow-hidden rounded-2xl border border-edge bg-background shadow-2xl shadow-black/60"
-    >
+    <div aria-hidden className="relative overflow-hidden rounded-2xl border border-edge bg-background shadow-2xl shadow-black/60">
       <div className="flex items-center justify-between border-b border-edge px-4 py-3">
         <span className="flex items-center gap-2 text-sm font-bold tracking-tight">
           <Icon name="crosshair" className="size-4 text-blood" />
           HITLIST
         </span>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
-          Preview
-        </span>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-muted">Preview</span>
       </div>
 
       <div className="px-4 pb-5 pt-4">
         <div className="mb-4 flex gap-2">
-          <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">
-            Name your next hit… (-- repo, #dispatch)
-          </div>
+          <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">Name your next hit… (-- repo, #dispatch)</div>
           <div className={`${BLOOD_BUTTON} px-5 opacity-40`}>Mark</div>
         </div>
 
