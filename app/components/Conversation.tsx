@@ -65,8 +65,8 @@ function pairMessages(shown: ShownMessage[]): ShownMessage[] {
  * `pairMessages` for why message order itself can't trust raw timestamps
  * either. Dispatch + PR-open always belong right after the prompt and before
  * the reply that describes them (Cursor drafts the PR at agent creation, so
- * it's always part of the first run); terminal events (merged/closed/failed)
- * always belong at the end.
+ * it's always part of the first run). The View PR card follows each agent
+ * summary. Terminal events (merged/closed/failed) always belong at the end.
  */
 function buildTimeline(
   task: Task,
@@ -102,13 +102,15 @@ function buildTimeline(
         iso: pr?.createdAt,
         cls: "text-info",
       });
-      items.push({ key: "pr-card", kind: "pr" });
     }
   }
 
   shown.forEach((m, i) => {
     if (i === lifecycleAt) pushLifecycleStart();
     items.push({ key: m.id, kind: "message", msg: m });
+    if (m.role === "agent" && task.prUrl) {
+      items.push({ key: `pr-card-${m.id}`, kind: "pr" });
+    }
   });
   if (lifecycleAt === shown.length) pushLifecycleStart();
 
@@ -328,16 +330,12 @@ function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
         </div>
         <ChipSkeleton className="w-44" />
-        {hasPr && (
-          <>
-            <ChipSkeleton className="w-36" />
-            <PrCardSkeleton />
-          </>
-        )}
+        {hasPr && <ChipSkeleton className="w-36" />}
         <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
         </div>
+        {hasPr && <PrCardSkeleton />}
       </div>
       <div className="mt-3 flex items-end gap-2" aria-hidden>
         <Skeleton className="h-11 flex-1 rounded-full bg-edge" />
