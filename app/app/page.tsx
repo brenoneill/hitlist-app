@@ -392,6 +392,11 @@ export default function Home() {
                 <Chip
                   variant="surface"
                   icon="filter"
+                  iconClassName={
+                    activeProjectFilter.size > 0
+                      ? "size-3 text-blood"
+                      : "size-3 text-muted"
+                  }
                   onClick={() => setProjectFilterOpen(true)}
                   className="ml-auto"
                   aria-label={

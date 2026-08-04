@@ -9,8 +9,10 @@
     "dev:e2e": "AUTH_E2E=1 AUTH_SECRET=e2e-not-a-secret SETTINGS_ENCRYPTION_KEY=ZTJlLWZpeGVkLWtleS0zMi1ieXRlcy1hYWFhYWFhYWE= next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:wipe": "npx tsx --env-file=.env.local scripts/wipe-db.mts"
   },
+
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

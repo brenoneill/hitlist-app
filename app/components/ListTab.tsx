@@ -64,7 +64,7 @@ export function ListTab({
         </div>
       ) : listEmpty ? (
         <div className="flex flex-col items-center pt-12">
-          <Icon name="filter" className="mb-3 size-10 text-edge" />
+          <Icon name="filter" className="mb-3 size-10 text-edge text-muted" />
           <p className="font-mono text-sm uppercase tracking-widest text-muted">
             No hits match filter
           </p>
