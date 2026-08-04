@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { track } from "@vercel/analytics";
 import type { Task } from "@/app/lib/tasks";
@@ -89,6 +90,38 @@ const FEATURES: {
     icon: "merge",
     title: "Auto-dispatch the next hit",
     body: "Merge a PR and the next marked hit for that repo dispatches on its own. Your hit list keeps itself moving.",
+  },
+];
+
+const FLOW: {
+  icon: IconName;
+  title: string;
+  body: string;
+}[] = [
+  {
+    icon: "send",
+    title: "Dispatch an agent",
+    body: "Mark the hit with #dispatch and a Cursor cloud agent starts working the moment you tap Mark.",
+  },
+  {
+    icon: "pr",
+    title: "See the PR",
+    body: "The agent opens a pull request with a phone-readable summary and the full diff, linked right on the hit.",
+  },
+  {
+    icon: "image",
+    title: "See visual proof",
+    body: "Screenshots or video land in the PR, so you can see the change working before you read a line of code.",
+  },
+  {
+    icon: "external",
+    title: "Preview the branch",
+    body: "Every PR links its preview deployment — open the actual running app on the branch and click around it from your phone. No checkout, no local build.",
+  },
+  {
+    icon: "merge",
+    title: "Decide to merge",
+    body: "Proof checked, preview clicked — tap merge from the list. The next marked hit for that repo dispatches on its own.",
   },
 ];
 
@@ -236,6 +269,19 @@ export function Landing() {
           </div>
         </section>
 
+        <section className="border-t border-edge/80 pt-12 mt-16">
+          <FieldLabel className="mb-2 mt-6 first:mt-0">The flow</FieldLabel>
+          <h2 className="text-2xl font-bold tracking-tight">
+            From mark to merge without leaving your phone
+          </h2>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
+            Every step leaves something you can check — a PR, visual proof, and
+            a live preview of the branch — so merging is a decision, not a leap
+            of faith.
+          </p>
+          <FlowDiagram />
+        </section>
+
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Why HitList</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">
@@ -351,6 +397,75 @@ export function Landing() {
           MIT on GitHub
         </a>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Horizontal stepper for the mark-to-merge flow. Auto-advances every few
+ * seconds until the visitor taps a step, then stays put.
+ */
+function FlowDiagram() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(
+      () => setActive((a) => (a + 1) % FLOW.length),
+      1400,
+    );
+    return () => clearInterval(id);
+  }, [paused]);
+
+  const pick = (i: number) => {
+    setPaused(true);
+    setActive(i);
+  };
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center">
+        {FLOW.map((s, i) => (
+          <Fragment key={s.title}>
+            {i > 0 && (
+              <div aria-hidden className="relative h-px flex-1 bg-edge">
+                <div
+                  className={`absolute inset-0 origin-left bg-blood transition-transform duration-300 ease-out ${
+                    i <= active ? "scale-x-100" : "scale-x-0"
+                  }`}
+                />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => pick(i)}
+              aria-label={`Step ${i + 1}: ${s.title}`}
+              aria-current={i === active ? "step" : undefined}
+              className={`flex size-10 shrink-0 items-center justify-center rounded-full border transition-all duration-300 sm:size-11 ${
+                i === active
+                  ? "scale-110 border-blood bg-blood/15 text-blood shadow-[0_0_16px_rgba(220,38,38,0.35)]"
+                  : i < active
+                    ? "border-blood/50 bg-surface text-blood/70"
+                    : "border-edge bg-surface text-muted hover:border-foreground/30 hover:text-foreground"
+              }`}
+            >
+              <Icon name={s.icon} className="size-4" />
+            </button>
+          </Fragment>
+        ))}
+      </div>
+      <div className="mt-5 min-h-24 rounded-xl border border-edge bg-surface/60 px-4 py-3 sm:min-h-20">
+        <h3 className="flex items-center gap-2 font-semibold tracking-tight">
+          <span className="font-mono text-[11px] text-muted">
+            {active + 1}/{FLOW.length}
+          </span>
+          {FLOW[active].title}
+        </h3>
+        <p className="mt-1 text-sm leading-relaxed text-muted">
+          {FLOW[active].body}
+        </p>
+      </div>
     </div>
   );
 }
