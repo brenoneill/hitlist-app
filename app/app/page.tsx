@@ -376,15 +376,39 @@ export default function Home() {
               Mark
             </Button>
           </div>
-          {repo && (
-            <Chip
-              variant="surface"
-              icon="crosshair"
-              onDismiss={() => setRepo(null)}
-              dismissLabel="Remove repo"
-            >
-              {repo.name}
-            </Chip>
+          {(repo || projects.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {repo && (
+                <Chip
+                  variant="surface"
+                  icon="crosshair"
+                  onDismiss={() => setRepo(null)}
+                  dismissLabel="Remove repo"
+                >
+                  {repo.name}
+                </Chip>
+              )}
+              {projects.length > 0 && (
+                <Chip
+                  variant="surface"
+                  icon="filter"
+                  onClick={() => setProjectFilterOpen(true)}
+                  className="ml-auto"
+                  aria-label={
+                    activeProjectFilter.size > 0
+                      ? `Filter by project, ${activeProjectFilter.size} selected`
+                      : "Filter by project"
+                  }
+                >
+                  <span className="sr-only">
+                    Filter
+                    {activeProjectFilter.size > 0
+                      ? ` · ${activeProjectFilter.size}`
+                      : ""}
+                  </span>
+                </Chip>
+              )}
+            </div>
           )}
           {status === "unauthenticated" && (
             <p id="mark-signin-hint" className="font-mono text-xs text-muted">
@@ -395,7 +419,6 @@ export default function Home() {
       </div>
 
       <ListTab
-        activeProjectFilter={activeProjectFilter}
         onSelectProjectsChange={setSelectedProjects}
         onSelectId={open}
         onSelectGroup={openGroup}
@@ -414,8 +437,6 @@ export default function Home() {
           setTrayHidden(d);
         }}
         showSetupCta={showSetupCta}
-        hasProjects={projects.length > 0}
-        onOpenFilter={() => setProjectFilterOpen(true)}
       />
 
       {selected && (

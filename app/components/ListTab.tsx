@@ -2,10 +2,8 @@ import type { Task } from "@/app/lib/tasks";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { DoneList, FoldSection, TaskList } from "@/app/components/TaskList";
-import { Chip } from "@/app/components/ui/Chip";
 
 interface ListTabProps {
-  activeProjectFilter: Set<string>;
   onSelectProjectsChange: (projects: Set<string>) => void;
   onSelectId: (id: string) => void;
   onSelectGroup: (groupId: string) => void;
@@ -21,12 +19,9 @@ interface ListTabProps {
   onDeployTask: (task: Task) => void;
   onDraggingChange: (dragging: boolean) => void;
   showSetupCta: boolean;
-  hasProjects: boolean;
-  onOpenFilter: () => void;
 }
 
 export function ListTab({
-  activeProjectFilter,
   onSelectProjectsChange,
   onSelectId,
   onSelectGroup,
@@ -42,30 +37,11 @@ export function ListTab({
   onDeployTask,
   onDraggingChange,
   showSetupCta,
-  hasProjects,
-  onOpenFilter,
 }: ListTabProps) {
-  const filterActive = activeProjectFilter.size > 0;
   const listEmpty = visible.length === 0;
 
   return (
     <>
-      {hasProjects && (
-        <div className="mb-3 flex flex-wrap justify-end items-center gap-2">
-          <Chip
-            variant="surface"
-            icon="filter"
-            onClick={onOpenFilter}
-            aria-label={
-              filterActive
-                ? `Filter by project, ${activeProjectFilter.size} selected`
-                : "Filter by project"
-            }
-          >
-            Filter{filterActive ? ` · ${activeProjectFilter.size}` : ""}
-          </Chip>
-        </div>
-      )}
       {loading ? (
         <p className="font-mono text-sm uppercase tracking-widest text-muted">
           Scanning…
