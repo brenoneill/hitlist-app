@@ -37,7 +37,7 @@ Design-system chrome lives in `app/components/ui/` (plus `Button` in
 - Prefer extending `Button` variants (`blood`, `ghost`, `outline`, `ok`,
   `info`) over raw `<button className="…rounded-xl border…">` for CTAs.
   Pass `href` when the control should render as a link.
-- New form controls must keep shared field chrome (`focus:border-blood`,
+- New form controls must keep shared field chrome (`focus:border-info`,
   disabled opacity) and existing a11y patterns (`aria-*`, `sr-only` labels,
   decorative icons via `Icon` which is already `aria-hidden`).
 - Do not add a third-party component library unless explicitly requested.

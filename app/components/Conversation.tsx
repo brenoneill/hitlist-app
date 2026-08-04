@@ -11,7 +11,6 @@ import {
 import { PROVIDER_META } from "@/app/lib/providerMeta";
 import { Button } from "@/app/components/Button";
 import { Icon, type IconName } from "@/app/components/Icons";
-import { PR_STATE } from "@/app/components/PrTab";
 import { wasDeployed } from "@/app/components/TaskItem";
 import { Chip } from "@/app/components/ui/Chip";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -24,19 +23,7 @@ interface ShownMessage {
   role: "user" | "agent";
   body: string;
   createdAt?: string;
-  /** Placeholder turn held while the real transcript loads. */
-  pending?: true;
 }
-
-/**
- * Stand-in turns so the timeline's chips and PR card render in their final
- * positions on the first paint — otherwise a one-bubble guess is replaced by
- * the real N turns and everything below it lurches.
- */
-const LOADING_TURNS: ShownMessage[] = [
-  { id: "pending-user", role: "user", body: "", pending: true },
-  { id: "pending-agent", role: "agent", body: "", pending: true },
-];
 
 type TimelineItem =
   | { key: string; kind: "message"; msg: ShownMessage }
@@ -47,8 +34,7 @@ type TimelineItem =
       label: string;
       iso?: string;
       cls: string;
-    }
-  | { key: string; kind: "pr" };
+    };
 
 /**
  * `shown` arrives in DB `created_at` order, which isn't trustworthy: Cursor
@@ -77,8 +63,9 @@ function pairMessages(shown: ShownMessage[]): ShownMessage[] {
  * `pairMessages` for why message order itself can't trust raw timestamps
  * either. Dispatch + PR-open always belong right after the prompt and before
  * the reply that describes them (Cursor drafts the PR at agent creation, so
- * it's always part of the first run); terminal events (merged/closed/failed)
- * always belong at the end.
+ * it's always part of the first run). View PR lives on each agent summary
+ * footer rather than as its own timeline bubble. Terminal events
+ * (merged/closed/failed) always belong at the end.
  */
 function buildTimeline(
   task: Task,
@@ -114,7 +101,6 @@ function buildTimeline(
         iso: pr?.createdAt,
         cls: "text-info",
       });
-      items.push({ key: "pr-card", kind: "pr" });
     }
   }
 
@@ -165,6 +151,20 @@ function when(iso: string): string {
     : `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
 }
 
+/**
+ * Live preview URL for the PR branch — prefer a deployment from the PR read,
+ * else the `previewUrl` the task poll stores.
+ * @param task - Hit whose polled preview URL may already be known.
+ * @param pr - Optional PR details whose deployments may carry a fresher URL.
+ * @returns Absolute preview URL, or undefined when none is available yet.
+ */
+function resolvePreviewUrl(
+  task: Task,
+  pr: PrDetails | undefined,
+): string | undefined {
+  return pr?.deployments?.find((d) => d.url)?.url ?? task.previewUrl;
+}
+
 /** The Agent tab: conversation bubbles interleaved with lifecycle event chips. */
 export function Conversation({
   task,
@@ -180,30 +180,21 @@ export function Conversation({
     running,
   );
   const { data: pr } = usePrDetails(task.id, !!task.prUrl);
+  const previewUrl = resolvePreviewUrl(task, pr);
   const sendMessage = useSendMessage(task.id);
   const supportsFollowups =
     !!task.provider && PROVIDER_META[task.provider].supportsFollowups;
 
-  // pre-feature dispatches have no stored turns — synthesize the prompt from the
-  // task; the run summary has its own home in the PR tab
-  const shown: ShownMessage[] = messages?.length
-    ? messages
-    : messagesLoading
-      ? LOADING_TURNS
-      : [
-          {
-            id: "local-prompt",
-            role: "user" as const,
-            body:
-              `# Task\n${task.title}` +
-              (task.details ? `\n\n## Context\n${task.details}` : ""),
-          },
-        ];
-
-  function send() {
-    const text = draft.trim();
-    if (!text) return;
-    sendMessage.mutate(text, { onSuccess: () => setDraft("") });
+  // Event chips sit in the timeline with the turns — hold the tab until
+  // messages land so nothing paints ahead of the rest. PR details can arrive
+  // later; View PR only needs `task.prUrl`.
+  if (messagesLoading && !messages) {
+    return (
+      <ConversationSkeleton
+        hasPr={!!task.prUrl}
+        hasPreview={!!task.previewUrl}
+      />
+    );
   }
 
   if (!wasDeployed(task) && !messages?.length) {
@@ -212,6 +203,26 @@ export function Conversation({
         No agent deployed yet — deploy from the hitlist to start.
       </p>
     );
+  }
+
+  // pre-feature dispatches have no stored turns — synthesize the prompt from the
+  // task; the run summary has its own home in the PR tab
+  const shown: ShownMessage[] = messages?.length
+    ? messages
+    : [
+        {
+          id: "local-prompt",
+          role: "user" as const,
+          body:
+            `# Task\n${task.title}` +
+            (task.details ? `\n\n## Context\n${task.details}` : ""),
+        },
+      ];
+
+  function send() {
+    const text = draft.trim();
+    if (!text) return;
+    sendMessage.mutate(text, { onSuccess: () => setDraft("") });
   }
 
   return (
@@ -225,15 +236,9 @@ export function Conversation({
                 item.msg.role === "user"
                   ? "self-end border-blood/30 bg-blood/10"
                   : "self-start border-edge bg-surface text-muted"
-              } ${item.msg.pending ? "w-[70%]" : ""}`}
+              }`}
             >
-              {item.msg.pending && (
-                <>
-                  <Skeleton className="h-4 rounded bg-edge" />
-                  <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
-                </>
-              )}
-              {!item.msg.pending && <Markdownish text={item.msg.body} />}
+              <Markdownish text={item.msg.body} />
               {item.msg.createdAt && (
                 <p
                   className={`mt-1.5 font-mono text-[10px] text-muted/70 ${
@@ -243,8 +248,29 @@ export function Conversation({
                   {when(item.msg.createdAt)}
                 </p>
               )}
+              {item.msg.role === "agent" && (task.prUrl || previewUrl) && (
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+                  {task.prUrl && (
+                    <Button variant="outlineSm" onClick={onShowPr}>
+                      View PR
+                      <Icon name="pr" className="size-3" />
+                    </Button>
+                  )}
+                  {previewUrl && (
+                    <Button
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outlineSm"
+                    >
+                      View Preview
+                      <Icon name="external" className="size-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
-          ) : item.kind === "event" ? (
+          ) : (
             <Chip
               key={item.key}
               variant="surface"
@@ -257,8 +283,6 @@ export function Conversation({
                 <span className="text-muted/60"> · {when(item.iso)}</span>
               )}
             </Chip>
-          ) : (
-            <PrCard key={item.key} pr={pr} onShowPr={onShowPr} />
           ),
         )}
         {running && (
@@ -294,7 +318,7 @@ export function Conversation({
               onClick={send}
               disabled={running || sendMessage.isPending || !draft.trim()}
               aria-label="Send follow-up"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-info text-white shadow-[0_0_16px_rgba(220,38,38,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-info text-white shadow-[0_0_16px_rgba(59,130,246,0.4)] active:opacity-80 disabled:opacity-40 disabled:shadow-none"
             >
               <Icon name="send" className="size-5" />
             </button>
@@ -321,51 +345,54 @@ export function Conversation({
   );
 }
 
-/** Teaser for the task's PR; stats, screenshots, description and diffs live in the PR tab. */
-function PrCard({
-  pr,
-  onShowPr,
+/**
+ * Full-tab placeholder while messages load. Lifecycle chips used to paint
+ * from task data ahead of the transcript, then jump once turns arrived.
+ */
+function ConversationSkeleton({
+  hasPr,
+  hasPreview,
 }: {
-  pr: PrDetails | undefined;
-  onShowPr: () => void;
+  hasPr: boolean;
+  hasPreview: boolean;
 }) {
-  // the pr read can't start until the task read unlocks it, so it always lands
-  // second — hold the card's footprint instead of popping it into the timeline
-  if (!pr) return <PrCardSkeleton />;
   return (
-    <div className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3">
-      <p className="break-words text-sm font-medium">
-        {pr.title} <span className="font-mono text-xs text-muted">#{pr.number}</span>
-      </p>
-      <p
-        className={`mt-1 font-mono text-xs uppercase tracking-widest ${
-          pr.draft ? "text-warn" : PR_STATE[pr.state]
-        }`}
-      >
-        {pr.draft ? "draft" : pr.state}
-      </p>
-      <Button
-        variant="outline"
-        onClick={onShowPr}
-        className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
-      >
-        View PR
-        <Icon name="pr" className="size-4" />
-      </Button>
-    </div>
+    <section className="mb-6" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading conversation</span>
+      <div className="flex flex-col gap-2" aria-hidden>
+        <div className="w-[70%] max-w-[88%] self-end rounded-xl border border-blood/30 bg-blood/10 px-4 py-3">
+          <Skeleton className="h-4 rounded bg-edge" />
+          <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+        </div>
+        <ChipSkeleton className="w-44" />
+        {hasPr && <ChipSkeleton className="w-36" />}
+        <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
+          <Skeleton className="h-4 rounded bg-edge" />
+          <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+          {(hasPr || hasPreview) && (
+            <div className="mt-2 flex justify-end gap-1.5">
+              {hasPr && <Skeleton className="h-6 w-16 rounded-lg bg-edge" />}
+              {hasPreview && <Skeleton className="h-6 w-24 rounded-lg bg-edge" />}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 flex items-end gap-2" aria-hidden>
+        <Skeleton className="h-11 flex-1 rounded-full bg-edge" />
+        <Skeleton className="size-11 shrink-0 rounded-full bg-edge" />
+      </div>
+    </section>
   );
 }
 
-/** `PrCard`'s footprint, held while the pr read is in flight. */
-function PrCardSkeleton() {
+/** Matches `Chip variant="surface"` chrome with pulsing bars inside. */
+function ChipSkeleton({ className = "" }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3"
+    <span
+      className={`inline-flex items-center gap-1.5 self-center rounded-full border border-edge bg-surface px-3 py-1 ${className}`}
     >
-      <Skeleton className="h-5 w-3/4 rounded bg-edge" />
-      <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
-      <Skeleton className="mt-3 h-[46px] rounded-xl bg-edge" />
-    </div>
+      <Skeleton className="size-3 shrink-0 rounded bg-edge" />
+      <Skeleton className="h-3 min-w-0 flex-1 rounded bg-edge" />
+    </span>
   );
 }

@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  nextDeployTargetForRepo,
+  readAutoStartNextMark,
+  writeAutoStartNextMark,
+} from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
+import {
+  useMarkPrReady,
+  useMergePr,
+  usePrDetails,
+  useTasks,
+} from "@/app/lib/queries";
 import type { Task } from "@/app/lib/tasks";
-import { useMarkPrReady, useMergePr, usePrDetails } from "@/app/lib/queries";
 import { Button } from "@/app/components/Button";
+import { useDeployQueue } from "@/app/components/DeployQueue";
 import { Icon } from "@/app/components/Icons";
 import { Sheet } from "@/app/components/Sheets";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -13,6 +24,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { Markdownish } from "@/app/components/ui/Markdownish";
 import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
 import { Skeleton } from "@/app/components/ui/Skeleton";
+import { useToast } from "@/app/components/ui/Toast";
 
 /**
  * A GitHub-hosted PR asset needs the viewer's github.com session, which a
@@ -39,9 +51,25 @@ export function PrTab({ task }: { task: Task }) {
   const [confirming, setConfirming] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
-  const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
+  // SSR-safe default; synced from localStorage when the confirm sheet opens
+  const [autoStartNext, setAutoStartNext] = useState(false);
+  // stop PR reads once merged — GitHub often 500s on the post-squash refetch
+  const { data: pr, error, isLoading } = usePrDetails(
+    task.id,
+    !!task.prUrl && task.prState !== "merged",
+  );
+  const { data: tasks } = useTasks();
   const mergeMutation = useMergePr(task.id);
   const readyMutation = useMarkPrReady(task.id);
+  const { queueDeployAfterMerge } = useDeployQueue();
+  const { showToast } = useToast();
+  const nextTarget = nextDeployTargetForRepo(tasks ?? [], task);
+
+  // Summary and previewUrl live on the task, but visual proof needs the PR
+  // body — paint nothing until that read lands so sections don't arrive staggered.
+  if (task.prUrl && isLoading && !pr) {
+    return <PrTabSkeleton />;
+  }
 
   const resolveImageUrl = (url: string) =>
     isGithubHost(url)
@@ -56,16 +84,6 @@ export function PrTab({ task }: { task: Task }) {
 
   return (
     <section className="mb-6">
-      {!pr && isLoading && (
-        <div
-          aria-hidden
-          className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
-        >
-          <Skeleton className="h-5 w-3/4 rounded bg-edge" />
-          <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
-          <Skeleton className="mt-1 h-4 w-2/3 rounded bg-edge" />
-        </div>
-      )}
       {pr && (
         <div className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3">
           <p className="break-words text-sm font-medium">
@@ -116,12 +134,6 @@ export function PrTab({ task }: { task: Task }) {
             />
           ))}
         </div>
-      ) : isLoading ? (
-        // most screenshots live in the pr body, so hold a thumb's worth of room
-        // rather than showing "none" and then growing a 144px strip
-        <div className="-mx-4 mb-4 flex gap-2 px-4 pb-1">
-          <Skeleton className="h-36 aspect-[16/10] rounded-lg border border-edge bg-surface" />
-        </div>
       ) : (
         <p className="mb-4 font-mono text-xs text-muted">
           No screenshots — the agent didn&apos;t post any for this task.
@@ -143,7 +155,7 @@ export function PrTab({ task }: { task: Task }) {
         </>
       )}
 
-      <Deployments task={task} deployments={pr?.deployments} loading={isLoading} />
+      <Deployments task={task} deployments={pr?.deployments} />
 
       <FieldLabel as="h2" className="mb-2">
         Pull request
@@ -155,8 +167,7 @@ export function PrTab({ task }: { task: Task }) {
         </p>
       ) : (
         <>
-          {isLoading && <PrBodySkeleton />}
-          {error && (
+          {error && task.prState !== "merged" && (
             <>
               <ErrorText className="mb-2">{error.message}</ErrorText>
               <Button
@@ -221,7 +232,12 @@ export function PrTab({ task }: { task: Task }) {
                 <div className="sticky bottom-0 z-10 -mx-1 bg-background/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
                   <Button
                     variant="ok"
-                    onClick={() => setConfirming(true)}
+                    onClick={() => {
+                      if (task.repoUrl) {
+                        setAutoStartNext(readAutoStartNextMark(task.repoUrl));
+                      }
+                      setConfirming(true);
+                    }}
                     disabled={mergeMutation.isPending}
                     className="flex w-full items-center justify-center gap-2"
                   >
@@ -271,10 +287,50 @@ export function PrTab({ task }: { task: Task }) {
                 Squash-merges {pr ? `#${pr.number}` : "the PR"} into{" "}
                 {pr?.baseRef ?? "the base branch"}.
               </p>
+              {nextTarget && task.repoUrl && (
+                <label className="mb-3 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={autoStartNext}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setAutoStartNext(on);
+                      writeAutoStartNextMark(task.repoUrl!, on);
+                    }}
+                    className="mt-0.5 size-3.5 shrink-0 accent-blood"
+                  />
+                  <span>
+                    {nextTarget.isGroup
+                      ? "Auto-start next group"
+                      : "Auto-start next Mark"}
+                    <span className="mt-0.5 block truncate font-mono text-[11px]">
+                      {nextTarget.label}
+                    </span>
+                  </span>
+                </label>
+              )}
               <Button
                 variant="ok"
                 onClick={() => {
-                  mergeMutation.mutate();
+                  const shouldStart = autoStartNext && !!nextTarget;
+                  const mergePromise = mergeMutation.mutateAsync();
+                  if (shouldStart && nextTarget) {
+                    // toast + dispatch live in the global queue so leaving
+                    // this page mid-merge still deploys when merge finishes
+                    queueDeployAfterMerge({
+                      mergePromise,
+                      nextTaskId: nextTarget.taskId,
+                      nextLabel: nextTarget.label,
+                      isGroup: nextTarget.isGroup,
+                    });
+                  } else {
+                    mergePromise.catch((err) => {
+                      showToast(
+                        err instanceof Error ? err.message : String(err),
+                        { tone: "error" },
+                      );
+                    });
+                  }
                   requestClose();
                 }}
                 className="mb-2 flex w-full items-center justify-center gap-2"
@@ -498,25 +554,63 @@ function ImageViewer({
 }
 
 /**
- * Holds the description row, file list and action button while the pr read is
- * in flight — the real block is 300px+, so a token placeholder just moves the
- * jump rather than removing it.
+ * Full-tab placeholder while PR details load. Summary / previewUrl are already
+ * on the task, so a partial paint used to land those first and then jump when
+ * visual proof resolved (often to "no screenshots").
  */
-function PrBodySkeleton() {
+function PrTabSkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <section className="mb-6" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading pull request</span>
-      <Skeleton className="mb-3 h-[42px] rounded-xl border border-edge bg-surface" />
-      <div className="mb-3 flex flex-col gap-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton
-            key={i}
-            className="h-[42px] rounded-xl border border-edge bg-surface"
-          />
-        ))}
+      <div
+        aria-hidden
+        className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
+      >
+        <Skeleton className="h-5 w-3/4 rounded bg-edge" />
+        <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
+        <Skeleton className="mt-1 h-4 w-2/3 rounded bg-edge" />
       </div>
-      <Skeleton className="h-11 rounded-xl bg-edge" />
-    </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Visual proof
+      </FieldLabel>
+      <div className="-mx-4 mb-4 flex gap-2 px-4 pb-1" aria-hidden>
+        <Skeleton className="h-36 aspect-[16/10] rounded-lg border border-edge bg-surface" />
+      </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Summary
+      </FieldLabel>
+      <div
+        aria-hidden
+        className="mb-4 rounded-xl border border-edge bg-surface px-4 py-3"
+      >
+        <Skeleton className="h-4 w-full rounded bg-edge" />
+        <Skeleton className="mt-2 h-4 w-5/6 rounded bg-edge" />
+        <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+      </div>
+
+      <FieldLabel as="h2" className="mb-2">
+        Deployments
+      </FieldLabel>
+      <Skeleton className="mb-4 h-[86px] rounded-xl border border-edge bg-surface" />
+
+      <FieldLabel as="h2" className="mb-2">
+        Pull request
+      </FieldLabel>
+      <div aria-hidden>
+        <Skeleton className="mb-3 h-[42px] rounded-xl border border-edge bg-surface" />
+        <div className="mb-3 flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <Skeleton
+              key={i}
+              className="h-[42px] rounded-xl border border-edge bg-surface"
+            />
+          ))}
+        </div>
+        <Skeleton className="h-11 rounded-xl bg-edge" />
+      </div>
+    </section>
   );
 }
 
@@ -570,11 +664,9 @@ function deployDotClass(state: string): string {
 function Deployments({
   task,
   deployments,
-  loading,
 }: {
   task: Task;
   deployments?: Deployment[];
-  loading?: boolean;
 }) {
   const rows = deployments?.length
     ? deployments
@@ -587,9 +679,7 @@ function Deployments({
       <FieldLabel as="h2" className="mb-2">
         Deployments
       </FieldLabel>
-      {rows.length === 0 && loading ? (
-        <Skeleton className="mb-4 h-[86px] rounded-xl border border-edge bg-surface" />
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="mb-4 font-mono text-xs text-muted">
           No deployment yet — it appears once a preview build finishes.
         </p>

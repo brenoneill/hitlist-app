@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Task } from "@/app/lib/tasks";
@@ -24,7 +23,6 @@ import {
 import { optionsForMode } from "@/app/lib/prOptions";
 import { type Repo } from "@/app/components/GithubRepos";
 import { AppHeader } from "@/app/components/AppHeader";
-import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
   ProjectFilterSlideout,
@@ -37,11 +35,7 @@ import { ListTab } from "@/app/components/ListTab";
 import { Chip } from "@/app/components/ui/Chip";
 import { Menu } from "@/app/components/ui/Menu";
 import { TextInput } from "@/app/components/ui/TextInput";
-
-const TOAST_SHELL =
-  "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4";
-const TOAST_PILL =
-  "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
+import { useToast } from "@/app/components/ui/Toast";
 
 /** True once the user can tag repos and dispatch agents. */
 function isSetupComplete(
@@ -65,10 +59,10 @@ export default function Home() {
   );
   const [dragging, setDragging] = useState(false);
   const [undo, setUndo] = useState<Task[] | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   // ponytail: localStorage, move to /api/settings if it needs to follow the user across devices
   const [blockedRepos, setBlockedRepos] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+  const { showToast, clearToast, setTrayHidden } = useToast();
 
   // dragging pauses the poll so a refetch can't clobber the drag
   const { data, isLoading: loading } = useTasks(dragging);
@@ -161,7 +155,7 @@ export default function Home() {
       {
         onError: (err) => {
           setTitle(t);
-          setToast(err.message || "failed to mark");
+          showToast(err.message || "failed to mark", { tone: "error" });
         },
       },
     );
@@ -203,6 +197,18 @@ export default function Home() {
   function persistOrder(next: Task[], snapshot: Task[] | null = tasks) {
     setUndo(snapshot);
     reorder.mutate(next);
+    if (snapshot) {
+      showToast("Undo move", {
+        tone: "error",
+        ms: 6000,
+        action: {
+          onClick: () => persistOrder(snapshot, null),
+          hint: "⌘Z",
+        },
+      });
+    } else {
+      clearToast();
+    }
   }
 
   /**
@@ -233,7 +239,6 @@ export default function Home() {
   useEffect(() => {
     const prev = undo;
     if (!prev) return;
-    setToast(null);
     const timer = setTimeout(() => setUndo(null), 6000);
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -247,14 +252,9 @@ export default function Home() {
       clearTimeout(timer);
       window.removeEventListener("keydown", onKey);
     };
+    // persistOrder closes over latest tasks; only rebind when undo snapshot changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [undo]);
-
-  // error toasts share the undo tray; they expire the same way
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 6000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   function disband(groupId: string) {
     setSelectedGroup(null);
@@ -286,7 +286,7 @@ export default function Home() {
         onError: (err) => {
           // the slimmed sheet can't redeploy, so failures there surface as a toast
           if (wasDeployed(task)) {
-            setToast(err.message || "redeploy failed");
+            showToast(err.message || "redeploy failed", { tone: "error" });
             return;
           }
           setSelectedGroup(null);
@@ -376,15 +376,39 @@ export default function Home() {
               Mark
             </Button>
           </div>
-          {repo && (
-            <Chip
-              variant="surface"
-              icon="crosshair"
-              onDismiss={() => setRepo(null)}
-              dismissLabel="Remove repo"
-            >
-              {repo.name}
-            </Chip>
+          {(repo || projects.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {repo && (
+                <Chip
+                  variant="surface"
+                  icon="crosshair"
+                  onDismiss={() => setRepo(null)}
+                  dismissLabel="Remove repo"
+                >
+                  {repo.name}
+                </Chip>
+              )}
+              {projects.length > 0 && (
+                <Chip
+                  variant="surface"
+                  icon="filter"
+                  onClick={() => setProjectFilterOpen(true)}
+                  className="ml-auto"
+                  aria-label={
+                    activeProjectFilter.size > 0
+                      ? `Filter by project, ${activeProjectFilter.size} selected`
+                      : "Filter by project"
+                  }
+                >
+                  <span className="sr-only">
+                    Filter
+                    {activeProjectFilter.size > 0
+                      ? ` · ${activeProjectFilter.size}`
+                      : ""}
+                  </span>
+                </Chip>
+              )}
+            </div>
           )}
           {status === "unauthenticated" && (
             <p id="mark-signin-hint" className="font-mono text-xs text-muted">
@@ -395,7 +419,6 @@ export default function Home() {
       </div>
 
       <ListTab
-        activeProjectFilter={activeProjectFilter}
         onSelectProjectsChange={setSelectedProjects}
         onSelectId={open}
         onSelectGroup={openGroup}
@@ -409,33 +432,12 @@ export default function Home() {
         onToggleTask={toggle.mutate}
         onRemoveTask={remove}
         onDeployTask={deploy}
-        onDraggingChange={setDragging}
+        onDraggingChange={(d) => {
+          setDragging(d);
+          setTrayHidden(d);
+        }}
         showSetupCta={showSetupCta}
-        hasProjects={projects.length > 0}
-        onOpenFilter={() => setProjectFilterOpen(true)}
       />
-
-      {undo && !dragging ? (
-        <div className={TOAST_SHELL}>
-          <button
-            onClick={() => persistOrder(undo, null)}
-            className={`${TOAST_PILL} active:opacity-80`}
-          >
-            <Icon name="x" className="size-3.5 text-blood" />
-            Undo move
-            <span className="text-muted">⌘Z</span>
-          </button>
-        </div>
-      ) : (
-        toast && (
-          <div className={TOAST_SHELL}>
-            <div role="alert" className={TOAST_PILL}>
-              <Icon name="x" className="size-3.5 text-blood" />
-              {toast}
-            </div>
-          </div>
-        )
-      )}
 
       {selected && (
         <TaskSheet
