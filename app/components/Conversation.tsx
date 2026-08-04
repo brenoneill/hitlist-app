@@ -11,7 +11,6 @@ import {
 import { PROVIDER_META } from "@/app/lib/providerMeta";
 import { Button } from "@/app/components/Button";
 import { Icon, type IconName } from "@/app/components/Icons";
-import { PR_STATE } from "@/app/components/PrTab";
 import { wasDeployed } from "@/app/components/TaskItem";
 import { Chip } from "@/app/components/ui/Chip";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -35,8 +34,7 @@ type TimelineItem =
       label: string;
       iso?: string;
       cls: string;
-    }
-  | { key: string; kind: "pr" };
+    };
 
 /**
  * `shown` arrives in DB `created_at` order, which isn't trustworthy: Cursor
@@ -65,8 +63,9 @@ function pairMessages(shown: ShownMessage[]): ShownMessage[] {
  * `pairMessages` for why message order itself can't trust raw timestamps
  * either. Dispatch + PR-open always belong right after the prompt and before
  * the reply that describes them (Cursor drafts the PR at agent creation, so
- * it's always part of the first run). The View PR card follows each agent
- * summary. Terminal events (merged/closed/failed) always belong at the end.
+ * it's always part of the first run). View PR lives on each agent summary
+ * footer rather than as its own timeline bubble. Terminal events
+ * (merged/closed/failed) always belong at the end.
  */
 function buildTimeline(
   task: Task,
@@ -108,9 +107,6 @@ function buildTimeline(
   shown.forEach((m, i) => {
     if (i === lifecycleAt) pushLifecycleStart();
     items.push({ key: m.id, kind: "message", msg: m });
-    if (m.role === "agent" && task.prUrl) {
-      items.push({ key: `pr-card-${m.id}`, kind: "pr" });
-    }
   });
   if (lifecycleAt === shown.length) pushLifecycleStart();
 
@@ -169,20 +165,15 @@ export function Conversation({
     task.id,
     running,
   );
-  const { data: pr, isLoading: prLoading } = usePrDetails(
-    task.id,
-    !!task.prUrl,
-  );
+  const { data: pr } = usePrDetails(task.id, !!task.prUrl);
   const sendMessage = useSendMessage(task.id);
   const supportsFollowups =
     !!task.provider && PROVIDER_META[task.provider].supportsFollowups;
 
-  // Event chips and the PR card sit in the timeline with the turns — hold the
-  // whole tab until both reads land so nothing paints ahead of the rest.
-  if (
-    (messagesLoading && !messages) ||
-    (!!task.prUrl && prLoading && !pr)
-  ) {
+  // Event chips sit in the timeline with the turns — hold the tab until
+  // messages land so nothing paints ahead of the rest. PR details can arrive
+  // later; View PR only needs `task.prUrl`.
+  if (messagesLoading && !messages) {
     return <ConversationSkeleton hasPr={!!task.prUrl} />;
   }
 
@@ -237,8 +228,18 @@ export function Conversation({
                   {when(item.msg.createdAt)}
                 </p>
               )}
+              {item.msg.role === "agent" && task.prUrl && (
+                <Button
+                  variant="outline"
+                  onClick={onShowPr}
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 py-2 text-xs active:bg-background"
+                >
+                  View PR
+                  <Icon name="pr" className="size-3.5" />
+                </Button>
+              )}
             </div>
-          ) : item.kind === "event" ? (
+          ) : (
             <Chip
               key={item.key}
               variant="surface"
@@ -251,8 +252,6 @@ export function Conversation({
                 <span className="text-muted/60"> · {when(item.iso)}</span>
               )}
             </Chip>
-          ) : (
-            <PrCard key={item.key} pr={pr} onShowPr={onShowPr} />
           ),
         )}
         {running && (
@@ -316,9 +315,8 @@ export function Conversation({
 }
 
 /**
- * Full-tab placeholder while messages (and PR details, when linked) load.
- * Lifecycle chips and the PR card used to paint from task data ahead of the
- * transcript, then jump once turns arrived.
+ * Full-tab placeholder while messages load. Lifecycle chips used to paint
+ * from task data ahead of the transcript, then jump once turns arrived.
  */
 function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
   return (
@@ -334,8 +332,8 @@ function ConversationSkeleton({ hasPr }: { hasPr: boolean }) {
         <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
+          {hasPr && <Skeleton className="mt-3 h-9 rounded-xl bg-edge" />}
         </div>
-        {hasPr && <PrCardSkeleton />}
       </div>
       <div className="mt-3 flex items-end gap-2" aria-hidden>
         <Skeleton className="h-11 flex-1 rounded-full bg-edge" />
@@ -354,53 +352,5 @@ function ChipSkeleton({ className = "" }: { className?: string }) {
       <Skeleton className="size-3 shrink-0 rounded bg-edge" />
       <Skeleton className="h-3 min-w-0 flex-1 rounded bg-edge" />
     </span>
-  );
-}
-
-/** Teaser for the task's PR; stats, screenshots, description and diffs live in the PR tab. */
-function PrCard({
-  pr,
-  onShowPr,
-}: {
-  pr: PrDetails | undefined;
-  onShowPr: () => void;
-}) {
-  // error / empty fallback — the tab skeleton already covers the in-flight case
-  if (!pr) return <PrCardSkeleton />;
-  return (
-    <div className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3">
-      <p className="break-words text-sm font-medium">
-        {pr.title} <span className="font-mono text-xs text-muted">#{pr.number}</span>
-      </p>
-      <p
-        className={`mt-1 font-mono text-xs uppercase tracking-widest ${
-          pr.draft ? "text-warn" : PR_STATE[pr.state]
-        }`}
-      >
-        {pr.draft ? "draft" : pr.state}
-      </p>
-      <Button
-        variant="outline"
-        onClick={onShowPr}
-        className="mt-3 flex w-full items-center justify-center gap-2 active:bg-background"
-      >
-        View PR
-        <Icon name="pr" className="size-4" />
-      </Button>
-    </div>
-  );
-}
-
-/** `PrCard`'s footprint, held while the pr read is in flight. */
-function PrCardSkeleton() {
-  return (
-    <div
-      aria-hidden
-      className="self-stretch rounded-xl border border-edge bg-surface px-4 py-3"
-    >
-      <Skeleton className="h-5 w-3/4 rounded bg-edge" />
-      <Skeleton className="mt-1 h-4 w-1/2 rounded bg-edge" />
-      <Skeleton className="mt-3 h-[46px] rounded-xl bg-edge" />
-    </div>
   );
 }
