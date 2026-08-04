@@ -80,7 +80,7 @@ export function ListTab({
         <>
           {flying.length > 0 && (
             <FoldSection
-              label={`${flying.length} deployed`}
+              label={`${flying.length} dispatched`}
               className="mt-0"
               defaultOpen
             >

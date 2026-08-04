@@ -11,7 +11,7 @@ const STATUS_DISPLAY: Record<
 > = {
   inbox: { label: "MARKED", cls: "text-muted", icon: "crosshair" },
   running: {
-    label: "AGENT DEPLOYED",
+    label: "AGENT DISPATCHED",
     cls: "text-warn animate-pulse",
     icon: "crosshair",
   },

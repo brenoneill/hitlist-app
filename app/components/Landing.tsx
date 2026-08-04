@@ -67,8 +67,8 @@ const FEATURES: {
   },
   {
     icon: "send",
-    title: "#deploy as you type",
-    body: "Type -- to tag a GitHub repo, add #deploy to the title, and the Cursor agent is already running when you hit Mark.",
+    title: "#dispatch as you type",
+    body: "Type -- to tag a GitHub repo, add #dispatch to the title, and the Cursor agent is already running when you hit Mark.",
   },
   {
     icon: "image",
@@ -87,7 +87,7 @@ const FEATURES: {
   },
   {
     icon: "merge",
-    title: "Auto-deploy the next hit",
+    title: "Auto-dispatch the next hit",
     body: "Merge a PR and the next marked hit for that repo dispatches on its own. Your hit list keeps itself moving.",
   },
 ];
@@ -216,7 +216,7 @@ export function Landing() {
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
             Sign in and this becomes your live hit list — mark a scoped task,
-            tag a repo, or add #deploy to the title and it’s already running.
+            tag a repo, or add #dispatch to the title and it’s already running.
           </p>
           <div className="relative mx-auto mt-8 max-w-md">
             <div
@@ -382,7 +382,7 @@ function PreviewHitList() {
       <div className="px-4 pb-5 pt-4">
         <div className="mb-4 flex gap-2">
           <div className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base text-muted">
-            Name your next hit… (-- repo, #deploy)
+            Name your next hit… (-- repo, #dispatch)
           </div>
           <div className={`${BLOOD_BUTTON} px-5 opacity-40`}>Mark</div>
         </div>
@@ -390,7 +390,7 @@ function PreviewHitList() {
         {flying.length > 0 && (
           <>
             <FieldLabel as="h3" className="mb-2 mt-6 first:mt-0">
-              {flying.length} deployed
+              {flying.length} dispatched
             </FieldLabel>
             <ul className="flex flex-col gap-2">
               {flying.map((t) => (

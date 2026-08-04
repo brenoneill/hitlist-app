@@ -92,7 +92,7 @@ export default function TaskWorkspace() {
                       redeploy(task.id);
                     }}
                   >
-                    {task.groupId ? "Redeploy group" : "Redeploy"}
+                    {task.groupId ? "Redispatch group" : "Redispatch"}
                   </MenuItem>
                 )}
                 <MenuItem
@@ -196,7 +196,7 @@ export default function TaskWorkspace() {
               ))}
             {redeployError && (
               <ErrorText>
-                {redeployError.message || "redeploy failed"}
+                {redeployError.message || "redispatch failed"}
               </ErrorText>
             )}
           </div>

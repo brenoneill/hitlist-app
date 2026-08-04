@@ -200,7 +200,7 @@ export function Conversation({
   if (!wasDeployed(task) && !messages?.length) {
     return (
       <p className="mb-6 font-mono text-xs text-muted">
-        No agent deployed yet — deploy from the hitlist to start.
+        No agent dispatched yet — dispatch from the hitlist to start.
       </p>
     );
   }

@@ -47,16 +47,16 @@ function isSetupComplete(
 }
 
 /**
- * Strips a whole-token `#deploy` tag from a Mark title when present.
+ * Strips a whole-token `#dispatch` tag from a Mark title when present.
  * @param title - Trimmed composer text
  * @returns Cleaned title and whether immediate deploy was requested
  */
 function parseDeployTag(title: string): { title: string; deploy: boolean } {
-  const deploy = /(^|\s)#deploy(?=\s|$)/i.test(title);
+  const deploy = /(^|\s)#dispatch(?=\s|$)/i.test(title);
   if (!deploy) return { title, deploy: false };
   return {
     title: title
-      .replace(/(^|\s)#deploy(?=\s|$)/gi, "$1")
+      .replace(/(^|\s)#dispatch(?=\s|$)/gi, "$1")
       .replace(/\s+/g, " ")
       .trim(),
     deploy: true,
@@ -308,7 +308,7 @@ export default function Home() {
         onError: (err) => {
           // the slimmed sheet can't redeploy, so failures there surface as a toast
           if (wasDeployed(task)) {
-            showToast(err.message || "redeploy failed", { tone: "error" });
+            showToast(err.message || "redispatch failed", { tone: "error" });
             return;
           }
           setSelectedGroup(null);
@@ -358,7 +358,7 @@ export default function Home() {
                 onKeyDown={onTitleKeyDown}
                 placeholder={
                   signedIn
-                    ? "Name your next hit… (-- repo, #deploy)"
+                    ? "Name your next hit… (-- repo, #dispatch)"
                     : "Sign in to mark hits…"
                 }
                 enterKeyHint="done"

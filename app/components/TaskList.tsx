@@ -523,13 +523,13 @@ function TaskRow({
   if (onDeploy && deployable(task) && task.repoUrl)
     actions.push({
       icon: "crosshair",
-      label: "Deploy agent",
+      label: "Dispatch agent",
       onClick: () => onDeploy(task),
     });
   if (onDeploy && redeployable(task) && task.repoUrl)
     actions.push({
       icon: "crosshair",
-      label: "Redeploy",
+      label: "Redispatch",
       onClick: () => onDeploy(task),
     });
   if (onToggle)
@@ -707,13 +707,13 @@ function SortableMember({
   if (canDeploy)
     actions.push({
       icon: "crosshair",
-      label: "Deploy group",
+      label: "Dispatch group",
       onClick: () => onDeploy(task),
     });
   if (canRedeploy)
     actions.push({
       icon: "crosshair",
-      label: "Redeploy group",
+      label: "Redispatch group",
       onClick: () => onDeploy(task),
     });
   actions.push({

@@ -141,7 +141,7 @@ function RepoAccessPanel({
         </button>
         <p className="mt-2 text-xs text-muted">
           No demo mode yet? This sends an agent to add a secrets-free demo login
-          and how-to-run notes in AGENTS.md — review and deploy it from your
+          and how-to-run notes in AGENTS.md — review and dispatch it from your
           list. HitList playbook rules land automatically on normal task
           dispatch.
         </p>
@@ -581,7 +581,7 @@ export function GithubRepos({
       summary={defaultsSummary}
     >
       <p className="mb-3 text-sm text-muted">
-        Used when you deploy. Override per run in the action sheet.
+        Used when you dispatch. Override per run in the action sheet.
       </p>
       {configured.length > 1 && (
         <>

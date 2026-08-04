@@ -65,9 +65,9 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
           ? `${nextLabel.trim().slice(0, 37)}…`
           : nextLabel.trim();
       const pending = isGroup
-        ? `Deploying group${detail ? `: ${detail}` : ""}…`
-        : `Deploying ${detail || "next Mark"}…`;
-      const done = isGroup ? "Group deployed" : "Agent deployed";
+        ? `Dispatching group${detail ? `: ${detail}` : ""}…`
+        : `Dispatching ${detail || "next Mark"}…`;
+      const done = isGroup ? "Group dispatched" : "Agent dispatched";
 
       const run = async () => {
         showToast(pending, { sticky: true });

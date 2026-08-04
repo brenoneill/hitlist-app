@@ -229,10 +229,10 @@ function AgentActions({
             className="mb-3 w-full"
           >
             {dispatch.isPending
-              ? "Deploying…"
+              ? "Dispatching…"
               : lead.groupId
-                ? "Deploy group"
-                : "Deploy agent"}
+                ? "Dispatch group"
+                : "Dispatch agent"}
           </Button>
         </>
       )}
@@ -333,7 +333,7 @@ export function TaskSheet({
         <div className="min-w-0 flex-1">
           {task.groupId && (
             <FieldLabel className="mb-1">
-              In a group · deploys together
+              In a group · dispatches together
             </FieldLabel>
           )}
           {editable ? (
