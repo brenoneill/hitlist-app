@@ -4,7 +4,6 @@ import { Button } from "@/app/components/Button";
 import { DoneList, FoldSection, TaskList } from "@/app/components/TaskList";
 
 interface ListTabProps {
-  activeProjectFilter: Set<string>;
   onSelectProjectsChange: (projects: Set<string>) => void;
   onSelectId: (id: string) => void;
   onSelectGroup: (groupId: string) => void;
@@ -23,7 +22,6 @@ interface ListTabProps {
 }
 
 export function ListTab({
-  activeProjectFilter,
   onSelectProjectsChange,
   onSelectId,
   onSelectGroup,

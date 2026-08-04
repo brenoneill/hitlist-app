@@ -417,7 +417,6 @@ export default function Home() {
       </div>
 
       <ListTab
-        activeProjectFilter={activeProjectFilter}
         onSelectProjectsChange={setSelectedProjects}
         onSelectId={open}
         onSelectGroup={openGroup}
