@@ -46,6 +46,23 @@ function isSetupComplete(
   return signedIn && connected && hasProviderKey;
 }
 
+/**
+ * Strips a whole-token `#deploy` tag from a Mark title when present.
+ * @param title - Trimmed composer text
+ * @returns Cleaned title and whether immediate deploy was requested
+ */
+function parseDeployTag(title: string): { title: string; deploy: boolean } {
+  const deploy = /(^|\s)#deploy(?=\s|$)/i.test(title);
+  if (!deploy) return { title, deploy: false };
+  return {
+    title: title
+      .replace(/(^|\s)#deploy(?=\s|$)/gi, "$1")
+      .replace(/\s+/g, " ")
+      .trim(),
+    deploy: true,
+  };
+}
+
 export default function Home() {
   const router = useRouter();
   const { status } = useSession();
@@ -147,14 +164,19 @@ export default function Home() {
 
   function add(e: React.FormEvent) {
     e.preventDefault();
-    const t = title.trim();
+    const raw = title.trim();
+    if (!raw) return;
+    const { title: t, deploy: wantsDeploy } = parseDeployTag(raw);
     if (!t) return;
     setTitle("");
     addTask.mutate(
       { title: t, repoUrl: repo?.url },
       {
+        onSuccess: (task) => {
+          if (wantsDeploy) deploy(task);
+        },
         onError: (err) => {
-          setTitle(t);
+          setTitle(raw);
           showToast(err.message || "failed to mark", { tone: "error" });
         },
       },
@@ -336,7 +358,7 @@ export default function Home() {
                 onKeyDown={onTitleKeyDown}
                 placeholder={
                   signedIn
-                    ? "Name your next hit… (-- tags a repo)"
+                    ? "Name your next hit… (-- repo, #deploy)"
                     : "Sign in to mark hits…"
                 }
                 enterKeyHint="done"
@@ -370,7 +392,7 @@ export default function Home() {
             </div>
             <Button
               type="submit"
-              disabled={!signedIn || !title.trim()}
+              disabled={!signedIn || !parseDeployTag(title.trim()).title}
               className="px-5"
             >
               Mark
