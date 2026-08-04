@@ -54,14 +54,18 @@ export function AppHeader({
         <Link
           href="/app/settings"
           aria-label="Settings"
-          className="flex size-10 items-center justify-center rounded-xl border border-edge bg-surface text-muted transition-colors active:bg-background"
+          className={
+            session?.user?.image
+              ? "flex size-10 items-center justify-center"
+              : "flex size-10 items-center justify-center rounded-xl border border-edge bg-surface text-muted transition-colors active:bg-background"
+          }
         >
           {session?.user?.image ? (
             // eslint-disable-next-line @next/next/no-img-element -- external GitHub avatar; no images.remotePatterns configured
             <img
               src={session.user.image}
               alt=""
-              className="size-7 rounded-full"
+              className="size-10 rounded-full"
             />
           ) : (
             <Icon name="settings" className="size-4" />
