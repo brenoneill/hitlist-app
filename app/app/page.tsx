@@ -37,11 +37,7 @@ import { ListTab } from "@/app/components/ListTab";
 import { Chip } from "@/app/components/ui/Chip";
 import { Menu } from "@/app/components/ui/Menu";
 import { TextInput } from "@/app/components/ui/TextInput";
-
-const TOAST_SHELL =
-  "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4";
-const TOAST_PILL =
-  "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
+import { TOAST_PILL, TOAST_SHELL } from "@/app/components/ui/Toast";
 
 /** True once the user can tag repos and dispatch agents. */
 function isSetupComplete(

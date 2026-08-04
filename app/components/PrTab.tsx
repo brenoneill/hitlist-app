@@ -8,23 +8,15 @@ import {
 } from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
-import { optionsForMode } from "@/app/lib/prOptions";
 import {
-  LAST_PROVIDER_KEY,
-  PROVIDER_IDS,
-  pickDefaultProvider,
-} from "@/app/lib/providerMeta";
-import {
-  useDeployDefaults,
-  useDispatchTask,
   useMarkPrReady,
   useMergePr,
   usePrDetails,
-  useProviderKeys,
   useTasks,
 } from "@/app/lib/queries";
 import type { Task } from "@/app/lib/tasks";
 import { Button } from "@/app/components/Button";
+import { useDeployQueue } from "@/app/components/DeployQueue";
 import { Icon } from "@/app/components/Icons";
 import { Sheet } from "@/app/components/Sheets";
 import { ErrorText } from "@/app/components/ui/ErrorText";
@@ -32,6 +24,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { Markdownish } from "@/app/components/ui/Markdownish";
 import { OverlayDialog } from "@/app/components/ui/OverlayDialog";
 import { Skeleton } from "@/app/components/ui/Skeleton";
+import { useToast } from "@/app/components/ui/Toast";
 
 /**
  * A GitHub-hosted PR asset needs the viewer's github.com session, which a
@@ -60,13 +53,16 @@ export function PrTab({ task }: { task: Task }) {
   const [openFile, setOpenFile] = useState<PrFile | null>(null);
   // SSR-safe default; synced from localStorage when the confirm sheet opens
   const [autoStartNext, setAutoStartNext] = useState(false);
-  const { data: pr, error, isLoading } = usePrDetails(task.id, !!task.prUrl);
+  // stop PR reads once merged — GitHub often 500s on the post-squash refetch
+  const { data: pr, error, isLoading } = usePrDetails(
+    task.id,
+    !!task.prUrl && task.prState !== "merged",
+  );
   const { data: tasks } = useTasks();
-  const { data: providerKeys } = useProviderKeys();
-  const { data: deployDefaults } = useDeployDefaults();
   const mergeMutation = useMergePr(task.id);
   const readyMutation = useMarkPrReady(task.id);
-  const dispatch = useDispatchTask();
+  const { queueDeployAfterMerge } = useDeployQueue();
+  const { showToast } = useToast();
   const nextMark = nextMarkForRepo(tasks ?? [], task);
 
   // Summary and previewUrl live on the task, but visual proof needs the PR
@@ -171,7 +167,7 @@ export function PrTab({ task }: { task: Task }) {
         </p>
       ) : (
         <>
-          {error && (
+          {error && task.prState !== "merged" && (
             <>
               <ErrorText className="mb-2">{error.message}</ErrorText>
               <Button
@@ -315,34 +311,23 @@ export function PrTab({ task }: { task: Task }) {
                 variant="ok"
                 onClick={() => {
                   const shouldStart = autoStartNext && !!nextMark;
-                  const nextId = nextMark?.id;
-                  mergeMutation.mutate(undefined, {
-                    onSuccess: () => {
-                      if (!shouldStart || !nextId) return;
-                      const provider = pickDefaultProvider(
-                        PROVIDER_IDS.filter((p) => providerKeys?.[p]),
-                        deployDefaults?.provider ??
-                          localStorage.getItem(LAST_PROVIDER_KEY),
+                  const mergePromise = mergeMutation.mutateAsync();
+                  if (shouldStart && nextMark) {
+                    // toast + dispatch live in the global queue so leaving
+                    // this page mid-merge still deploys when merge finishes
+                    queueDeployAfterMerge({
+                      mergePromise,
+                      nextTaskId: nextMark.id,
+                      nextTitle: nextMark.title,
+                    });
+                  } else {
+                    mergePromise.catch((err) => {
+                      showToast(
+                        err instanceof Error ? err.message : String(err),
+                        { tone: "error" },
                       );
-                      if (provider) {
-                        localStorage.setItem(LAST_PROVIDER_KEY, provider);
-                      }
-                      dispatch.mutate({
-                        id: nextId,
-                        ...(provider ? { provider } : {}),
-                        ...(deployDefaults?.model
-                          ? { model: deployDefaults.model }
-                          : {}),
-                        ...(deployDefaults?.visualConfirmation
-                          ? {
-                              options: optionsForMode(
-                                deployDefaults.visualConfirmation,
-                              ),
-                            }
-                          : {}),
-                      });
-                    },
-                  });
+                    });
+                  }
                   requestClose();
                 }}
                 className="mb-2 flex w-full items-center justify-center gap-2"
