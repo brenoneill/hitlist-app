@@ -23,7 +23,8 @@ export type IconName =
   | "copilot"
   | "lock"
   | "filter"
-  | "send";
+  | "send"
+  | "download";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   crosshair: (
@@ -115,6 +116,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   send: <path d="M12 19V5M5 12l7-7 7 7" />,
+  download: <path d="M12 4v11M6.5 10.5L12 16l5.5-5.5M4 19h16" />,
   github: (
     <path
       fill="currentColor"
