@@ -63,9 +63,9 @@ function pairMessages(shown: ShownMessage[]): ShownMessage[] {
  * `pairMessages` for why message order itself can't trust raw timestamps
  * either. Dispatch + PR-open always belong right after the prompt and before
  * the reply that describes them (Cursor drafts the PR at agent creation, so
- * it's always part of the first run). View PR / Preview / agent live on
- * each agent summary footer rather than as their own timeline bubbles.
- * Terminal events (merged/closed/failed) always belong at the end.
+ * it's always part of the first run). View PR lives on each agent summary
+ * footer rather than as its own timeline bubble. Terminal events
+ * (merged/closed/failed) always belong at the end.
  */
 function buildTimeline(
   task: Task,
@@ -187,13 +187,12 @@ export function Conversation({
 
   // Event chips sit in the timeline with the turns — hold the tab until
   // messages land so nothing paints ahead of the rest. PR details can arrive
-  // later; View PR / agent only need task fields.
+  // later; View PR only needs `task.prUrl`.
   if (messagesLoading && !messages) {
     return (
       <ConversationSkeleton
         hasPr={!!task.prUrl}
         hasPreview={!!task.previewUrl}
-        hasAgent={!!task.agentUrl}
       />
     );
   }
@@ -249,8 +248,7 @@ export function Conversation({
                   {when(item.msg.createdAt)}
                 </p>
               )}
-              {item.msg.role === "agent" &&
-                (task.prUrl || previewUrl || task.agentUrl) && (
+              {item.msg.role === "agent" && (task.prUrl || previewUrl) && (
                 <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
                   {task.prUrl && (
                     <Button variant="outlineSm" onClick={onShowPr}>
@@ -266,17 +264,6 @@ export function Conversation({
                       variant="outlineSm"
                     >
                       View Preview
-                      <Icon name="external" className="size-3" />
-                    </Button>
-                  )}
-                  {task.agentUrl && (
-                    <Button
-                      href={task.agentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      variant="outlineSm"
-                    >
-                      View agent
                       <Icon name="external" className="size-3" />
                     </Button>
                   )}
@@ -365,11 +352,9 @@ export function Conversation({
 function ConversationSkeleton({
   hasPr,
   hasPreview,
-  hasAgent,
 }: {
   hasPr: boolean;
   hasPreview: boolean;
-  hasAgent: boolean;
 }) {
   return (
     <section className="mb-6" aria-busy="true" aria-live="polite">
@@ -384,11 +369,10 @@ function ConversationSkeleton({
         <div className="w-[70%] max-w-[88%] self-start rounded-xl border border-edge bg-surface px-4 py-3">
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
-          {(hasPr || hasPreview || hasAgent) && (
+          {(hasPr || hasPreview) && (
             <div className="mt-2 flex justify-end gap-1.5">
               {hasPr && <Skeleton className="h-6 w-16 rounded-lg bg-edge" />}
               {hasPreview && <Skeleton className="h-6 w-24 rounded-lg bg-edge" />}
-              {hasAgent && <Skeleton className="h-6 w-20 rounded-lg bg-edge" />}
             </div>
           )}
         </div>

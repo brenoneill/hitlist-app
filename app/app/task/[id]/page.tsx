@@ -161,16 +161,39 @@ export default function TaskWorkspace() {
               </p>
             )}
             {task.repoUrl && (
-              <p className="truncate font-mono text-xs text-muted">
-                {task.repoUrl}
-              </p>
+              <a
+                href={task.repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
+              >
+                <span className="truncate">{task.repoUrl}</span>
+                <Icon name="external" className="size-3 shrink-0" />
+                <span className="sr-only">Open repository on GitHub</span>
+              </a>
             )}
-            {task.branch && (
-              <p className="truncate font-mono text-xs text-muted">
-                <Icon name="pr" className="mr-1 inline size-3 align-[-2px]" />
-                {task.branch}
-              </p>
-            )}
+            {task.branch &&
+              (task.agentUrl ? (
+                <a
+                  href={task.agentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
+                >
+                  <Icon name="pr" className="size-3 shrink-0" />
+                  <span className="truncate">{task.branch}</span>
+                  <Icon name="external" className="size-3 shrink-0" />
+                  <span className="sr-only">View agent</span>
+                </a>
+              ) : (
+                <p className="truncate font-mono text-xs text-muted">
+                  <Icon
+                    name="pr"
+                    className="mr-1 inline size-3 align-[-2px]"
+                  />
+                  {task.branch}
+                </p>
+              ))}
             {redeployError && (
               <ErrorText>
                 {redeployError.message || "redeploy failed"}
