@@ -249,7 +249,7 @@ export function Conversation({
                 </p>
               )}
               {item.msg.role === "agent" && (task.prUrl || previewUrl) && (
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
                   {task.prUrl && (
                     <Button variant="outlineSm" onClick={onShowPr}>
                       View PR
@@ -370,7 +370,7 @@ function ConversationSkeleton({
           <Skeleton className="h-4 rounded bg-edge" />
           <Skeleton className="mt-2 h-4 w-2/3 rounded bg-edge" />
           {(hasPr || hasPreview) && (
-            <div className="mt-2 flex gap-1.5">
+            <div className="mt-2 flex justify-end gap-1.5">
               {hasPr && <Skeleton className="h-6 w-16 rounded-lg bg-edge" />}
               {hasPreview && <Skeleton className="h-6 w-24 rounded-lg bg-edge" />}
             </div>
