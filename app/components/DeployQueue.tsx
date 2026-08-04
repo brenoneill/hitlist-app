@@ -23,10 +23,12 @@ import { useToast } from "@/app/components/ui/Toast";
 type QueueAfterMergeArgs = {
   /** Resolves when the merge request has fully finished. */
   mergePromise: Promise<unknown>;
-  /** Undeployed Mark to dispatch after merge succeeds. */
+  /** Undeployed Mark (or any group member) to dispatch after merge succeeds. */
   nextTaskId: string;
-  /** Shown in the sticky toast while waiting / deploying. */
-  nextTitle: string;
+  /** Checkbox / toast detail (titles joined for groups). */
+  nextLabel: string;
+  /** True when dispatch expands to a whole group. */
+  isGroup: boolean;
 };
 
 type DeployQueueValue = {
@@ -52,14 +54,23 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
   const chainRef = useRef<Promise<void>>(Promise.resolve());
 
   const queueDeployAfterMerge = useCallback(
-    ({ mergePromise, nextTaskId, nextTitle }: QueueAfterMergeArgs) => {
-      const label =
-        nextTitle.trim().length > 40
-          ? `${nextTitle.trim().slice(0, 37)}…`
-          : nextTitle.trim();
+    ({
+      mergePromise,
+      nextTaskId,
+      nextLabel,
+      isGroup,
+    }: QueueAfterMergeArgs) => {
+      const detail =
+        nextLabel.trim().length > 40
+          ? `${nextLabel.trim().slice(0, 37)}…`
+          : nextLabel.trim();
+      const pending = isGroup
+        ? `Deploying group${detail ? `: ${detail}` : ""}…`
+        : `Deploying ${detail || "next Mark"}…`;
+      const done = isGroup ? "Group deployed" : "Agent deployed";
 
       const run = async () => {
-        showToast(`Deploying ${label || "next Mark"}…`, { sticky: true });
+        showToast(pending, { sticky: true });
         try {
           await mergePromise;
           const provider = pickDefaultProvider(
@@ -89,7 +100,7 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
               },
             );
           });
-          showToast("Agent deployed", { tone: "ok", ms: 4000 });
+          showToast(done, { tone: "ok", ms: 4000 });
         } catch (e) {
           showToast(e instanceof Error ? e.message : String(e), {
             tone: "error",

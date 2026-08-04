@@ -9,14 +9,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Icon } from "@/app/components/Icons";
+import { Icon, type IconName } from "@/app/components/Icons";
 
-export const TOAST_SHELL =
+const TOAST_SHELL =
   "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 flex justify-center px-4";
-export const TOAST_PILL =
+const TOAST_PILL =
   "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
 
 type ToastTone = "deploy" | "error" | "ok";
+
+type ToastAction = {
+  /** Invoked when the pill is pressed (e.g. Undo). */
+  onClick: () => void;
+  /** Optional keyboard hint shown muted, e.g. ⌘Z. */
+  hint?: string;
+};
 
 type ToastOpts = {
   /** When true, stays until cleared or replaced (no auto-dismiss). */
@@ -25,30 +32,39 @@ type ToastOpts = {
   ms?: number;
   /** Icon / color treatment. Default deploy. */
   tone?: ToastTone;
+  /** When set, the pill is a button — same interaction as Undo move. */
+  action?: ToastAction;
 };
 
-type ToastEntry = { message: string; tone: ToastTone };
+type ToastEntry = {
+  message: string;
+  tone: ToastTone;
+  action?: ToastAction;
+};
 
 type ToastContextValue = {
   toast: ToastEntry | null;
   showToast: (message: string, opts?: ToastOpts) => void;
   clearToast: () => void;
+  /** Hide the tray without clearing (list drag); show again when false. */
+  setTrayHidden: (hidden: boolean) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const TONE_ICON = {
-  deploy: { name: "crosshair" as const, cls: "text-warn" },
-  error: { name: "x" as const, cls: "text-blood" },
-  ok: { name: "check" as const, cls: "text-ok" },
+const TONE_ICON: Record<ToastTone, { name: IconName; cls: string }> = {
+  deploy: { name: "crosshair", cls: "text-warn" },
+  error: { name: "x", cls: "text-blood" },
+  ok: { name: "check", cls: "text-ok" },
 };
 
 /**
- * App-wide toast tray (same chrome as the list Undo pill). Mount once under
- * Providers so messages survive route changes.
+ * Single bottom toast tray for the app — Undo, errors, and deploy status.
+ * Mount once under Providers so messages survive route changes.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastEntry | null>(null);
+  const [hidden, setHidden] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearToast = useCallback(() => {
@@ -58,14 +74,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Shows a bottom toast. Sticky toasts stay until `clearToast` / a replacement.
-   * @param message - Short status or error text.
-   * @param opts - sticky / dismiss timing / tone.
+   * Shows the bottom toast pill. Sticky toasts stay until cleared/replaced.
+   * @param message - Short status, error, or action label.
+   * @param opts - sticky / dismiss timing / tone / optional tap action.
    */
   const showToast = useCallback((message: string, opts?: ToastOpts) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
-    setToast({ message, tone: opts?.tone ?? "deploy" });
+    setToast({
+      message,
+      tone: opts?.tone ?? "deploy",
+      action: opts?.action,
+    });
     if (opts?.sticky) return;
     timerRef.current = setTimeout(
       () => {
@@ -76,6 +96,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const setTrayHidden = useCallback((next: boolean) => {
+    setHidden(next);
+  }, []);
+
   useEffect(
     () => () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -84,19 +108,39 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   const icon = toast ? TONE_ICON[toast.tone] : null;
+  const visible = !!toast && !!icon && !hidden;
 
   return (
-    <ToastContext.Provider value={{ toast, showToast, clearToast }}>
+    <ToastContext.Provider
+      value={{ toast, showToast, clearToast, setTrayHidden }}
+    >
       {children}
-      {toast && icon && (
+      {visible && icon && toast && (
         <div className={TOAST_SHELL}>
-          <div role="status" aria-live="polite" className={TOAST_PILL}>
-            <Icon
-              name={icon.name}
-              className={`size-3.5 shrink-0 ${icon.cls}`}
-            />
-            {toast.message}
-          </div>
+          {toast.action ? (
+            <button
+              type="button"
+              onClick={toast.action.onClick}
+              className={`${TOAST_PILL} active:opacity-80`}
+            >
+              <Icon
+                name={icon.name}
+                className={`size-3.5 shrink-0 ${icon.cls}`}
+              />
+              {toast.message}
+              {toast.action.hint && (
+                <span className="text-muted">{toast.action.hint}</span>
+              )}
+            </button>
+          ) : (
+            <div role="status" aria-live="polite" className={TOAST_PILL}>
+              <Icon
+                name={icon.name}
+                className={`size-3.5 shrink-0 ${icon.cls}`}
+              />
+              {toast.message}
+            </div>
+          )}
         </div>
       )}
     </ToastContext.Provider>
@@ -104,8 +148,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Access the global toast tray.
- * @returns showToast / clearToast / current toast message.
+ * Access the shared toast tray (Undo, errors, deploy status).
+ * @returns showToast / clearToast / setTrayHidden / current toast.
  */
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  nextMarkForRepo,
+  nextDeployTargetForRepo,
   readAutoStartNextMark,
   writeAutoStartNextMark,
 } from "@/app/lib/autoStartNextMark";
@@ -63,7 +63,7 @@ export function PrTab({ task }: { task: Task }) {
   const readyMutation = useMarkPrReady(task.id);
   const { queueDeployAfterMerge } = useDeployQueue();
   const { showToast } = useToast();
-  const nextMark = nextMarkForRepo(tasks ?? [], task);
+  const nextTarget = nextDeployTargetForRepo(tasks ?? [], task);
 
   // Summary and previewUrl live on the task, but visual proof needs the PR
   // body — paint nothing until that read lands so sections don't arrive staggered.
@@ -287,7 +287,7 @@ export function PrTab({ task }: { task: Task }) {
                 Squash-merges {pr ? `#${pr.number}` : "the PR"} into{" "}
                 {pr?.baseRef ?? "the base branch"}.
               </p>
-              {nextMark && task.repoUrl && (
+              {nextTarget && task.repoUrl && (
                 <label className="mb-3 flex cursor-pointer items-start gap-2 text-xs text-muted">
                   <input
                     type="checkbox"
@@ -300,9 +300,11 @@ export function PrTab({ task }: { task: Task }) {
                     className="mt-0.5 size-3.5 shrink-0 accent-blood"
                   />
                   <span>
-                    Auto-start next Mark
+                    {nextTarget.isGroup
+                      ? "Auto-start next group"
+                      : "Auto-start next Mark"}
                     <span className="mt-0.5 block truncate font-mono text-[11px]">
-                      {nextMark.title}
+                      {nextTarget.label}
                     </span>
                   </span>
                 </label>
@@ -310,15 +312,16 @@ export function PrTab({ task }: { task: Task }) {
               <Button
                 variant="ok"
                 onClick={() => {
-                  const shouldStart = autoStartNext && !!nextMark;
+                  const shouldStart = autoStartNext && !!nextTarget;
                   const mergePromise = mergeMutation.mutateAsync();
-                  if (shouldStart && nextMark) {
+                  if (shouldStart && nextTarget) {
                     // toast + dispatch live in the global queue so leaving
                     // this page mid-merge still deploys when merge finishes
                     queueDeployAfterMerge({
                       mergePromise,
-                      nextTaskId: nextMark.id,
-                      nextTitle: nextMark.title,
+                      nextTaskId: nextTarget.taskId,
+                      nextLabel: nextTarget.label,
+                      isGroup: nextTarget.isGroup,
                     });
                   } else {
                     mergePromise.catch((err) => {
