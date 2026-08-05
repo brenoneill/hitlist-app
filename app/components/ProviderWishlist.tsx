@@ -26,15 +26,28 @@ const WISHLIST = [
 // Move to a table if you ever want to show real counts back to users.
 const STORAGE_KEY = "providerWishes";
 
+type WishlistFrom = "landing" | "settings" | "onboarding";
+
 /**
  * Lets visitors vote on which agent provider to support next. Wishes persist
  * per browser; tapping a wished chip unselects it.
  *
  * @param compact - Settings-tab scale (matches the surrounding step blocks)
  *   instead of the landing page's marketing spacing.
+ * @param from - Analytics source; defaults from `compact` (`settings` /
+ *   `landing`). Pass `onboarding` for the Connect Cursor wizard step.
  */
-export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
+export function ProviderWishlist({
+  compact = false,
+  from,
+}: {
+  compact?: boolean;
+  from?: WishlistFrom;
+}) {
   const [wished, setWished] = useState<string[]>([]);
+  const source: WishlistFrom = from ?? (compact ? "settings" : "landing");
+  const onboarding = source === "onboarding";
+  const tight = compact || onboarding;
 
   // Read after mount — localStorage during render mismatches the SSR markup.
   useEffect(() => {
@@ -48,36 +61,37 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
    * @param provider - Wishlist provider label to select or unselect.
    */
   function toggleWish(provider: string) {
-    const from = compact ? "settings" : "landing";
     if (wished.includes(provider)) {
       const next = wished.filter((p) => p !== provider);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setWished(next);
-      track("provider_unwish", { provider, from });
+      track("provider_unwish", { provider, from: source });
       return;
     }
     const next = [...wished, provider];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setWished(next);
     // `from` separates idle landing curiosity from signed-in users who hit
-    // the wall in settings — the second is the stronger build signal.
-    track("provider_wish", { provider, from });
+    // the wall in settings / onboarding — those are the stronger build signals.
+    track("provider_wish", { provider, from: source });
   }
 
   return (
     <section
       className={
-        compact
+        tight
           ? "mb-6 border-t border-edge pt-4"
           : "border-t border-edge/80 pt-12 mt-16"
       }
     >
-      <FieldLabel className={compact ? "mb-2" : "mb-2 mt-6 first:mt-0"}>
-        Coming next
+      <FieldLabel className={tight ? "mb-2" : "mb-2 mt-6 first:mt-0"}>
+        {onboarding ? "Feedback" : "Coming next"}
       </FieldLabel>
-      {compact ? (
+      {tight ? (
         <h3 className="text-sm font-semibold tracking-tight">
-          Which agent should we add?
+          {onboarding
+            ? "Use another agent? Let us know."
+            : "Which agent should we add?"}
         </h3>
       ) : (
         <h2 className="text-2xl font-bold tracking-tight">
@@ -85,12 +99,13 @@ export function ProviderWishlist({ compact = false }: { compact?: boolean }) {
         </h2>
       )}
       <p
-        className={`text-sm leading-relaxed text-muted ${compact ? "mt-1" : "mt-2 max-w-lg"}`}
+        className={`text-sm leading-relaxed text-muted ${tight ? "mt-1" : "mt-2 max-w-lg"}`}
       >
-        HitList dispatches to Cursor today. Tap the ones you want next - the
-        most-wished provider gets built first.
+        {onboarding
+          ? "HitList dispatches to Cursor today. Tap any others you want — the most-wished provider gets built first."
+          : "HitList dispatches to Cursor today. Tap the ones you want next - the most-wished provider gets built first."}
       </p>
-      <ul className={`flex flex-wrap gap-2 ${compact ? "mt-3" : "mt-6"}`}>
+      <ul className={`flex flex-wrap gap-2 ${tight ? "mt-3" : "mt-6"}`}>
         {WISHLIST.map((provider) => {
           const sent = wished.includes(provider);
           return (
