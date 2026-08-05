@@ -60,10 +60,7 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
       nextLabel,
       isGroup,
     }: QueueAfterMergeArgs) => {
-      const detail =
-        nextLabel.trim().length > 40
-          ? `${nextLabel.trim().slice(0, 37)}…`
-          : nextLabel.trim();
+      const detail = nextLabel.trim();
       const pending = isGroup
         ? `Dispatching group${detail ? `: ${detail}` : ""}…`
         : `Dispatching ${detail || "next Mark"}…`;

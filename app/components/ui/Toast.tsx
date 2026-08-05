@@ -14,7 +14,8 @@ import { Icon, type IconName } from "@/app/components/Icons";
 const TOAST_SHELL =
   "fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-40 flex justify-center px-4";
 const TOAST_PILL =
-  "flex items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
+  "flex max-w-full items-center gap-2 rounded-xl border border-edge bg-surface px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest shadow-lg shadow-black/50";
+const TOAST_MESSAGE = "min-w-0 break-words text-left leading-snug";
 
 type ToastTone = "deploy" | "error" | "ok";
 
@@ -127,9 +128,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 name={icon.name}
                 className={`size-3.5 shrink-0 ${icon.cls}`}
               />
-              {toast.message}
+              <span className={TOAST_MESSAGE}>{toast.message}</span>
               {toast.action.hint && (
-                <span className="text-muted">{toast.action.hint}</span>
+                <span className="shrink-0 text-muted">{toast.action.hint}</span>
               )}
             </button>
           ) : (
@@ -138,7 +139,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 name={icon.name}
                 className={`size-3.5 shrink-0 ${icon.cls}`}
               />
-              {toast.message}
+              <span className={TOAST_MESSAGE}>{toast.message}</span>
             </div>
           )}
         </div>
