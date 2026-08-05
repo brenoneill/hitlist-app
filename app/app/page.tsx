@@ -20,6 +20,7 @@ import {
   OFFERED_PROVIDER_IDS,
   pickDefaultProvider,
 } from "@/app/lib/providerMeta";
+import { rememberLastRepo, resolveDefaultRepo } from "@/app/lib/lastRepo";
 import { optionsForMode } from "@/app/lib/prOptions";
 import { type Repo } from "@/app/components/GithubRepos";
 import { AppHeader } from "@/app/components/AppHeader";
@@ -154,7 +155,15 @@ export default function Home() {
   );
 
   // -- mention picker: chip is the chosen repo, dropdown filters as you type
-  const [repo, setRepo] = useState<Repo | null>(null);
+  // undefined = follow last-marked default; null = user cleared; Repo = picked
+  const [repoOverride, setRepoOverride] = useState<Repo | null | undefined>(
+    undefined,
+  );
+  const defaultRepo =
+    !loading && pickable.length > 0
+      ? resolveDefaultRepo(pickable, tasks)
+      : null;
+  const repo = repoOverride !== undefined ? repoOverride : defaultRepo;
   // # mention picker: chip flags immediate dispatch on Mark
   const [immediateDispatch, setImmediateDispatch] = useState(false);
   const [mIdx, setMIdx] = useState(0);
@@ -180,7 +189,8 @@ export default function Home() {
     !!hashMention && !dismissed && matchesDispatchMention(hashMention[1]);
 
   function pickMention(r: Repo) {
-    setRepo(r);
+    setRepoOverride(r);
+    rememberLastRepo(r.url);
     setTitle((t) => t.replace(/(?:--|[—–])\S*$/, "").trimEnd());
   }
 
@@ -226,6 +236,7 @@ export default function Home() {
     const wantsDeploy = hadDispatchChip || fromTag;
     setTitle("");
     setImmediateDispatch(false);
+    if (repo?.url) rememberLastRepo(repo.url);
     addTask.mutate(
       { title: t, repoUrl: repo?.url },
       {
@@ -483,7 +494,7 @@ export default function Home() {
                 <Chip
                   variant="surface"
                   icon="crosshair"
-                  onDismiss={() => setRepo(null)}
+                  onDismiss={() => setRepoOverride(null)}
                   dismissLabel="Remove repo"
                 >
                   {repo.name}
