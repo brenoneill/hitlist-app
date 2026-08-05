@@ -72,7 +72,7 @@ function buildPrompt(
  * bootstrap + title/bullet list + optional per-task context); a group's repo is
  * the first member's with one. Pass `redeploy: true` to replace an existing
  * agent with a fresh run (clears prior run/PR fields).
- * @param req - Optional JSON body with `provider` to pick the agent provider (default: Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Settings default), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task.
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Settings default; explicit `null`/"" ⇒ provider Auto), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task. Persists resolved model + visual mode on the task for auto-que inheritance.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -91,15 +91,14 @@ export async function POST(
   const members = task.groupId
     ? (await listTasks(userId)).filter((t) => t.groupId === task.groupId)
     : [task];
-  const { provider: requested, ref, model, options, redeploy } = (await req
-    .json()
-    .catch(() => ({}))) as {
+  const body = (await req.json().catch(() => ({}))) as {
     provider?: ProviderId;
     ref?: string;
-    model?: string;
+    model?: string | null;
     options?: string[];
     redeploy?: boolean;
   };
+  const { provider: requested, ref, model, options, redeploy } = body;
 
   if (redeploy) {
     // every member must already have been dispatched — redeploy replaces that agent
@@ -170,7 +169,14 @@ export async function POST(
     const resolvedOptions =
       options ?? optionsForMode(defaults.visualConfirmation);
     const mode = resolveVisualConfirmation(resolvedOptions);
-    const resolvedModel = model ?? defaults.model ?? undefined;
+    // `model` present (including null) wins — null/"" forces provider Auto so
+    // auto-que can inherit Auto from a Mark without falling back to Settings.
+    const resolvedModel =
+      "model" in body
+        ? typeof model === "string" && model.trim()
+          ? model.trim()
+          : undefined
+        : (defaults.model ?? undefined);
     const origin = new URL(req.url).origin;
     const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(
@@ -204,6 +210,8 @@ export async function POST(
       const u = await updateTask(userId, m.id, {
         status: "running",
         provider,
+        model: resolvedModel ?? null,
+        visualConfirmation: mode,
         agentId: agent.id,
         agentUrl: agent.url,
         dispatchedAt: new Date().toISOString(),

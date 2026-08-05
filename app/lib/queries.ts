@@ -194,7 +194,8 @@ export function useDispatchTask() {
     }: {
       id: string;
       provider?: ProviderId;
-      model?: string;
+      /** Explicit `null` forces provider Auto (skips Settings default). */
+      model?: string | null;
       options?: PrOptionId[];
       /** Replace an existing agent with a fresh run. */
       redeploy?: boolean;

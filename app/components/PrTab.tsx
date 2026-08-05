@@ -322,6 +322,19 @@ export function PrTab({ task }: { task: Task }) {
                       nextTaskId: nextTarget.taskId,
                       nextLabel: nextTarget.label,
                       isGroup: nextTarget.isGroup,
+                      // Continuity: next Mark gets this Mark's deploy settings,
+                      // not whatever is currently in Settings. model is only
+                      // trusted when visualConfirmation is set — both are
+                      // written together on dispatch (legacy rows lack them).
+                      settings: {
+                        ...(task.provider ? { provider: task.provider } : {}),
+                        ...(task.visualConfirmation
+                          ? {
+                              model: task.model ?? null,
+                              visualConfirmation: task.visualConfirmation,
+                            }
+                          : {}),
+                      },
                     });
                   } else {
                     mergePromise.catch((err) => {
