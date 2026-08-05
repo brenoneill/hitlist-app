@@ -18,6 +18,7 @@ import {
   pickDefaultProvider,
   type ProviderId,
 } from "@/app/lib/providerMeta";
+import { rememberLastRepo } from "@/app/lib/lastRepo";
 import {
   DEFAULT_VISUAL_CONFIRMATION,
   optionsForMode,
@@ -324,6 +325,7 @@ export function TaskSheet({
     setPickingRepo(false);
     setRepoFilter("");
     if ((url ?? undefined) === task.repoUrl) return;
+    if (url) rememberLastRepo(url);
     await patch({ repoUrl: url });
   }
 
