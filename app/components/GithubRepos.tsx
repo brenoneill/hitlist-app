@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { ProviderKeySettings } from "@/app/components/ProviderKeySettings";
 import { ProviderWishlist } from "@/app/components/ProviderWishlist";
+import { AddToHomeScreen } from "@/app/components/AddToHomeScreen";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import {
@@ -751,6 +752,8 @@ export function GithubRepos({
       {!defaultsReady && defaultsSection}
 
       <ProviderWishlist compact />
+
+      <AddToHomeScreen />
 
       {signedIn && (
         <div className="mb-6 flex items-center justify-between border-t border-edge pt-4">

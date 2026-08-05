@@ -3,21 +3,9 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
+import { usePwaInstall } from "@/app/lib/usePwaInstall";
 
 const DISMISSED_KEY = "hitlist:install-dismissed";
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
-function isStandalone() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari's own (non-standard) flag — no display-mode match there.
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
 
 /**
  * Bottom banner nudging users onto the home-screen PWA. Android/Chrome fire
@@ -28,39 +16,26 @@ function isStandalone() {
  * see it.
  */
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [showIOSHint, setShowIOSHint] = useState(false);
+  const { deferredPrompt, standalone, ios, ready, promptInstall } =
+    usePwaInstall();
+  const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
-    if (isStandalone() || localStorage.getItem(DISMISSED_KEY)) return;
-
-    const onBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-
-    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) setShowIOSHint(true);
-
-    return () =>
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+    setDismissed(!!localStorage.getItem(DISMISSED_KEY));
   }, []);
 
   const dismiss = () => {
     localStorage.setItem(DISMISSED_KEY, "1");
-    setDeferredPrompt(null);
-    setShowIOSHint(false);
+    setDismissed(true);
   };
 
   const install = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
+    await promptInstall();
     dismiss();
   };
 
-  if (!deferredPrompt && !showIOSHint) return null;
+  const showIOSHint = ready && ios && !standalone;
+  if (dismissed || standalone || (!deferredPrompt && !showIOSHint)) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center px-4">
@@ -72,7 +47,7 @@ export function InstallPrompt() {
             : "Add to Home Screen: Share → Add to Home Screen"}
         </p>
         {deferredPrompt && (
-          <Button variant="outlineSm" onClick={install}>
+          <Button variant="outlineSm" onClick={() => void install()}>
             Install
           </Button>
         )}
