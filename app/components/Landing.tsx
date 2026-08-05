@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { track } from "@vercel/analytics";
 import type { Task } from "@/app/lib/tasks";
+import { AutoStartNextMark } from "@/app/components/AutoStartNextMark";
 import { BLOOD_BUTTON, Icon, type IconName } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { TaskItem, inFlight, taskItemShellClass } from "@/app/components/TaskItem";
@@ -234,6 +235,8 @@ export function Landing() {
           <FlowDiagram />
         </section>
 
+        <AutoQueSection />
+
         <section className="animate-rise-delay-2 border-t border-edge/80 pt-12 mt-16">
           <FieldLabel className="mb-2 mt-6 first:mt-0">Why HitList</FieldLabel>
           <h2 className="text-2xl font-bold tracking-tight">Find the dev work your phone can finish</h2>
@@ -321,6 +324,39 @@ export function Landing() {
         </a>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Slim marketing callout for merge → auto-dispatch. Reuses the same
+ * AutoStartNextMark control as the live merge dialog (local toggle only).
+ */
+function AutoQueSection() {
+  const [autoStartNext, setAutoStartNext] = useState(true);
+
+  return (
+    <section className="border-t border-edge/80 pt-12 mt-16">
+      <FieldLabel className="mb-2 mt-6 first:mt-0">Auto-que</FieldLabel>
+      <h2 className="text-2xl font-bold tracking-tight">
+        Complete the next hit the moment you merge
+      </h2>
+      <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
+        Leave the checkbox on when you merge and the next marked hit for that
+        repo dispatches on its own — no reopening the list to kick it off.
+      </p>
+      <div className="mt-6 max-w-md rounded-xl border border-edge bg-surface/60 px-4 py-4">
+        <p className="mb-1 text-sm font-medium">Execute the merge?</p>
+        <p className="mb-3 font-mono text-[11px] text-muted">
+          Squash-merges #42 into main.
+        </p>
+        <AutoStartNextMark
+          checked={autoStartNext}
+          nextLabel="Polish mark-input hint on first run"
+          onChange={setAutoStartNext}
+          className="mb-0"
+        />
+      </div>
+    </section>
   );
 }
 
