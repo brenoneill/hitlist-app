@@ -235,6 +235,11 @@ function AgentActions({
                 ? "Dispatch group"
                 : "Dispatch agent"}
           </Button>
+          {!canDeploy && (
+            <ErrorText role="alert" className="mb-3">
+              Tag a repo before dispatching
+            </ErrorText>
+          )}
         </>
       )}
 
