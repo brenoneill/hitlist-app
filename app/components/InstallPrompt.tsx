@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { usePwaInstall } from "@/app/lib/usePwaInstall";
 
 const DISMISSED_KEY = "hitlist:install-dismissed";
+
+const dismissListeners = new Set<() => void>();
+
+function subscribeDismissed(onStoreChange: () => void) {
+  dismissListeners.add(onStoreChange);
+  return () => {
+    dismissListeners.delete(onStoreChange);
+  };
+}
+
+function getDismissed() {
+  return !!localStorage.getItem(DISMISSED_KEY);
+}
 
 /**
  * Bottom banner nudging users onto the home-screen PWA. Android/Chrome fire
@@ -18,15 +31,15 @@ const DISMISSED_KEY = "hitlist:install-dismissed";
 export function InstallPrompt() {
   const { deferredPrompt, standalone, ios, ready, promptInstall } =
     usePwaInstall();
-  const [dismissed, setDismissed] = useState(true);
-
-  useEffect(() => {
-    setDismissed(!!localStorage.getItem(DISMISSED_KEY));
-  }, []);
+  const dismissed = useSyncExternalStore(
+    subscribeDismissed,
+    getDismissed,
+    () => true,
+  );
 
   const dismiss = () => {
     localStorage.setItem(DISMISSED_KEY, "1");
-    setDismissed(true);
+    dismissListeners.forEach((listener) => listener());
   };
 
   const install = async () => {

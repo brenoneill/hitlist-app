@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -26,6 +26,25 @@ export function isIosDevice() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+function subscribeStandalone(onStoreChange: () => void) {
+  const mq = window.matchMedia("(display-mode: standalone)");
+  mq.addEventListener("change", onStoreChange);
+  window.addEventListener("appinstalled", onStoreChange);
+  return () => {
+    mq.removeEventListener("change", onStoreChange);
+    window.removeEventListener("appinstalled", onStoreChange);
+  };
+}
+
+/** True after hydration — avoids SSR/client platform-detection mismatches. */
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 /**
  * Shared PWA install state for the bottom banner and Settings section.
  * Stashes Chromium's `beforeinstallprompt` event and reports standalone / iOS.
@@ -33,25 +52,26 @@ export function isIosDevice() {
  * @returns Install capability flags and a `promptInstall` trigger for Chromium.
  */
 export function usePwaInstall() {
+  const ready = useIsClient();
+  const standalone = useSyncExternalStore(
+    subscribeStandalone,
+    isStandalone,
+    () => false,
+  );
+  const ios = useSyncExternalStore(
+    () => () => {},
+    isIosDevice,
+    () => false,
+  );
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [standalone, setStandalone] = useState(false);
-  const [ios, setIos] = useState(false);
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setStandalone(isStandalone());
-    setIos(isIosDevice());
-    setReady(true);
-
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
-    const onInstalled = () => {
-      setStandalone(true);
-      setDeferredPrompt(null);
-    };
+    const onInstalled = () => setDeferredPrompt(null);
 
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
