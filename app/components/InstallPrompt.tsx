@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
 import { usePwaInstall } from "@/app/lib/usePwaInstall";
@@ -21,14 +22,15 @@ function getDismissed() {
 }
 
 /**
- * Bottom banner nudging users onto the home-screen PWA. Android/Chrome fire
- * `beforeinstallprompt`, which we stash and trigger from a real button;
- * iOS Safari has no such event (or install API), so it gets a manual
- * Share → Add to Home Screen hint instead. Dismissal is remembered per
- * device via localStorage; already-installed (standalone) sessions never
- * see it.
+ * Bottom banner nudging users onto the home-screen PWA. Only shown on the
+ * main list (`/app`) so it doesn't steal scroll on landing, onboarding, or
+ * settings. Android/Chrome fire `beforeinstallprompt`, which we stash and
+ * trigger from a real button; iOS Safari gets a manual Share → Add to Home
+ * Screen hint instead. Dismissal is remembered per device via localStorage;
+ * already-installed (standalone) sessions never see it.
  */
 export function InstallPrompt() {
+  const pathname = usePathname();
   const { deferredPrompt, standalone, ios, ready, promptInstall } =
     usePwaInstall();
   const dismissed = useSyncExternalStore(
@@ -46,6 +48,10 @@ export function InstallPrompt() {
     await promptInstall();
     dismiss();
   };
+
+  // Keep listening for `beforeinstallprompt` everywhere (hook above), but
+  // only paint the banner on the main list — elsewhere it fights scroll.
+  if (pathname !== "/app") return null;
 
   const showIOSHint = ready && ios && !standalone;
   if (dismissed || standalone || (!deferredPrompt && !showIOSHint)) return null;
