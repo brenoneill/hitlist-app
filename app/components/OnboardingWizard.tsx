@@ -307,31 +307,31 @@ function Wizard({
 }
 
 /**
- * Foldable explainer under the Cursor key field: why HitList needs the key
- * and that keys are encrypted at rest / only used for dispatch.
+ * Always-visible key security line, plus a foldable “why we need a key”
+ * explainer under the Cursor key field.
  */
 function WhyWeNeedAKey() {
   return (
-    <details className="group mt-3 mb-1">
-      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm text-muted [&::-webkit-details-marker]:hidden">
-        <Icon
-          name="chevron"
-          className="size-4 shrink-0 -rotate-90 transition-transform group-open:rotate-0"
-        />
-        Why we need a key
-      </summary>
-      <div className="space-y-2 pb-2 pl-6 text-sm leading-relaxed text-muted">
-        <p>
+    <div className="mt-3 mb-1">
+      <p className="flex gap-2 text-sm leading-relaxed text-muted">
+        <Icon name="lock" className="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          Keys are encrypted at rest and are only used to dispatch agents.
+        </span>
+      </p>
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm text-muted [&::-webkit-details-marker]:hidden">
+          <Icon
+            name="chevron"
+            className="size-4 shrink-0 -rotate-90 transition-transform group-open:rotate-0"
+          />
+          Why we need a key
+        </summary>
+        <p className="pb-2 pl-6 text-sm leading-relaxed text-muted">
           Cursor runs agents on your account. HitList needs your API key so it
           can dispatch those agents against the hits you mark — nothing else.
         </p>
-        <p className="flex gap-2">
-          <Icon name="lock" className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            Keys are encrypted at rest and are only used to dispatch agents.
-          </span>
-        </p>
-      </div>
-    </details>
+      </details>
+    </div>
   );
 }
