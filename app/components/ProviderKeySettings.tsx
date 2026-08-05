@@ -19,10 +19,16 @@ import { TextInput } from "@/app/components/ui/TextInput";
  * Provider row card: icon + name + connection state, expanding to the key
  * form on tap. Collapses itself once a key saves.
  */
-export function ProviderKeySettings({ provider }: { provider: ProviderId }) {
+export function ProviderKeySettings({
+  provider,
+  defaultOpen,
+}: {
+  provider: ProviderId;
+  defaultOpen?: boolean;
+}) {
   const meta = PROVIDER_META[provider];
   const tips = PROVIDER_TIPS[provider];
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [key, setKey] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // null until mounted — avoids flashing tips before localStorage is read

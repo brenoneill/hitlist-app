@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRepos } from "@/app/lib/queries";
 import { AppHeader } from "@/app/components/AppHeader";
 import { GithubRepos } from "@/app/components/GithubRepos";
+import { OnboardingWizard } from "@/app/components/OnboardingWizard";
 
 export default function Settings() {
   const { status } = useSession();
@@ -39,6 +40,8 @@ export default function Settings() {
         blockedRepos={blockedRepos}
         onToggleBlocked={toggleBlocked}
       />
+
+      <OnboardingWizard />
     </main>
   );
 }

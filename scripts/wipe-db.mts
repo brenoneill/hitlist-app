@@ -1,8 +1,9 @@
-// Clears every app table on DATABASE_URL. Dev-only — refuses without an
-// explicit hostname confirm, and blocks known/obvious production hosts.
-// Usage: npm run db:wipe -- --confirm=<hostname>
+// Clears every app table on DATABASE_URL. Dev-only — prompts for
+// confirmation, and blocks known/obvious production hosts.
+// Usage: npm run db:wipe
 // Tip: set PROD_DATABASE_HOST in .env.local to permanently refuse that endpoint.
 import { neon } from "@neondatabase/serverless";
+import { createInterface } from "node:readline/promises";
 
 const TABLES = ["task_messages", "tasks", "repo_settings", "user_settings"] as const;
 
@@ -18,9 +19,6 @@ const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set — pass via --env-file=.env.local");
 
 const host = hostOf(url);
-const confirm = process.argv
-  .find((a) => a.startsWith("--confirm="))
-  ?.slice("--confirm=".length);
 
 if (process.env.VERCEL_ENV === "production") {
   throw new Error("refusing to wipe: VERCEL_ENV is production");
@@ -35,15 +33,11 @@ if (looksProd(host)) {
   throw new Error(`refusing to wipe: hostname looks like production (${host})`);
 }
 
-if (!confirm) {
-  throw new Error(
-    `refusing to wipe without --confirm=${host}\n` +
-      `(set PROD_DATABASE_HOST in .env.local to permanently block your prod endpoint)`,
-  );
-}
-
-if (confirm !== host) {
-  throw new Error(`--confirm=${confirm} does not match DATABASE_URL host ${host}`);
+const rl = createInterface({ input: process.stdin, output: process.stdout });
+const answer = await rl.question(`About to wipe ${host}. Type "confirm" to proceed: `);
+rl.close();
+if (answer !== "confirm") {
+  throw new Error("aborted: did not type \"confirm\"");
 }
 
 const sql = neon(url);

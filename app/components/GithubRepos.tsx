@@ -464,6 +464,131 @@ function SettingsSkeleton() {
   );
 }
 
+/**
+ * Explainer + GitHub App install CTA shown while no installation exists.
+ * Shared between the repos settings step and the onboarding wizard.
+ */
+export function ConnectReposCard() {
+  return (
+    <div className="rounded-xl border border-edge bg-surface p-4">
+      <p className="mb-3 text-sm text-muted">
+        Connect GitHub to pick which repos HitList can see. The app can read
+        PR diffs and merge when you ask it to — HitList never stores your
+        code.
+      </p>
+      <p className="mb-3 text-sm text-muted">
+        Also{" "}
+        <a
+          href={CURSOR_INTEGRATIONS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-4"
+        >
+          connect those same repos in Cursor
+        </a>{" "}
+        — without that, cloud agents can&apos;t clone or open PRs.
+      </p>
+      {INSTALL_URL ? (
+        <Button
+          href={INSTALL_URL}
+          // GitHub redirects installs to the App's one registered Setup
+          // URL (production). Send our origin as `state` so the callback
+          // can bounce back here when we're a preview deployment.
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
+          }}
+          className="block w-full text-center"
+        >
+          Connect repos on GitHub
+        </Button>
+      ) : (
+        <p className="font-mono text-xs text-muted">
+          Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The default-options fields, self-contained (its queries dedupe with the
+ * settings page's). Shared between the settings step and the onboarding
+ * wizard.
+ */
+export function DefaultOptionsForm() {
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
+  const { data: keys } = useProviderKeys(signedIn);
+  const { data: defaults } = useDeployDefaults(signedIn);
+  const saveDefaults = useSaveDeployDefaults();
+  const configured = OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]);
+  const defaultProvider =
+    pickDefaultProvider(
+      configured,
+      defaults?.provider ??
+        (typeof window === "undefined"
+          ? null
+          : localStorage.getItem(LAST_PROVIDER_KEY)),
+    ) ?? configured[0];
+  const { data: models, isLoading: modelsLoading } = useModels(
+    defaultProvider,
+    signedIn && !!defaultProvider,
+  );
+  const visualConfirmation =
+    defaults?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
+  const defaultModel = defaults?.model ?? "";
+
+  function setDefaultProvider(next: ProviderId) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LAST_PROVIDER_KEY, next);
+    }
+    saveDefaults.mutate({ provider: next });
+  }
+
+  return (
+    <>
+      <p className="mb-3 text-sm text-muted">
+        Used when you dispatch. Override per run in the action sheet.
+      </p>
+      {configured.length > 1 && (
+        <>
+          <FieldLabel className="mb-2">Provider</FieldLabel>
+          <ProviderRadio
+            providers={configured}
+            value={defaultProvider}
+            onChange={setDefaultProvider}
+            className="mb-3"
+          />
+        </>
+      )}
+      <FieldLabel className="mb-2">Model</FieldLabel>
+      <ModelSelect
+        value={defaultModel}
+        onChange={(next) =>
+          saveDefaults.mutate({ model: next.trim() ? next : null })
+        }
+        models={models}
+        loading={modelsLoading}
+        disabled={!defaultProvider}
+        className="mb-3"
+      />
+      <FieldLabel className="mb-2">Visual confirmation</FieldLabel>
+      <VisualConfirmationRadio
+        value={visualConfirmation}
+        onChange={(next) =>
+          saveDefaults.mutate({ visualConfirmation: next })
+        }
+      />
+      {saveDefaults.error && (
+        <ErrorText className="mt-2">
+          {saveDefaults.error.message || "save failed"}
+        </ErrorText>
+      )}
+    </>
+  );
+}
+
 export function GithubRepos({
   repos,
   connected,
@@ -481,7 +606,6 @@ export function GithubRepos({
   const signedIn = status === "authenticated";
   const { data: keys, isLoading: keysLoading } = useProviderKeys(signedIn);
   const { data: defaults } = useDeployDefaults(signedIn);
-  const saveDefaults = useSaveDeployDefaults();
   const configured = OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]);
   const hasAnyKey = configured.length > 0;
   // Defaults stay visible the whole time — last + disabled until ready, then move to top.
@@ -501,10 +625,7 @@ export function GithubRepos({
           ? null
           : localStorage.getItem(LAST_PROVIDER_KEY)),
     ) ?? configured[0];
-  const { data: models, isLoading: modelsLoading } = useModels(
-    defaultProvider,
-    signedIn && !!defaultProvider,
-  );
+  const { data: models } = useModels(defaultProvider, signedIn && !!defaultProvider);
   const visualConfirmation =
     defaults?.visualConfirmation ?? DEFAULT_VISUAL_CONFIRMATION;
   const defaultModel = defaults?.model ?? "";
@@ -559,13 +680,6 @@ export function GithubRepos({
     </p>
   );
 
-  function setDefaultProvider(next: ProviderId) {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LAST_PROVIDER_KEY, next);
-    }
-    saveDefaults.mutate({ provider: next });
-  }
-
   const defaultsLockHint = !signedIn
     ? "Sign in first."
     : !hasAnyKey
@@ -581,43 +695,7 @@ export function GithubRepos({
       done
       summary={defaultsSummary}
     >
-      <p className="mb-3 text-sm text-muted">
-        Used when you dispatch. Override per run in the action sheet.
-      </p>
-      {configured.length > 1 && (
-        <>
-          <FieldLabel className="mb-2">Provider</FieldLabel>
-          <ProviderRadio
-            providers={configured}
-            value={defaultProvider}
-            onChange={setDefaultProvider}
-            className="mb-3"
-          />
-        </>
-      )}
-      <FieldLabel className="mb-2">Model</FieldLabel>
-      <ModelSelect
-        value={defaultModel}
-        onChange={(next) =>
-          saveDefaults.mutate({ model: next.trim() ? next : null })
-        }
-        models={models}
-        loading={modelsLoading}
-        disabled={!defaultProvider}
-        className="mb-3"
-      />
-      <FieldLabel className="mb-2">Visual confirmation</FieldLabel>
-      <VisualConfirmationRadio
-        value={visualConfirmation}
-        onChange={(next) =>
-          saveDefaults.mutate({ visualConfirmation: next })
-        }
-      />
-      {saveDefaults.error && (
-        <ErrorText className="mt-2">
-          {saveDefaults.error.message || "save failed"}
-        </ErrorText>
-      )}
+      <DefaultOptionsForm />
     </Section>
   ) : (
     <Section
@@ -686,44 +764,7 @@ export function GithubRepos({
         {!signedIn ? (
           <p className="text-sm text-muted">Sign in first.</p>
         ) : !connected ? (
-          <div className="rounded-xl border border-edge bg-surface p-4">
-            <p className="mb-3 text-sm text-muted">
-              Connect GitHub to pick which repos HitList can see. The app can
-              read PR diffs and merge when you ask it to — HitList never
-              stores your code.
-            </p>
-            <p className="mb-3 text-sm text-muted">
-              Also{" "}
-              <a
-                href={CURSOR_INTEGRATIONS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-4"
-              >
-                connect those same repos in Cursor
-              </a>{" "}
-              — without that, cloud agents can&apos;t clone or open PRs.
-            </p>
-            {INSTALL_URL ? (
-              <Button
-                href={INSTALL_URL}
-                // GitHub redirects installs to the App's one registered Setup
-                // URL (production). Send our origin as `state` so the callback
-                // can bounce back here when we're a preview deployment.
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = `${INSTALL_URL}?state=${encodeURIComponent(window.location.origin)}`;
-                }}
-                className="block w-full text-center"
-              >
-                Connect repos on GitHub
-              </Button>
-            ) : (
-              <p className="font-mono text-xs text-muted">
-                Set NEXT_PUBLIC_GITHUB_APP_SLUG to enable connecting.
-              </p>
-            )}
-          </div>
+          <ConnectReposCard />
         ) : (
           <>
             <p className="mb-3 text-sm text-muted">
