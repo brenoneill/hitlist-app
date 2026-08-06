@@ -1,7 +1,6 @@
-// Applies db/schema.sql to whatever DATABASE_URL points at. Rerun-safe only in
-// that it fails loudly on a table that already exists (Postgres has no
-// "create table if not exists" complement, so plan for a fresh branch).
-// Usage: npx tsx --env-file=.env.local scripts/apply-schema.ts
+// Applies db/schema.sql to a fresh DATABASE_URL. Prefer `npm run db:migrate`
+// (deploy + incremental). This script fails if tables already exist.
+// Usage: npx tsx --env-file=.env.local scripts/apply-schema.mts
 import { readFile } from "node:fs/promises";
 import { neon } from "@neondatabase/serverless";
 

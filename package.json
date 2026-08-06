@@ -7,13 +7,14 @@
     "dev": "next dev",
     "dev:phone": "AUTH_URL=http://$(ipconfig getifaddr en0 || ipconfig getifaddr en1):3000 next dev",
     "dev:e2e": "AUTH_E2E=1 AUTH_SECRET=e2e-not-a-secret SETTINGS_ENCRYPTION_KEY=ZTJlLWZpeGVkLWtleS0zMi1ieXRlcy1hYWFhYWFhYWE= next dev",
-    "build": "next build",
+    "build": "npm run db:migrate && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "cypress:open": "env -u ELECTRON_RUN_AS_NODE cypress open",
     "test:e2e": "env -u ELECTRON_RUN_AS_NODE cypress run",
+    "db:migrate": "if [ -f .env.local ]; then npx tsx --env-file=.env.local scripts/migrate.mts; else npx tsx scripts/migrate.mts; fi",
     "db:wipe": "npx tsx --env-file=.env.local scripts/wipe-db.mts"
   },
   "dependencies": {
