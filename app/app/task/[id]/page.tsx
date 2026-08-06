@@ -103,7 +103,7 @@ export default function TaskWorkspace() {
                     toggleDone.mutate(task);
                   }}
                 >
-                  {task.status === "done" ? "Unmark" : "Mark executed"}
+                  {task.status === "done" ? "Unmark" : "Mark as executed"}
                 </MenuItem>
                 {task.agentUrl && task.provider && (
                   <MenuItem
