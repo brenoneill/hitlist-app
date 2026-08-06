@@ -2,6 +2,10 @@ import { sql } from "./db";
 import { normalizeGroups } from "./groups";
 import { newId } from "./id";
 import type { ProviderId } from "./providerMeta";
+import {
+  isVisualConfirmationId,
+  type VisualConfirmationId,
+} from "./prOptions";
 
 export type TaskStatus = "inbox" | "running" | "done" | "failed";
 
@@ -15,6 +19,13 @@ export interface Task {
   createdAt: string;
   /** Agent provider; column defaults to 'cursor', overwritten on dispatch. */
   provider?: ProviderId;
+  /**
+   * Model id used on the latest dispatch. `null` means provider Auto was used;
+   * absent means this Mark has never been dispatched (or predates persistence).
+   */
+  model?: string | null;
+  /** Visual confirmation mode used on the latest dispatch. */
+  visualConfirmation?: VisualConfirmationId;
   agentId?: string;
   agentUrl?: string;
   repoUrl?: string;
@@ -47,6 +58,8 @@ const COLS = {
   title: "title",
   status: "status",
   provider: "provider",
+  model: "model",
+  visualConfirmation: "visual_confirmation",
   agentId: "agent_id",
   agentUrl: "agent_url",
   repoUrl: "repo_url",
@@ -67,13 +80,45 @@ const COLS = {
 const iso = (v: unknown): string | undefined =>
   v == null ? undefined : (v as Date).toISOString();
 
+/**
+ * Ensures task dispatch-settings columns exist. Preview/prod Neon branches
+ * often predate schema.sql; without this, reads/writes of model/visual 500.
+ */
+let taskDispatchSettingsReady: Promise<boolean> | undefined;
+function ensureTaskDispatchSettingsColumns(): Promise<boolean> {
+  return (taskDispatchSettingsReady ??= (async () => {
+    try {
+      await sql`
+        alter table tasks
+          add column if not exists model text
+      `;
+      await sql`
+        alter table tasks
+          add column if not exists visual_confirmation text
+      `;
+      return true;
+    } catch {
+      taskDispatchSettingsReady = undefined;
+      return false;
+    }
+  })());
+}
+
 function rowToTask(r: Record<string, unknown>): Task {
+  const visual =
+    typeof r.visual_confirmation === "string" &&
+    isVisualConfirmationId(r.visual_confirmation)
+      ? r.visual_confirmation
+      : undefined;
   return {
     id: r.id as string,
     title: r.title as string,
     status: r.status as TaskStatus,
     createdAt: iso(r.created_at)!,
     provider: (r.provider as ProviderId) ?? undefined,
+    // distinguish never-set (absent key / pre-migration) from Auto (SQL null)
+    ...("model" in r ? { model: (r.model as string | null) ?? null } : {}),
+    visualConfirmation: visual,
     agentId: (r.agent_id as string) ?? undefined,
     agentUrl: (r.agent_url as string) ?? undefined,
     repoUrl: (r.repo_url as string) ?? undefined,
@@ -93,6 +138,7 @@ function rowToTask(r: Record<string, unknown>): Task {
 }
 
 export async function listTasks(userId: string): Promise<Task[]> {
+  await ensureTaskDispatchSettingsColumns();
   const rows = await sql`
     select * from tasks where user_id = ${userId} order by position, id
   `;
@@ -171,6 +217,7 @@ export async function getTask(
   userId: string,
   id: string,
 ): Promise<Task | undefined> {
+  await ensureTaskDispatchSettingsColumns();
   const rows = await sql`
     select * from tasks where id = ${id} and user_id = ${userId}
   `;
@@ -182,6 +229,7 @@ export async function updateTask(
   id: string,
   patch: Partial<Task>,
 ): Promise<Task | undefined> {
+  await ensureTaskDispatchSettingsColumns();
   // a key present with value undefined clears the column (PATCH route relies
   // on this for details/repoUrl/imageUrls); an absent key leaves it alone
   const sets: string[] = [];

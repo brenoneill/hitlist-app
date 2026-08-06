@@ -15,6 +15,7 @@ import {
   useTasks,
 } from "@/app/lib/queries";
 import type { Task } from "@/app/lib/tasks";
+import { AutoStartNextMark } from "@/app/components/AutoStartNextMark";
 import { Button } from "@/app/components/Button";
 import { useDeployQueue } from "@/app/components/DeployQueue";
 import { Icon } from "@/app/components/Icons";
@@ -288,26 +289,15 @@ export function PrTab({ task }: { task: Task }) {
                 {pr?.baseRef ?? "the base branch"}.
               </p>
               {nextTarget && task.repoUrl && (
-                <label className="mb-3 flex cursor-pointer items-start gap-2 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={autoStartNext}
-                    onChange={(e) => {
-                      const on = e.target.checked;
-                      setAutoStartNext(on);
-                      writeAutoStartNextMark(task.repoUrl!, on);
-                    }}
-                    className="mt-0.5 size-3.5 shrink-0 accent-blood"
-                  />
-                  <span>
-                    {nextTarget.isGroup
-                      ? "Auto-start next group"
-                      : "Auto-start next Mark"}
-                    <span className="mt-0.5 block truncate font-mono text-[11px]">
-                      {nextTarget.label}
-                    </span>
-                  </span>
-                </label>
+                <AutoStartNextMark
+                  checked={autoStartNext}
+                  nextLabel={nextTarget.label}
+                  isGroup={nextTarget.isGroup}
+                  onChange={(on) => {
+                    setAutoStartNext(on);
+                    writeAutoStartNextMark(task.repoUrl!, on);
+                  }}
+                />
               )}
               <Button
                 variant="ok"
@@ -322,6 +312,19 @@ export function PrTab({ task }: { task: Task }) {
                       nextTaskId: nextTarget.taskId,
                       nextLabel: nextTarget.label,
                       isGroup: nextTarget.isGroup,
+                      // Continuity: next Mark gets this Mark's deploy settings,
+                      // not whatever is currently in Settings. model is only
+                      // trusted when visualConfirmation is set — both are
+                      // written together on dispatch (legacy rows lack them).
+                      settings: {
+                        ...(task.provider ? { provider: task.provider } : {}),
+                        ...(task.visualConfirmation
+                          ? {
+                              model: task.model ?? null,
+                              visualConfirmation: task.visualConfirmation,
+                            }
+                          : {}),
+                      },
                     });
                   } else {
                     mergePromise.catch((err) => {

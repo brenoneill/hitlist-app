@@ -16,9 +16,21 @@ import {
   LAST_PROVIDER_KEY,
   PROVIDER_IDS,
   pickDefaultProvider,
+  type ProviderId,
 } from "@/app/lib/providerMeta";
-import { optionsForMode } from "@/app/lib/prOptions";
+import {
+  optionsForMode,
+  type VisualConfirmationId,
+} from "@/app/lib/prOptions";
 import { useToast } from "@/app/components/ui/Toast";
+
+/** Deploy settings inherited from the Mark being merged (preferred over Settings). */
+export type QueueDeploySettings = {
+  provider?: ProviderId;
+  /** `null` = provider Auto was used on the source Mark. */
+  model?: string | null;
+  visualConfirmation?: VisualConfirmationId;
+};
 
 type QueueAfterMergeArgs = {
   /** Resolves when the merge request has fully finished. */
@@ -29,6 +41,11 @@ type QueueAfterMergeArgs = {
   nextLabel: string;
   /** True when dispatch expands to a whole group. */
   isGroup: boolean;
+  /**
+   * Settings from the merged Mark. When present, auto-que uses these instead
+   * of the user's Settings defaults (per-field fallback if a value is missing).
+   */
+  settings?: QueueDeploySettings;
 };
 
 type DeployQueueValue = {
@@ -59,6 +76,7 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
       nextTaskId,
       nextLabel,
       isGroup,
+      settings,
     }: QueueAfterMergeArgs) => {
       const detail = nextLabel.trim();
       const pending = isGroup
@@ -70,25 +88,36 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
         showToast(pending, { sticky: true });
         try {
           await mergePromise;
+          // Prefer the merged Mark's settings; fall back to Settings / last-used.
           const provider = pickDefaultProvider(
             PROVIDER_IDS.filter((p) => keys?.[p]),
-            defaults?.provider ??
+            settings?.provider ??
+              defaults?.provider ??
               (typeof window === "undefined"
                 ? null
                 : localStorage.getItem(LAST_PROVIDER_KEY)),
           );
           if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
 
+          const inheritModel = settings != null && "model" in settings;
+          const model = inheritModel
+            ? settings.model
+            : (defaults?.model ?? undefined);
+          const visualConfirmation =
+            settings?.visualConfirmation ?? defaults?.visualConfirmation;
+
           await new Promise<void>((resolve, reject) => {
             dispatch.mutate(
               {
                 id: nextTaskId,
                 ...(provider ? { provider } : {}),
-                ...(defaults?.model ? { model: defaults.model } : {}),
-                ...(defaults?.visualConfirmation
-                  ? {
-                      options: optionsForMode(defaults.visualConfirmation),
-                    }
+                ...(inheritModel
+                  ? { model: model ?? null }
+                  : model
+                    ? { model }
+                    : {}),
+                ...(visualConfirmation
+                  ? { options: optionsForMode(visualConfirmation) }
                   : {}),
               },
               {

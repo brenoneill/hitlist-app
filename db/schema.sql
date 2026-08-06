@@ -8,6 +8,10 @@ create table tasks (
     check (status in ('inbox', 'running', 'done', 'failed')),
   created_at timestamptz not null,
   provider text not null default 'cursor',
+  -- Last dispatch model / visual mode; null model means provider Auto.
+  model text,
+  visual_confirmation text
+    check (visual_confirmation is null or visual_confirmation in ('image-video', 'image', 'none')),
   agent_id text,
   agent_url text,
   repo_url text,

@@ -241,7 +241,7 @@ export default function Home() {
       { title: t, repoUrl: repo?.url },
       {
         onSuccess: (task) => {
-          if (wantsDeploy) deploy(task);
+          if (wantsDeploy) deploy(task, { announce: true });
         },
         onError: (err) => {
           setTitle(raw);
@@ -356,13 +356,20 @@ export default function Home() {
     );
   }
 
-  /** Dispatches from the row menu; on failure opens the sheet so the user can retry. */
-  function deploy(task: Task) {
+  /**
+   * Dispatches from the row menu or immediate `#dispatch` Mark.
+   * On failure opens the sheet so the user can retry (except redispatch).
+   * @param announce - When true, shows the dispatching-agent toast (immediate Mark).
+   */
+  function deploy(task: Task, opts?: { announce?: boolean }) {
     // Settings default provider if still configured; else last-used / first key
     const provider = pickDefaultProvider(
       OFFERED_PROVIDER_IDS.filter((p) => providerKeys?.[p]),
       deployDefaults?.provider ?? localStorage.getItem(LAST_PROVIDER_KEY),
     );
+    if (opts?.announce) {
+      showToast("Dispatching agent…", { sticky: true });
+    }
     dispatch.mutate(
       {
         id: task.id,
@@ -374,11 +381,22 @@ export default function Home() {
         ...(wasDeployed(task) ? { redeploy: true } : {}),
       },
       {
+        onSuccess: () => {
+          if (opts?.announce) {
+            showToast("Agent dispatched", { tone: "ok", ms: 4000 });
+          }
+        },
         onError: (err) => {
           // the slimmed sheet can't redeploy, so failures there surface as a toast
           if (wasDeployed(task)) {
             showToast(err.message || "redispatch failed", { tone: "error" });
             return;
+          }
+          if (opts?.announce) {
+            showToast(err.message || "dispatch failed", {
+              tone: "error",
+              ms: 8000,
+            });
           }
           setSelectedGroup(null);
           setSelectedId(task.id);
@@ -502,7 +520,7 @@ export default function Home() {
               )}
               {immediateDispatch && (
                 <Chip
-                  variant="surface"
+                  variant="info"
                   icon="send"
                   onDismiss={() => setImmediateDispatch(false)}
                   dismissLabel="Remove immediate dispatch"
