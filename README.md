@@ -29,6 +29,23 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Testing
+
+Two layers — keep new tests in the matching one:
+
+| Layer | Command | What goes here |
+|-------|---------|----------------|
+| Unit / DAL | `npm test` | Pure helpers and PGlite DAL checks under [`tests/`](tests/) (Vitest, no browser) |
+| E2E flows | `npm run dev:e2e` then `npm run test:e2e` | User journeys in [`cypress/e2e/`](cypress/e2e/) against the secrets-free AUTH_E2E sandbox |
+
+```bash
+npm test                 # Vitest (watch: npm run test:watch)
+npm run dev:e2e          # in-memory DB + E2E sign-in provider
+npm run test:e2e         # Cypress headless (or npm run cypress:open)
+```
+
+Exemplars: [`tests/markdownish.test.ts`](tests/markdownish.test.ts) for unit style, [`tests/dal.integration.test.ts`](tests/dal.integration.test.ts) for DAL, [`cypress/e2e/hitlist.cy.ts`](cypress/e2e/hitlist.cy.ts) for flows. There is no component-test harness yet — prefer Vitest for logic and Cypress E2E for UI journeys. Real GitHub OAuth and live agent dispatch are out of scope for CI; use `AUTH_E2E`.
+
 ## OAuth on Vercel preview deployments
 
 GitHub OAuth apps and GitHub Apps each accept exactly one callback/setup URL,

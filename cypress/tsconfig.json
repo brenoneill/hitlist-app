@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017", "DOM"],
+    "types": ["cypress", "node"],
+    "isolatedModules": true,
+    "strict": true,
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "skipLibCheck": true
+  },
+  "include": ["./**/*.ts"]
+}
