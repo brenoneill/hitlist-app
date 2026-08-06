@@ -535,7 +535,7 @@ function TaskRow({
   if (onToggle)
     actions.push({
       icon: task.status === "done" ? "x" : "check",
-      label: task.status === "done" ? "Unmark" : "Mark executed",
+      label: task.status === "done" ? "Unmark" : "Mark as executed",
       onClick: () => onToggle(task),
     });
   if (onDelete)
@@ -718,7 +718,7 @@ function SortableMember({
     });
   actions.push({
     icon: task.status === "done" ? "x" : "check",
-    label: task.status === "done" ? "Unmark" : "Mark executed",
+    label: task.status === "done" ? "Unmark" : "Mark as executed",
     onClick: () => onToggle(task),
   });
   actions.push({

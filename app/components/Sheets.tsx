@@ -379,7 +379,7 @@ export function TaskSheet({
               markExecuted();
             }}
           >
-            {task.status === "done" ? "Unmark" : "Mark executed"}
+            {task.status === "done" ? "Unmark" : "Mark as executed"}
           </MenuItem>
           <MenuItem
             icon="trash"
