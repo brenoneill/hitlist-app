@@ -187,12 +187,10 @@ export function Landing() {
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-16">
         <section className="flex min-h-[min(88vh,52rem)] flex-col justify-center py-10">
           <div className="animate-rise">
-            <h1 className="flex items-center gap-3 text-5xl font-bold tracking-tight sm:text-6xl">
-              <Icon name="crosshair" className="size-12 animate-crosshair text-blood sm:size-14" />
-              HITLIST
+            <h1 className="max-w-xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              The scalable way to dispatch coding agents from your phone
             </h1>
-            <p className="mt-5 max-w-xl text-xl leading-snug text-foreground/90 sm:text-2xl">The scalable way to dispatch coding agents from your phone</p>
-            <p className="mt-3 max-w-lg text-base leading-relaxed text-muted">
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted">
               Phone's are terrible for reviewing big chunks of work - but perfect for small, well-scoped tasks. HitList is the place to manage phone-perfect pieces of dev work; on the go.
             </p>
             <p className="mt-3 font-mono text-[11px] uppercase tracking-widest text-muted">Free · Open source</p>
