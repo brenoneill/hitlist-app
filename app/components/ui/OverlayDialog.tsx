@@ -1,13 +1,18 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type OverlayPlacement = "bottom" | "end";
 
 const PANEL: Record<OverlayPlacement, string> = {
   bottom:
-    "flex max-h-[92dvh] animate-slide-up flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface",
-  end: "flex h-full w-[min(20rem,88vw)] animate-slide-in-right flex-col border-l border-edge bg-surface shadow-[-12px_0_40px_rgba(0,0,0,0.45)]",
+    "flex max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl border-t border-edge bg-surface",
+  end: "flex h-full w-[min(20rem,88vw)] flex-col border-l border-edge bg-surface shadow-[-12px_0_40px_rgba(0,0,0,0.45)]",
+};
+
+const ENTER: Record<OverlayPlacement, string> = {
+  bottom: "animate-slide-up",
+  end: "animate-slide-in-right",
 };
 
 const BACKDROP: Record<OverlayPlacement, string> = {
@@ -52,8 +57,17 @@ export function OverlayDialog({
   children: (api: OverlayDialogApi) => ReactNode;
 }) {
   const [closing, setClosing] = useState(false);
+  const [entered, setEntered] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const start = useRef<number | null>(null);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   function requestClose() {
     if (closing) return;
@@ -67,6 +81,8 @@ export function OverlayDialog({
 
   function onHandlePointerDown(e: React.PointerEvent) {
     if (closing) return;
+    setEntered(true);
+    e.preventDefault();
     start.current = placement === "bottom" ? e.clientY : e.clientX;
     e.currentTarget.setPointerCapture(e.pointerId);
     const el = panelRef.current;
@@ -124,8 +140,18 @@ export function OverlayDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledBy}
-        className={[PANEL[placement], panelClassName].filter(Boolean).join(" ")}
+        className={[
+          PANEL[placement],
+          entered || closing ? "" : ENTER[placement],
+          panelClassName,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={(e) => {
+          if (e.target !== e.currentTarget) return;
+          setEntered(true);
+        }}
         onTransitionEnd={(e) => {
           if (!closing) return;
           if (e.target !== e.currentTarget) return;

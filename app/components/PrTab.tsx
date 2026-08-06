@@ -795,7 +795,7 @@ function DiffSheet({ file }: { file: PrFile }) {
         <span className="text-blood">−{file.deletions}</span>
       </p>
       {file.patch ? (
-        <div className="-mx-5 overflow-x-auto border-t border-edge">
+        <div className="-mx-5 overflow-x-auto overscroll-x-contain border-t border-edge">
           <div className="min-w-max px-2 py-1 font-mono text-xs leading-relaxed">
             {parsePatch(file.patch).map((row, i) =>
               row.kind === "hunk" ? (

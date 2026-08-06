@@ -78,13 +78,13 @@ export function Sheet({
       {({ bindHandle }) => (
         <>
           <div
-            className="flex shrink-0 touch-none justify-center pt-3 pb-1"
+            className="relative z-10 flex shrink-0 touch-none justify-center pt-3 pb-1"
             aria-hidden
             {...bindHandle}
           >
             <div className="h-1 w-10 rounded-full bg-edge" />
           </div>
-          <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+          <div className="min-h-0 max-h-[calc(92dvh-1.25rem)] overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
             {children}
           </div>
         </>
