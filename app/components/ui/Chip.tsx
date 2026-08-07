@@ -43,7 +43,9 @@ export function Chip({
   ...buttonProps
 }: Props) {
   const classes = [
-    "inline-flex items-center gap-1.5 self-start",
+    // `before` strut matches `text-xs` line box so icon-only chips
+    // (e.g. Filter) share height with chips that have visible labels.
+    "inline-flex items-center gap-1.5 self-start before:h-4 before:w-0 before:content-['']",
     VARIANT[variant],
     className,
   ]
