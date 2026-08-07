@@ -173,6 +173,12 @@ export type TaskPatch = {
   details?: string;
   repoUrl?: string | null;
   imageUrls?: string[];
+  /** Preferred agent provider for this Mark (auto-que / sheet). */
+  provider?: ProviderId;
+  /** Preferred model; `null` clears to provider Auto. */
+  model?: string | null;
+  /** Preferred visual confirmation mode for this Mark. */
+  visualConfirmation?: VisualConfirmationId;
 };
 
 export function usePatchTask() {
