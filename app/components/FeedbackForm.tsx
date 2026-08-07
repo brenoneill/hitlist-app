@@ -15,12 +15,10 @@ const FORMSPREE_ID = "xfeedback1";
 type Status = "idle" | "submitting" | "success" | "error";
 
 /**
- * Free-text feedback form that posts to Formspree. Optional email, required
- * message. Compact mode matches settings section spacing.
- *
- * @param compact - Settings-tab scale instead of landing marketing spacing.
+ * Settings free-text feedback form that posts to Formspree. Optional email,
+ * required message.
  */
-export function FeedbackForm({ compact = false }: { compact?: boolean }) {
+export function FeedbackForm() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -38,7 +36,7 @@ export function FeedbackForm({ compact = false }: { compact?: boolean }) {
 
     setStatus("submitting");
     setError(null);
-    track("cta", { where: compact ? "feedback-settings" : "feedback-landing" });
+    track("cta", { where: "feedback-settings" });
 
     const payload: { message: string; email?: string } = {
       message: trimmedMessage,
@@ -87,41 +85,24 @@ export function FeedbackForm({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <section
-      className={
-        compact
-          ? "mb-6 border-t border-edge pt-4"
-          : "border-t border-edge/80 pt-12 mt-16"
-      }
-    >
-      <FieldLabel className={compact ? "mb-2" : "mb-2 mt-6 first:mt-0"}>
-        Feedback
-      </FieldLabel>
-      {compact ? (
-        <h3 className="text-sm font-semibold tracking-tight">
-          Something to say?
-        </h3>
-      ) : (
-        <h2 className="text-2xl font-bold tracking-tight">Send feedback</h2>
-      )}
-      <p
-        className={`text-sm leading-relaxed text-muted ${compact ? "mt-1" : "mt-2 max-w-lg"}`}
-      >
+    <section className="mb-6 border-t border-edge pt-4">
+      <FieldLabel className="mb-2">Feedback</FieldLabel>
+      <h3 className="text-sm font-semibold tracking-tight">
+        Something to say?
+      </h3>
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         Bugs, ideas, or whatever&apos;s on your mind — we read every note.
       </p>
 
       {status === "success" ? (
         <p
           aria-live="polite"
-          className={`${compact ? "mt-3" : "mt-6"} font-mono text-[11px] uppercase tracking-widest text-ok`}
+          className="mt-3 font-mono text-[11px] uppercase tracking-widest text-ok"
         >
           Thanks — we got your note
         </p>
       ) : (
-        <form
-          onSubmit={onSubmit}
-          className={`${compact ? "mt-3" : "mt-6"} flex flex-col gap-3`}
-        >
+        <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-3">
           <div>
             <label htmlFor="feedback-message" className="sr-only">
               Feedback message
@@ -137,7 +118,7 @@ export function FeedbackForm({ compact = false }: { compact?: boolean }) {
               }}
               disabled={status === "submitting"}
               placeholder="What's on your mind?"
-              rows={compact ? 3 : 4}
+              rows={3}
               tone="surface"
             />
           </div>
@@ -163,7 +144,7 @@ export function FeedbackForm({ compact = false }: { compact?: boolean }) {
           <Button
             type="submit"
             disabled={status === "submitting" || !message.trim()}
-            className={compact ? "px-5" : "px-6 sm:self-start"}
+            className="px-5"
           >
             {status === "submitting" ? "Sending…" : "Send feedback"}
           </Button>

@@ -10,7 +10,6 @@ import { Button } from "@/app/components/Button";
 import { TaskItem, inFlight, taskItemShellClass } from "@/app/components/TaskItem";
 import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { ProviderWishlist } from "@/app/components/ProviderWishlist";
-import { FeedbackForm } from "@/app/components/FeedbackForm";
 import { UpdatesSignup } from "@/app/components/UpdatesSignup";
 
 const DEMO_SEED: Task[] = [
@@ -305,8 +304,6 @@ export function Landing() {
         </section>
 
         <UpdatesSignup />
-
-        <FeedbackForm />
 
         <section className="mt-16 rounded-2xl border border-edge bg-surface/60 px-5 py-10 text-center sm:px-10">
           <Icon name="crosshair" className="mx-auto size-8 text-blood" />

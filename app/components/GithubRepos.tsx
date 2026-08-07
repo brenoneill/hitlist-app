@@ -795,7 +795,7 @@ export function GithubRepos({
 
       <ProviderWishlist compact />
 
-      <FeedbackForm compact />
+      <FeedbackForm />
 
       <AddToHomeScreen />
 
