@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { ProviderKeySettings } from "@/app/components/ProviderKeySettings";
 import { ProviderWishlist } from "@/app/components/ProviderWishlist";
+import { FeedbackForm } from "@/app/components/FeedbackForm";
 import { AddToHomeScreen } from "@/app/components/AddToHomeScreen";
 import { Icon } from "@/app/components/Icons";
 import { Button } from "@/app/components/Button";
@@ -793,6 +794,8 @@ export function GithubRepos({
       {!defaultsReady && defaultsSection}
 
       <ProviderWishlist compact />
+
+      <FeedbackForm compact />
 
       <AddToHomeScreen />
 
