@@ -40,7 +40,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   chevron: <path d="M6 9l6 6 6-6" />,
   external: <path d="M14 5h5v5M19 5l-8 8M19 13v6H5V5h6" />,
   filter: (
-    <path d="M4 5h16l-6 7.5V19l-4 2v-8.5L4 5z" />
+    <path d="M4 5h16l-6 7.5V19l-2 2-2-2v-6.5L4 5z" />
   ),
   key: (
     <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />

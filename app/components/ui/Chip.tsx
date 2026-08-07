@@ -4,13 +4,11 @@ import { Icon, type IconName } from "@/app/components/Icons";
 export type ChipVariant = "default" | "muted" | "info" | "surface";
 
 const VARIANT: Record<ChipVariant, string> = {
-  default:
-    "rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs",
-  surface:
-    "rounded-full border border-edge bg-surface px-3 py-1 font-mono text-xs",
+  default: "border-edge bg-background font-mono text-xs",
+  surface: "border-edge bg-surface font-mono text-xs",
   muted:
-    "rounded-full border border-edge bg-background px-3 py-1 font-mono text-xs text-muted active:opacity-80 disabled:opacity-40",
-  info: "rounded-full border border-info/40 bg-info/10 px-3 py-1 font-mono text-xs text-info transition-colors active:bg-info/20",
+    "border-edge bg-background font-mono text-xs text-muted active:opacity-80 disabled:opacity-40",
+  info: "border-info/40 bg-info/10 font-mono text-xs text-info transition-colors active:bg-info/20",
 };
 
 type Props = {
@@ -20,12 +18,15 @@ type Props = {
   onDismiss?: () => void;
   dismissLabel?: string;
   className?: string;
-  children: ReactNode;
+  children?: ReactNode;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">;
 
 /**
  * Pill chip with optional leading icon and dismiss control.
  * Renders a `<button>` when `onClick` is set; otherwise a `<span>`.
+ * Icon-only chips (icon + no visible children) render as a square control
+ * so the glyph stays centered.
+ *
  * @param variant - Visual style (`default`, `surface`, `muted`, `info`).
  * @param onDismiss - Shows an X control that calls this handler.
  * @param dismissLabel - Accessible label for the dismiss control.
@@ -42,11 +43,11 @@ export function Chip({
   type = "button",
   ...buttonProps
 }: Props) {
+  const iconOnly = !!icon && children == null && !onDismiss;
+
   const classes = [
-    // min-h matches py-1 + text-xs line box so icon-only chips
-    // (e.g. Filter) share height with labeled chips without a flex
-    // strut that gap would push off-center.
-    "inline-flex min-h-6 items-center justify-center gap-1.5 self-start",
+    "inline-flex items-center justify-center self-start rounded-full border leading-none",
+    iconOnly ? "size-6" : "min-h-6 gap-1.5 px-3 py-1",
     VARIANT[variant],
     className,
   ]
@@ -58,7 +59,12 @@ export function Chip({
       {icon && (
         <Icon
           name={icon}
-          className={iconClassName ?? (variant === "default" || variant === "surface" ? "size-3 text-blood" : "size-3")}
+          className={
+            iconClassName ??
+            (variant === "default" || variant === "surface"
+              ? "size-3 text-blood"
+              : "size-3")
+          }
         />
       )}
       {children}
