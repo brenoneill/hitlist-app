@@ -72,7 +72,7 @@ function buildPrompt(
  * bootstrap + title/bullet list + optional per-task context); a group's repo is
  * the first member's with one. Pass `redeploy: true` to replace an existing
  * agent with a fresh run (clears prior run/PR fields).
- * @param req - Optional JSON body with `provider` to pick the agent provider (default: Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Settings default; explicit `null`/"" ⇒ provider Auto), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ user Settings default), and `redeploy` to start a new agent on an already-dispatched task. Persists resolved model + visual mode on the task for auto-que inheritance.
+ * @param req - Optional JSON body with `provider` to pick the agent provider (default: Mark pref, else Settings default, else first configured), `ref` to override the starting branch, `model` to pick the agent's model (absent ⇒ Mark pref, else Settings default; explicit `null`/"" ⇒ provider Auto), `options` (visual confirmation ids: `image-video` | `image`, or `[]` for none; absent ⇒ Mark pref, else user Settings default), and `redeploy` to start a new agent on an already-dispatched task. Persists resolved model + visual mode on the task for auto-que inheritance.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated running task (or member array for a group), or an error response.
  */
@@ -136,10 +136,27 @@ export async function POST(
   }
 
   const defaults = await getDeployDefaults(userId);
+  // Per-Mark prefs (sheet / prior dispatch) beat user Settings when the body
+  // omits a field — auto-que and quick deploy both land here.
+  const markSettings = task.visualConfirmation
+    ? {
+        provider: task.provider,
+        model: task.model,
+        visualConfirmation: task.visualConfirmation,
+      }
+    : null;
 
-  // no provider in the body (quick deploy) ⇒ Settings default, else first key
+  // no provider in the body (quick deploy) ⇒ Mark pref, else Settings, else first key
   let provider = OFFERED_PROVIDER_IDS.find((p) => p === requested);
   let apiKey = provider ? await getProviderKey(userId, provider) : undefined;
+  if (
+    !apiKey &&
+    markSettings?.provider &&
+    OFFERED_PROVIDER_IDS.includes(markSettings.provider)
+  ) {
+    apiKey = await getProviderKey(userId, markSettings.provider);
+    if (apiKey) provider = markSettings.provider;
+  }
   if (
     !apiKey &&
     defaults.provider &&
@@ -165,9 +182,12 @@ export async function POST(
   }
 
   try {
-    // absent body ⇒ user's Settings default; explicit [] means none required
+    // absent body ⇒ Mark pref, else user's Settings default; explicit [] = none
     const resolvedOptions =
-      options ?? optionsForMode(defaults.visualConfirmation);
+      options ??
+      optionsForMode(
+        markSettings?.visualConfirmation ?? defaults.visualConfirmation,
+      );
     const mode = resolveVisualConfirmation(resolvedOptions);
     // `model` present (including null) wins — null/"" forces provider Auto so
     // auto-que can inherit Auto from a Mark without falling back to Settings.
@@ -176,7 +196,11 @@ export async function POST(
         ? typeof model === "string" && model.trim()
           ? model.trim()
           : undefined
-        : (defaults.model ?? undefined);
+        : markSettings
+          ? typeof markSettings.model === "string" && markSettings.model.trim()
+            ? markSettings.model.trim()
+            : undefined
+          : (defaults.model ?? undefined);
     const origin = new URL(req.url).origin;
     const agent = await PROVIDERS[provider].createAgent(
       buildPrompt(

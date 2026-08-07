@@ -14,23 +14,16 @@ import {
 } from "@/app/lib/queries";
 import {
   LAST_PROVIDER_KEY,
-  PROVIDER_IDS,
-  pickDefaultProvider,
-  type ProviderId,
+  OFFERED_PROVIDER_IDS,
 } from "@/app/lib/providerMeta";
+import { optionsForMode } from "@/app/lib/prOptions";
 import {
-  optionsForMode,
-  type VisualConfirmationId,
-} from "@/app/lib/prOptions";
+  resolveQueueDeployDispatch,
+  type QueueDeploySettings,
+} from "@/app/lib/queueDeploySettings";
 import { useToast } from "@/app/components/ui/Toast";
 
-/** Deploy settings inherited from the Mark being merged (preferred over Settings). */
-export type QueueDeploySettings = {
-  provider?: ProviderId;
-  /** `null` = provider Auto was used on the source Mark. */
-  model?: string | null;
-  visualConfirmation?: VisualConfirmationId;
-};
+export type { QueueDeploySettings };
 
 type QueueAfterMergeArgs = {
   /** Resolves when the merge request has fully finished. */
@@ -42,8 +35,9 @@ type QueueAfterMergeArgs = {
   /** True when dispatch expands to a whole group. */
   isGroup: boolean;
   /**
-   * Settings from the merged Mark. When present, auto-que uses these instead
-   * of the user's Settings defaults (per-field fallback if a value is missing).
+   * Settings from the next Mark (when set) or the merged Mark. When present,
+   * auto-que uses these instead of the user's Settings defaults (per-field
+   * fallback if a value is missing).
    */
   settings?: QueueDeploySettings;
 };
@@ -88,23 +82,17 @@ export function DeployQueueProvider({ children }: { children: ReactNode }) {
         showToast(pending, { sticky: true });
         try {
           await mergePromise;
-          // Prefer the merged Mark's settings; fall back to Settings / last-used.
-          const provider = pickDefaultProvider(
-            PROVIDER_IDS.filter((p) => keys?.[p]),
-            settings?.provider ??
-              defaults?.provider ??
-              (typeof window === "undefined"
-                ? null
-                : localStorage.getItem(LAST_PROVIDER_KEY)),
-          );
+          const { provider, model, inheritModel, visualConfirmation } =
+            resolveQueueDeployDispatch({
+              settings,
+              defaults,
+              configured: OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]),
+              lastProvider:
+                typeof window === "undefined"
+                  ? null
+                  : localStorage.getItem(LAST_PROVIDER_KEY),
+            });
           if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
-
-          const inheritModel = settings != null && "model" in settings;
-          const model = inheritModel
-            ? settings.model
-            : (defaults?.model ?? undefined);
-          const visualConfirmation =
-            settings?.visualConfirmation ?? defaults?.visualConfirmation;
 
           await new Promise<void>((resolve, reject) => {
             dispatch.mutate(

@@ -8,6 +8,7 @@ import {
 } from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
+import { pickAutoQueSettings } from "@/app/lib/queueDeploySettings";
 import {
   useMarkPrReady,
   useMergePr,
@@ -307,24 +308,20 @@ export function PrTab({ task }: { task: Task }) {
                   if (shouldStart && nextTarget) {
                     // toast + dispatch live in the global queue so leaving
                     // this page mid-merge still deploys when merge finishes
+                    // Prefer settings stored on the next Mark itself; else
+                    // inherit from the Mark being merged (queue continuity).
+                    // Read from the live tasks list so we don't use a stale prop.
+                    const merged =
+                      (tasks ?? []).find((t) => t.id === task.id) ?? task;
+                    const nextTask = (tasks ?? []).find(
+                      (t) => t.id === nextTarget.taskId,
+                    );
                     queueDeployAfterMerge({
                       mergePromise,
                       nextTaskId: nextTarget.taskId,
                       nextLabel: nextTarget.label,
                       isGroup: nextTarget.isGroup,
-                      // Continuity: next Mark gets this Mark's deploy settings,
-                      // not whatever is currently in Settings. model is only
-                      // trusted when visualConfirmation is set — both are
-                      // written together on dispatch (legacy rows lack them).
-                      settings: {
-                        ...(task.provider ? { provider: task.provider } : {}),
-                        ...(task.visualConfirmation
-                          ? {
-                              model: task.model ?? null,
-                              visualConfirmation: task.visualConfirmation,
-                            }
-                          : {}),
-                      },
+                      settings: pickAutoQueSettings(nextTask, merged),
                     });
                   } else {
                     mergePromise.catch((err) => {

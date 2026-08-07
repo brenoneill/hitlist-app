@@ -1,15 +1,22 @@
 import type { NextRequest } from "next/server";
 import { requireUserId } from "@/auth";
 import { deleteImages } from "@/app/lib/catbox";
+import { OFFERED_PROVIDER_IDS, type ProviderId } from "@/app/lib/providerMeta";
+import {
+  isVisualConfirmationId,
+  type VisualConfirmationId,
+} from "@/app/lib/prOptions";
 import { getTask, removeTask, updateTask, type TaskStatus } from "@/app/lib/tasks";
 
 const STATUSES: TaskStatus[] = ["inbox", "running", "done", "failed"];
 
 /**
  * Updates a task by id. Accepts a JSON body with optional `status`, `details`,
- * `title`, `repoUrl`, and `imageUrls` fields (details/title are trimmed; empty
- * details clears it; empty title is rejected; null/empty repoUrl clears the
- * tag; imageUrls must be catbox/legacy temp-host URLs, empty array clears them).
+ * `title`, `repoUrl`, `imageUrls`, and per-Mark deploy prefs (`provider`,
+ * `model`, `visualConfirmation`). details/title are trimmed; empty details
+ * clears it; empty title is rejected; null/empty repoUrl clears the tag;
+ * imageUrls must be catbox/legacy temp-host URLs, empty array clears them;
+ * `model: null` means provider Auto.
  * @param req - Incoming request with a JSON patch body.
  * @param ctx - Route context containing the task `id` param.
  * @returns The updated task, or 400/404 on failure.
@@ -22,12 +29,24 @@ export async function PATCH(
   if (userId instanceof Response) return userId;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
-  const { status, details, title, repoUrl, imageUrls } = body as {
+  const {
+    status,
+    details,
+    title,
+    repoUrl,
+    imageUrls,
+    provider,
+    model,
+    visualConfirmation,
+  } = body as {
     status?: unknown;
     details?: unknown;
     title?: unknown;
     repoUrl?: unknown;
     imageUrls?: unknown;
+    provider?: unknown;
+    model?: unknown;
+    visualConfirmation?: unknown;
   };
 
   if (status !== undefined && !STATUSES.includes(status as TaskStatus)) {
@@ -70,6 +89,30 @@ export async function PATCH(
   ) {
     return Response.json({ error: "invalid imageUrls" }, { status: 400 });
   }
+  if (
+    provider !== undefined &&
+    (typeof provider !== "string" ||
+      !OFFERED_PROVIDER_IDS.includes(provider as ProviderId))
+  ) {
+    return Response.json({ error: "invalid provider" }, { status: 400 });
+  }
+  if (
+    model !== undefined &&
+    model !== null &&
+    (typeof model !== "string" || !model.trim())
+  ) {
+    return Response.json({ error: "invalid model" }, { status: 400 });
+  }
+  if (
+    visualConfirmation !== undefined &&
+    (typeof visualConfirmation !== "string" ||
+      !isVisualConfirmationId(visualConfirmation))
+  ) {
+    return Response.json(
+      { error: "invalid visualConfirmation" },
+      { status: 400 },
+    );
+  }
 
   if (imageUrls !== undefined) {
     const existing = await getTask(userId, id);
@@ -95,6 +138,20 @@ export async function PATCH(
       : {}),
     ...(imageUrls !== undefined
       ? { imageUrls: (imageUrls as string[]).length ? (imageUrls as string[]) : undefined }
+      : {}),
+    ...(provider !== undefined
+      ? { provider: provider as ProviderId }
+      : {}),
+    ...("model" in body
+      ? {
+          model:
+            typeof model === "string" && model.trim() ? model.trim() : null,
+        }
+      : {}),
+    ...(visualConfirmation !== undefined
+      ? {
+          visualConfirmation: visualConfirmation as VisualConfirmationId,
+        }
       : {}),
   });
   if (!updated) {

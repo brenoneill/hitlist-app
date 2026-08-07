@@ -59,9 +59,16 @@ describe("DAL (PGlite / AUTH_E2E)", () => {
     const dispatched = await updateTask(U, b.id, {
       provider: "copilot",
       agentId: "t1",
+      model: "gpt-test",
+      visualConfirmation: "image-video",
     });
     expect(dispatched!.provider).toBe("copilot");
     expect(dispatched!.agentId).toBe("t1");
+    expect(dispatched!.model).toBe("gpt-test");
+    expect(dispatched!.visualConfirmation).toBe("image-video");
+    const auto = await updateTask(U, b.id, { model: null });
+    expect(auto!.model).toBeNull();
+    expect(auto!.visualConfirmation).toBe("image-video");
 
     // user scoping
     expect((await listTasks("smoke-other")).length).toBe(0);
