@@ -15,6 +15,7 @@ import {
   usePrDetails,
   useTasks,
 } from "@/app/lib/queries";
+import { PREVIEW_BRANCHES_HREF } from "@/app/lib/previewBranches";
 import type { Task } from "@/app/lib/tasks";
 import { AutoStartNextMark } from "@/app/components/AutoStartNextMark";
 import { Button } from "@/app/components/Button";
@@ -680,9 +681,18 @@ function Deployments({
         Deployments
       </FieldLabel>
       {rows.length === 0 ? (
-        <p className="mb-4 font-mono text-xs text-muted">
-          No deployment yet — it appears once a preview build finishes.
-        </p>
+        <div className="mb-4 flex flex-col gap-2">
+          <p className="font-mono text-xs text-muted">
+            No deployment yet — it appears once a preview build finishes.
+          </p>
+          <Button
+            href={PREVIEW_BRANCHES_HREF}
+            variant="ghost"
+            className="w-fit font-mono text-xs"
+          >
+            Learn about preview branches
+          </Button>
+        </div>
       ) : (
         <div className="mb-4 flex flex-col gap-2">
           {rows.map((d, i) => (
