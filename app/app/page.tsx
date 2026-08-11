@@ -530,11 +530,13 @@ export default function Home() {
               )}
               {projects.length > 0 && (
                 <Chip
-                  variant="surface"
+                  variant={
+                    activeProjectFilter.size > 0 ? "info" : "surface"
+                  }
                   icon="filter"
                   iconClassName={
                     activeProjectFilter.size > 0
-                      ? "size-3 text-blood"
+                      ? "size-3 text-info"
                       : "size-3 text-muted"
                   }
                   onClick={() => setProjectFilterOpen(true)}
