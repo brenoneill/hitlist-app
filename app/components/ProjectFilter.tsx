@@ -146,9 +146,7 @@ export function ProjectFilterSlideout({
                     type="button"
                     onClick={() => toggle(p.url)}
                     aria-pressed={on}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                      on ? "bg-info/15" : "active:bg-background"
-                    }`}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors active:bg-background"
                   >
                     <span
                       className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${

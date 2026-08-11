@@ -545,12 +545,15 @@ export default function Home() {
                       : "Filter by project"
                   }
                 >
-                  <span className="sr-only">
-                    Filter
-                    {activeProjectFilter.size > 0
-                      ? ` · ${activeProjectFilter.size}`
-                      : ""}
-                  </span>
+                  {activeProjectFilter.size > 0 && (
+                    <span
+                      aria-hidden
+                      className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-info text-[10px] font-bold leading-none text-white"
+                    >
+                      {activeProjectFilter.size}
+                    </span>
+                  )}
+                  <span className="sr-only">Filter</span>
                 </Chip>
               )}
             </div>
