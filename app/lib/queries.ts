@@ -251,6 +251,18 @@ export function useMarkPrReady(taskId: string) {
   });
 }
 
+/** Converts a ready PR back to draft; undoes mark-ready so Merge is hidden. */
+export function useMarkPrDraft(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>(`/api/tasks/${taskId}/pr/draft`, send("POST")),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...PR, taskId] });
+    },
+  });
+}
+
 /**
  * The task's agent conversation. Polls alongside the task poll while the agent
  * is out, so replies land as runs finish.
