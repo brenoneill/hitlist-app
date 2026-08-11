@@ -544,14 +544,7 @@ export default function Home() {
                       ? `Filter by project, ${activeProjectFilter.size} selected`
                       : "Filter by project"
                   }
-                >
-                  <span className="sr-only">
-                    Filter
-                    {activeProjectFilter.size > 0
-                      ? ` · ${activeProjectFilter.size}`
-                      : ""}
-                  </span>
-                </Chip>
+                />
               )}
             </div>
           )}
