@@ -459,7 +459,6 @@ export default function Home() {
                     : "Sign in to mark hits…"
                 }
                 enterKeyHint="done"
-                autoCorrect="off"
                 disabled={!signedIn}
                 // Chrome iOS / autofill may inject attrs (e.g. __gchrome_uniqueid)
                 // onto inputs before hydration; those are harmless and unavoidable.
