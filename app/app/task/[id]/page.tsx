@@ -202,7 +202,6 @@ export default function TaskWorkspace() {
                 rel="noopener noreferrer"
                 className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
               >
-                <Icon name={agentIcon(task)} className="size-3 shrink-0" />
                 <span className="truncate">See Agent in Cursor</span>
                 <Icon name="external" className="size-3 shrink-0" />
               </a>
