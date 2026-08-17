@@ -8,9 +8,7 @@ import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { Textarea } from "@/app/components/ui/Textarea";
 import { TextInput } from "@/app/components/ui/TextInput";
 
-// Placeholder Formspree form id — swap when the real feedback form is created.
-// Distinct from the UpdatesSignup id so inbox routing stays separate.
-const FORMSPREE_ID = "xfeedback1";
+const FORMSPREE_ID = "xgawnrnk";
 
 type Status = "idle" | "submitting" | "success" | "error";
 

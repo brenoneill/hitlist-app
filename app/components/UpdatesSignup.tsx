@@ -7,8 +7,7 @@ import { ErrorText } from "@/app/components/ui/ErrorText";
 import { FieldLabel } from "@/app/components/ui/FieldLabel";
 import { TextInput } from "@/app/components/ui/TextInput";
 
-// Placeholder Formspree form id — swap when the real form is created.
-const FORMSPREE_ID = "xqkzpwvm";
+const FORMSPREE_ID = "xrpzyryo";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
