@@ -184,32 +184,30 @@ export default function TaskWorkspace() {
                 Working for {elapsed(task.dispatchedAt)}
               </p>
             )}
-            {task.repoUrl && (
+            {task.prUrl && (
               <a
-                href={task.repoUrl}
+                href={task.prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
               >
-                <span className="truncate">{task.repoUrl}</span>
+                <span className="truncate">See PR in GitHub</span>
                 <Icon name="external" className="size-3 shrink-0" />
-                <span className="sr-only">Open repository on GitHub</span>
               </a>
             )}
-            {task.branch &&
-              (task.agentUrl ? (
-                <a
-                  href={task.agentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
-                >
-                  <Icon name="pr" className="size-3 shrink-0" />
-                  <span className="truncate">{task.branch}</span>
-                  <Icon name="external" className="size-3 shrink-0" />
-                  <span className="sr-only">View agent</span>
-                </a>
-              ) : (
+            {task.agentUrl ? (
+              <a
+                href={task.agentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-w-0 items-center gap-1 font-mono text-xs text-muted underline-offset-4 hover:underline"
+              >
+                <Icon name={agentIcon(task)} className="size-3 shrink-0" />
+                <span className="truncate">See Agent in Cursor</span>
+                <Icon name="external" className="size-3 shrink-0" />
+              </a>
+            ) : (
+              task.branch && (
                 <p className="truncate font-mono text-xs text-muted">
                   <Icon
                     name="pr"
@@ -217,7 +215,8 @@ export default function TaskWorkspace() {
                   />
                   {task.branch}
                 </p>
-              ))}
+              )
+            )}
             {redeployError && (
               <ErrorText>
                 {redeployError.message || "redispatch failed"}
@@ -262,7 +261,7 @@ function WorkspaceSkeleton() {
   return (
     <div aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading mission</span>
-      {/* mirrors the loaded header: title, status badge, repo + branch lines */}
+      {/* mirrors the loaded header: title, status badge, PR + agent link lines */}
       <div className="mb-6 flex flex-col gap-1">
         <Skeleton className="h-7 w-2/3 rounded bg-edge" />
         <Skeleton className="h-5 w-24 rounded-full bg-edge" />
