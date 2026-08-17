@@ -8,12 +8,14 @@ import {
 } from "@/app/lib/autoStartNextMark";
 import type { Deployment, PrFile } from "@/app/lib/githubApp";
 import { cleanPrBody, extractImages } from "@/app/lib/markdownish";
+import { pickAutoQueSettings } from "@/app/lib/queueDeploySettings";
 import {
   useMarkPrReady,
   useMergePr,
   usePrDetails,
   useTasks,
 } from "@/app/lib/queries";
+import { PREVIEW_BRANCHES_HREF } from "@/app/lib/previewBranches";
 import type { Task } from "@/app/lib/tasks";
 import { AutoStartNextMark } from "@/app/components/AutoStartNextMark";
 import { Button } from "@/app/components/Button";
@@ -307,24 +309,20 @@ export function PrTab({ task }: { task: Task }) {
                   if (shouldStart && nextTarget) {
                     // toast + dispatch live in the global queue so leaving
                     // this page mid-merge still deploys when merge finishes
+                    // Prefer settings stored on the next Mark itself; else
+                    // inherit from the Mark being merged (queue continuity).
+                    // Read from the live tasks list so we don't use a stale prop.
+                    const merged =
+                      (tasks ?? []).find((t) => t.id === task.id) ?? task;
+                    const nextTask = (tasks ?? []).find(
+                      (t) => t.id === nextTarget.taskId,
+                    );
                     queueDeployAfterMerge({
                       mergePromise,
                       nextTaskId: nextTarget.taskId,
                       nextLabel: nextTarget.label,
                       isGroup: nextTarget.isGroup,
-                      // Continuity: next Mark gets this Mark's deploy settings,
-                      // not whatever is currently in Settings. model is only
-                      // trusted when visualConfirmation is set — both are
-                      // written together on dispatch (legacy rows lack them).
-                      settings: {
-                        ...(task.provider ? { provider: task.provider } : {}),
-                        ...(task.visualConfirmation
-                          ? {
-                              model: task.model ?? null,
-                              visualConfirmation: task.visualConfirmation,
-                            }
-                          : {}),
-                      },
+                      settings: pickAutoQueSettings(nextTask, merged),
                     });
                   } else {
                     mergePromise.catch((err) => {
@@ -683,9 +681,18 @@ function Deployments({
         Deployments
       </FieldLabel>
       {rows.length === 0 ? (
-        <p className="mb-4 font-mono text-xs text-muted">
-          No deployment yet — it appears once a preview build finishes.
-        </p>
+        <div className="mb-4 flex flex-col gap-2">
+          <p className="font-mono text-xs text-muted">
+            No deployment yet — it appears once a preview build finishes.
+          </p>
+          <Button
+            href={PREVIEW_BRANCHES_HREF}
+            variant="ghost"
+            className="w-fit font-mono text-xs"
+          >
+            Learn about preview branches
+          </Button>
+        </div>
       ) : (
         <div className="mb-4 flex flex-col gap-2">
           {rows.map((d, i) => (
@@ -795,7 +802,7 @@ function DiffSheet({ file }: { file: PrFile }) {
         <span className="text-blood">−{file.deletions}</span>
       </p>
       {file.patch ? (
-        <div className="-mx-5 overflow-x-auto border-t border-edge">
+        <div className="-mx-5 overflow-x-auto overscroll-x-contain border-t border-edge">
           <div className="min-w-max px-2 py-1 font-mono text-xs leading-relaxed">
             {parsePatch(file.patch).map((row, i) =>
               row.kind === "hunk" ? (

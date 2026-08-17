@@ -151,10 +151,14 @@ const TRUST = [
 /** One `cta` event per landing button, tagged with where it sits. */
 const cta = (where: string) => () => track("cta", { where });
 
-/** Same, for the buttons that also start GitHub sign-in. */
+/**
+ * Same, for the buttons that also start GitHub sign-in.
+ * callbackUrl is `/` (not the current page) so OAuth return leaves `/landing`,
+ * which intentionally does not redirect signed-in users into the app.
+ */
 const ctaSignIn = (where: string) => () => {
   track("cta", { where });
-  signIn("github");
+  signIn("github", { callbackUrl: "/" });
 };
 
 /**

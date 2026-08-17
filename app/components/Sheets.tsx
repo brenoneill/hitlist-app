@@ -78,13 +78,13 @@ export function Sheet({
       {({ bindHandle }) => (
         <>
           <div
-            className="flex shrink-0 touch-none justify-center pt-3 pb-1"
+            className="relative z-10 flex shrink-0 touch-none justify-center pt-3 pb-1"
             aria-hidden
             {...bindHandle}
           >
             <div className="h-1 w-10 rounded-full bg-edge" />
           </div>
-          <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
+          <div className="min-h-0 max-h-[calc(92dvh-1.25rem)] overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
             {children}
           </div>
         </>
@@ -117,7 +117,7 @@ function AgentActions({
   children?: React.ReactNode;
 }) {
   const { data: defaults } = useDeployDefaults();
-  // null until the user overrides — tracks the Settings default as it loads
+  // null until the user overrides — Mark settings seed below, else Settings
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [visualOverride, setVisualOverride] =
     useState<VisualConfirmationId | null>(null);
@@ -126,12 +126,15 @@ function AgentActions({
   const configured = OFFERED_PROVIDER_IDS.filter((p) => keys?.[p]);
   // derived, not seeded state — `keys` arrives async after the sheet opens
   const [chosen, setChosen] = useState<ProviderId | null>(null);
+  // Prefer settings stored on this Mark over the user's Settings defaults.
+  const markHasSettings = !!lead.visualConfirmation || !!lead.agentId;
   const provider =
     chosen && configured.includes(chosen)
       ? chosen
       : pickDefaultProvider(
           configured,
-          defaults?.provider ??
+          (markHasSettings ? lead.provider : null) ??
+            defaults?.provider ??
             (typeof window === "undefined"
               ? null
               : localStorage.getItem(LAST_PROVIDER_KEY)),
@@ -141,13 +144,19 @@ function AgentActions({
     provider,
     deployable(lead),
   );
-  const model = modelOverride ?? defaults?.model ?? "";
+  const model =
+    modelOverride ??
+    (markHasSettings ? (lead.model ?? "") : null) ??
+    defaults?.model ??
+    "";
   const visualConfirmation =
     visualOverride ??
+    lead.visualConfirmation ??
     defaults?.visualConfirmation ??
     DEFAULT_VISUAL_CONFIRMATION;
   // the response lands in the task cache — `lead` comes from there, so no callback
   const dispatch = useDispatchTask();
+  const patchTask = usePatchTask();
   const defaultsChips = deployDefaultsChips({
     provider,
     modelId: model || null,
@@ -156,13 +165,38 @@ function AgentActions({
     showProvider: configured.length > 1,
   });
 
+  /** Persist sheet choices on the Mark so auto-que can read them later. */
+  function persistMarkSettings(next: {
+    provider?: ProviderId;
+    model?: string | null;
+    visualConfirmation?: VisualConfirmationId;
+  }) {
+    const nextProvider = next.provider ?? provider;
+    const nextModel =
+      next.model !== undefined
+        ? next.model
+        : model.trim()
+          ? model.trim()
+          : null;
+    const nextVisual = next.visualConfirmation ?? visualConfirmation;
+    if (!nextProvider) return;
+    patchTask.mutate({
+      id: lead.id,
+      provider: nextProvider,
+      model: nextModel,
+      visualConfirmation: nextVisual,
+    });
+  }
+
   async function send() {
     await beforeSend?.();
     if (provider) localStorage.setItem(LAST_PROVIDER_KEY, provider);
+    // Always send `model` (null = Auto) so Mark settings persist for auto-que
+    // instead of the server filling in the user's Settings default.
     dispatch.mutate({
       id: lead.id,
       ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
+      model: model.trim() ? model.trim() : null,
       options: optionsForMode(visualConfirmation),
     });
   }
@@ -206,12 +240,18 @@ function AgentActions({
                   onChange={(p) => {
                     setChosen(p);
                     setModelOverride(""); // model lists don't overlap across providers
+                    persistMarkSettings({ provider: p, model: null });
                   }}
                   className="mb-3"
                 />
                 <ModelSelect
                   value={model}
-                  onChange={setModelOverride}
+                  onChange={(next) => {
+                    setModelOverride(next);
+                    persistMarkSettings({
+                      model: next.trim() ? next.trim() : null,
+                    });
+                  }}
                   models={models}
                   loading={modelsLoading}
                   className="mb-3"
@@ -219,7 +259,10 @@ function AgentActions({
                 <FieldLabel className="mb-2">Visual confirmation</FieldLabel>
                 <VisualConfirmationRadio
                   value={visualConfirmation}
-                  onChange={setVisualOverride}
+                  onChange={(next) => {
+                    setVisualOverride(next);
+                    persistMarkSettings({ visualConfirmation: next });
+                  }}
                 />
               </div>
             )}
@@ -379,7 +422,7 @@ export function TaskSheet({
               markExecuted();
             }}
           >
-            {task.status === "done" ? "Unmark" : "Mark executed"}
+            {task.status === "done" ? "Unmark" : "Mark as executed"}
           </MenuItem>
           <MenuItem
             icon="trash"

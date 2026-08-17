@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useRemoveTask, useTasks, useToggleDone } from "@/app/lib/queries";
+import {
+  useMarkPrDraft,
+  usePrDetails,
+  useRemoveTask,
+  useTasks,
+  useToggleDone,
+} from "@/app/lib/queries";
 import { PROVIDER_META } from "@/app/lib/providerMeta";
 import { AppHeader } from "@/app/components/AppHeader";
 import { Conversation } from "@/app/components/Conversation";
@@ -41,12 +47,18 @@ export default function TaskWorkspace() {
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleDone = useToggleDone();
   const removeTask = useRemoveTask();
+  const markDraft = useMarkPrDraft(id);
+  const { data: pr } = usePrDetails(
+    id,
+    !!task?.prUrl && task.prState !== "merged",
+  );
   const { redeploy, pending: redeploying, error: redeployError } =
     useQuickRedeploy();
   const canRedeploy =
     !!task &&
     redeployable(task) &&
     (members.length > 1 ? members.some((m) => m.repoUrl) : !!task.repoUrl);
+  const canMarkDraft = !!pr && pr.state === "open" && !pr.draft;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))]">
@@ -103,8 +115,20 @@ export default function TaskWorkspace() {
                     toggleDone.mutate(task);
                   }}
                 >
-                  {task.status === "done" ? "Unmark" : "Mark executed"}
+                  {task.status === "done" ? "Unmark" : "Mark as executed"}
                 </MenuItem>
+                {canMarkDraft && (
+                  <MenuItem
+                    icon="pr"
+                    disabled={markDraft.isPending}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      markDraft.mutate();
+                    }}
+                  >
+                    Mark as draft
+                  </MenuItem>
+                )}
                 {task.agentUrl && task.provider && (
                   <MenuItem
                     icon={agentIcon(task)}
@@ -197,6 +221,11 @@ export default function TaskWorkspace() {
             {redeployError && (
               <ErrorText>
                 {redeployError.message || "redispatch failed"}
+              </ErrorText>
+            )}
+            {markDraft.error && (
+              <ErrorText>
+                {markDraft.error.message || "mark as draft failed"}
               </ErrorText>
             )}
           </div>

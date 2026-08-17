@@ -128,14 +128,14 @@ export function ProviderWishlist({
           );
         })}
       </ul>
-      <p
-        aria-live="polite"
-        className="mt-4 font-mono text-[11px] uppercase tracking-widest text-muted"
-      >
-        {wished.length > 0
-          ? `${wished.length} wish${wished.length > 1 ? "es" : ""} sent — thank you`
-          : " "}
-      </p>
+      {wished.length > 0 && (
+        <p
+          aria-live="polite"
+          className="mt-4 font-mono text-[11px] uppercase tracking-widest text-muted"
+        >
+          {`${wished.length} wish${wished.length > 1 ? "es" : ""} sent — thank you`}
+        </p>
+      )}
     </section>
   );
 }

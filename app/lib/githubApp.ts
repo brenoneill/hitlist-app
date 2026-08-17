@@ -299,6 +299,62 @@ export async function markPrReady(
 }
 
 /**
+ * Converts a ready PR back to draft (needs Pull requests: Write).
+ * GitHub rejects REST PATCH `draft: true`; this uses the GraphQL
+ * `convertPullRequestToDraft` mutation with the PR's `node_id`.
+ * Idempotent when the PR is already a draft.
+ * @throws GitHub's own message so the UI can show it.
+ */
+export async function markPrDraft(
+  prUrl: string,
+  installationId: string,
+): Promise<void> {
+  const m = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+  if (!m) throw new Error("unrecognized PR url");
+  const token = await getInstallationToken(installationId);
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+  };
+  const prRes = await fetch(
+    `https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`,
+    { headers },
+  );
+  if (prRes.status === 404) throw new Error("PR not found on GitHub");
+  if (!prRes.ok) throw new Error(`GitHub API ${prRes.status}`);
+  const pr = (await prRes.json()) as { draft: boolean; node_id: string };
+  if (pr.draft) return;
+
+  const gqlRes = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: `mutation($id: ID!) {
+        convertPullRequestToDraft(input: { pullRequestId: $id }) {
+          pullRequest { isDraft }
+        }
+      }`,
+      variables: { id: pr.node_id },
+    }),
+  });
+  if (!gqlRes.ok) {
+    const body = (await gqlRes.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(body.message ?? `GitHub API ${gqlRes.status}`);
+  }
+  const body = (await gqlRes.json()) as {
+    errors?: { message: string }[];
+  };
+  if (body.errors?.length) {
+    throw new Error(body.errors[0].message);
+  }
+}
+
+/**
  * Merges a PR (needs Pull requests: Write + Contents: Write).
  * @throws GitHub's own message ("Pull Request is not mergeable", "Resource not
  *   accessible…" before the permission bump is approved) so the UI can show it.

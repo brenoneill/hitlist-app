@@ -43,7 +43,10 @@ export function Chip({
   ...buttonProps
 }: Props) {
   const classes = [
-    "inline-flex items-center gap-1.5 self-start",
+    // min-h matches py-1 + text-xs line box so icon-only chips
+    // (e.g. Filter) share height with labeled chips without a flex
+    // strut that gap would push off-center.
+    "inline-flex min-h-6 items-center justify-center gap-1.5 self-start",
     VARIANT[variant],
     className,
   ]

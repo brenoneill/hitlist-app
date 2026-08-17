@@ -173,6 +173,12 @@ export type TaskPatch = {
   details?: string;
   repoUrl?: string | null;
   imageUrls?: string[];
+  /** Preferred agent provider for this Mark (auto-que / sheet). */
+  provider?: ProviderId;
+  /** Preferred model; `null` clears to provider Auto. */
+  model?: string | null;
+  /** Preferred visual confirmation mode for this Mark. */
+  visualConfirmation?: VisualConfirmationId;
 };
 
 export function usePatchTask() {
@@ -239,6 +245,18 @@ export function useMarkPrReady(taskId: string) {
   return useMutation({
     mutationFn: () =>
       api<{ ok: true }>(`/api/tasks/${taskId}/pr/ready`, send("POST")),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...PR, taskId] });
+    },
+  });
+}
+
+/** Converts a ready PR back to draft; undoes mark-ready so Merge is hidden. */
+export function useMarkPrDraft(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>(`/api/tasks/${taskId}/pr/draft`, send("POST")),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [...PR, taskId] });
     },
